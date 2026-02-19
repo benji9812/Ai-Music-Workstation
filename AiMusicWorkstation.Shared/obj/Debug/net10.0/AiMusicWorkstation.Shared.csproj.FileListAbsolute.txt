@@ -1,0 +1,11 @@
+C:\Project C.O.D.E\AiMusicWorkstation\AiMusicWorkstation.Shared\bin\Debug\net10.0\AiMusicWorkstation.Shared.deps.json
+C:\Project C.O.D.E\AiMusicWorkstation\AiMusicWorkstation.Shared\bin\Debug\net10.0\AiMusicWorkstation.Shared.dll
+C:\Project C.O.D.E\AiMusicWorkstation\AiMusicWorkstation.Shared\bin\Debug\net10.0\AiMusicWorkstation.Shared.pdb
+C:\Project C.O.D.E\AiMusicWorkstation\AiMusicWorkstation.Shared\obj\Debug\net10.0\AiMusicWorkstation.Shared.GeneratedMSBuildEditorConfig.editorconfig
+C:\Project C.O.D.E\AiMusicWorkstation\AiMusicWorkstation.Shared\obj\Debug\net10.0\AiMusicWorkstation.Shared.AssemblyInfoInputs.cache
+C:\Project C.O.D.E\AiMusicWorkstation\AiMusicWorkstation.Shared\obj\Debug\net10.0\AiMusicWorkstation.Shared.AssemblyInfo.cs
+C:\Project C.O.D.E\AiMusicWorkstation\AiMusicWorkstation.Shared\obj\Debug\net10.0\AiMusicWorkstation.Shared.csproj.CoreCompileInputs.cache
+C:\Project C.O.D.E\AiMusicWorkstation\AiMusicWorkstation.Shared\obj\Debug\net10.0\AiMusicWorkstation.Shared.dll
+C:\Project C.O.D.E\AiMusicWorkstation\AiMusicWorkstation.Shared\obj\Debug\net10.0\refint\AiMusicWorkstation.Shared.dll
+C:\Project C.O.D.E\AiMusicWorkstation\AiMusicWorkstation.Shared\obj\Debug\net10.0\AiMusicWorkstation.Shared.pdb
+C:\Project C.O.D.E\AiMusicWorkstation\AiMusicWorkstation.Shared\obj\Debug\net10.0\ref\AiMusicWorkstation.Shared.dll

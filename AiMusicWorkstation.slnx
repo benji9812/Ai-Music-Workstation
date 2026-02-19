@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="AiMusicWorkstation.Api/AiMusicWorkstation.Api.csproj" />
+  <Project Path="AiMusicWorkstation.Desktop/AiMusicWorkstation.Desktop.csproj" />
+  <Project Path="AiMusicWorkstation.Shared/AiMusicWorkstation.Shared.csproj" />
+</Solution>
