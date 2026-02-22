@@ -1,13 +1,15 @@
-﻿using SpotifyAPI.Web;
+﻿using Microsoft.Extensions.Configuration;
+using SpotifyAPI.Web;
 using System;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using YoutubeExplode;
 using YoutubeExplode.Common;
 using YoutubeExplode.Videos.Streams;
-using Microsoft.Extensions.Configuration;
 
 namespace AiMusicWorkstation.Desktop.Services
 {
@@ -21,8 +23,8 @@ namespace AiMusicWorkstation.Desktop.Services
         public SmartImporter(IConfiguration config)
         {
             _youtube = new YoutubeClient();
-            _spotifyClientId = config.GetValue<string>("Spotify:ClientId");
-            _spotifyClientSecret = config.GetValue<string>("Spotify:ClientSecret");
+            _spotifyClientId = config["Spotify:ClientId"];
+            _spotifyClientSecret = config["Spotify:ClientSecret"];
         }
 
         public async Task<SongImportResult> DownloadSongAsync(string url, IProgress<string> statusReporter)
@@ -124,29 +126,101 @@ namespace AiMusicWorkstation.Desktop.Services
             catch { return null; }
         }
 
+        private static readonly HttpClient _httpClient = new HttpClient();
+
         public async Task<OfficialMetadata> GetOfficialMetadata(string trackId)
         {
             if (string.IsNullOrEmpty(trackId)) return new OfficialMetadata();
+
+            try
+            {
+                // 1. Hämta artistnamn från Spotify
+                var spotify = await GetSpotifyClient();
+                var track = await spotify.Tracks.Get(trackId);
+                string artistName = track.Artists?[0]?.Name ?? "";
+
+                // 2. Hämta genre från MusicBrainz
+                string genre = await GetGenreFromMusicBrainz(artistName);
+
+                return new OfficialMetadata { Genre = genre };
+            }
+            catch
+            {
+                return new OfficialMetadata();
+            }
+        }
+
+        private async Task<string> GetGenreFromMusicBrainz(string artistName)
+        {
+            try
+            {
+                _httpClient.DefaultRequestHeaders.Clear();
+                // MusicBrainz kräver en User-Agent
+                _httpClient.DefaultRequestHeaders.Add("User-Agent", "MusicManagerApp/1.0 (Benjiw98@gmail.com)");
+
+                string searchUrl = $"https://musicbrainz.org/ws/2/artist/?query=artist:{Uri.EscapeDataString(artistName)}&fmt=json&limit=1";
+                var searchResponse = await _httpClient.GetStringAsync(searchUrl);
+                var searchJson = JsonDocument.Parse(searchResponse);
+
+                var artists = searchJson.RootElement.GetProperty("artists");
+                if (artists.GetArrayLength() == 0) return "Uncategorized";
+
+                string mbid = artists[0].GetProperty("id").GetString() ?? "";
+                if (string.IsNullOrEmpty(mbid)) return "Uncategorized";
+
+                // 3. Hämta genres via artist MBID
+                string genreUrl = $"https://musicbrainz.org/ws/2/artist/{mbid}?inc=genres&fmt=json";
+                var genreResponse = await _httpClient.GetStringAsync(genreUrl);
+                var genreJson = JsonDocument.Parse(genreResponse);
+
+                var genres = genreJson.RootElement.GetProperty("genres");
+                if (genres.GetArrayLength() == 0) return "Uncategorized";
+
+                // Välj genre med högst count (mest röstade)
+                string bestGenre = genres
+                    .EnumerateArray()
+                    .OrderByDescending(g => g.GetProperty("count").GetInt32())
+                    .First()
+                    .GetProperty("name")
+                    .GetString() ?? "Uncategorized";
+
+                return char.ToUpper(bestGenre[0]) + bestGenre.Substring(1);
+            }
+            catch
+            {
+                return "Uncategorized";
+            }
+        }
+
+        public async Task<string> SearchSpotifyTrackId(string title, string artist)
+        {
             try
             {
                 var spotify = await GetSpotifyClient();
-                var analysis = await spotify.Tracks.GetAudioFeatures(trackId);
+                var results = await spotify.Search.Item(new SearchRequest(
+                    SearchRequest.Types.Track, $"{title} {artist}"));
 
-                string[] notes = { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "Bb", "B" };
-                string keyStr = analysis.Key >= 0 ? notes[analysis.Key] : "Unknown";
-                if (analysis.Mode == 0 && keyStr != "Unknown") keyStr += "m";
-
-                return new OfficialMetadata { Bpm = analysis.Tempo, Key = keyStr };
+                var track = results.Tracks?.Items?.FirstOrDefault();
+                return track?.Id;
             }
-            catch { return new OfficialMetadata(); }
+            catch { return null; }
         }
+
+
+        private SpotifyClient _spotifyClient;
+        private DateTime _tokenExpiry = DateTime.MinValue;
 
         private async Task<SpotifyClient> GetSpotifyClient()
         {
+            if (_spotifyClient != null && DateTime.Now < _tokenExpiry)
+                return _spotifyClient;
+
             var config = SpotifyClientConfig.CreateDefault();
             var request = new ClientCredentialsRequest(_spotifyClientId, _spotifyClientSecret);
             var response = await new OAuthClient(config).RequestToken(request);
-            return new SpotifyClient(config.WithToken(response.AccessToken));
+            _spotifyClient = new SpotifyClient(config.WithToken(response.AccessToken));
+            _tokenExpiry = DateTime.Now.AddSeconds(response.ExpiresIn - 30);
+            return _spotifyClient;
         }
     }
 
@@ -162,5 +236,6 @@ namespace AiMusicWorkstation.Desktop.Services
     {
         public double? Bpm { get; set; }
         public string Key { get; set; }
+        public string Genre { get; set; } = "Uncategorized"; // NY RAD
     }
 }

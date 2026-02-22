@@ -17,6 +17,7 @@ using System.Collections.ObjectModel;
 
 using AiMusicWorkstation.Desktop.Services;
 using AiMusicWorkstation.Desktop.Models;
+using Microsoft.Extensions.Configuration;
 
 namespace AiMusicWorkstation.Desktop
 {
@@ -25,12 +26,14 @@ namespace AiMusicWorkstation.Desktop
         private PythonBridge _pythonBridge = new PythonBridge();
         private StemPlayer _player = new StemPlayer();
         private LibraryManager _library = new LibraryManager();
-        private SmartImporter _importer = new SmartImporter();
+        private SmartImporter _importer;
+        private Metronome _metronome = new Metronome();
 
         private DispatcherTimer _timelineTimer;
         private bool _isDraggingTimeline = false;
-        private bool _isTimerUpdate = false;      // NY — ersätter _isClickingTimeline
+        private bool _isTimerUpdate = false;
         private bool _isTransposing = false;
+        private bool _isRefreshing = false;
 
         private double _currentPrimaryBpm = 0;
         private double _currentAltBpm = 0;
@@ -48,7 +51,12 @@ namespace AiMusicWorkstation.Desktop
         {
             InitializeComponent();
 
-            Closing += (s, e) => _player.Dispose();
+            var config = new ConfigurationBuilder()
+                .AddUserSecrets<MainWindow>()
+                .Build();
+            _importer = new SmartImporter(config);
+
+            Closing += (s, e) => { _player.Dispose(); _metronome.Dispose(); };
 
             _player.PlaybackStopped += (s, e) =>
             {
@@ -70,6 +78,20 @@ namespace AiMusicWorkstation.Desktop
             BpmText.MouseDown += BpmText_MouseDown;
             RefreshLibrary();
             UpdateMixerUIState();
+        }
+
+        // --- KEY BADGE ---
+        private void UpdateKeyBadge(KeySource source)
+        {
+            OfficialBadge.Visibility = source == KeySource.Metadata
+                ? Visibility.Visible : Visibility.Collapsed;
+            AiBadge.Visibility = source == KeySource.Generated || source == KeySource.Unknown
+                ? Visibility.Visible : Visibility.Collapsed;
+
+            KeyOfficialBadge.Visibility = source == KeySource.Metadata
+                ? Visibility.Visible : Visibility.Collapsed;
+            KeyAiBadge.Visibility = source == KeySource.Generated || source == KeySource.Unknown
+                ? Visibility.Visible : Visibility.Collapsed;
         }
 
         // --- BPM TOGGLE ---
@@ -98,6 +120,7 @@ namespace AiMusicWorkstation.Desktop
             _originalKey = "--";
             _currentSemitones = 0;
             TransposeLabel.Text = "0";
+            TimeSigText.Text = "--";
 
             StatusLabel.Text = "Separating Stems (AI)... This may take a minute.";
             AnalysisProgress.Visibility = Visibility.Visible;
@@ -106,20 +129,6 @@ namespace AiMusicWorkstation.Desktop
             {
                 string fileForPython = inputPath;
                 string pathForPlayer = inputPath;
-
-                if (Directory.Exists(inputPath))
-                {
-                    string vocals = Path.Combine(inputPath, "vocals.mp3");
-                    string other = Path.Combine(inputPath, "other.mp3");
-                    if (File.Exists(vocals)) fileForPython = vocals;
-                    else if (File.Exists(other)) fileForPython = other;
-                    else
-                    {
-                        var firstFile = Directory.GetFiles(inputPath, "*.mp3").FirstOrDefault()
-                                        ?? Directory.GetFiles(inputPath, "*.wav").FirstOrDefault();
-                        if (firstFile != null) fileForPython = firstFile;
-                    }
-                }
 
                 string jsonResponse = await _pythonBridge.RunAnalysisAsync(fileForPython, useCloud: true);
 
@@ -165,13 +174,24 @@ namespace AiMusicWorkstation.Desktop
                     BpmText.Text = _currentPrimaryBpm.ToString("F0");
                 }
 
+                int ts = analysisData.TimeSignature > 0 ? analysisData.TimeSignature : 4;
+                foreach (ComboBoxItem item in TimeSignatureCombo.Items)
+                {
+                    if (item.Content.ToString().StartsWith(ts.ToString()))
+                    {
+                        TimeSignatureCombo.SelectedItem = item;
+                        break;
+                    }
+                }
+                TimeSigText.Text = $"{ts}/4";
+
                 string detectedKey = !string.IsNullOrEmpty(analysisData.Key) ? analysisData.Key : "--";
                 KeyText.Text = detectedKey;
                 _originalKey = detectedKey;
 
                 bool isSpotify = !string.IsNullOrEmpty(spotifyUrl);
-                OfficialBadge.Visibility = isSpotify ? Visibility.Visible : Visibility.Collapsed;
-                AiBadge.Visibility = !isSpotify ? Visibility.Visible : Visibility.Collapsed;
+                var keySource = isSpotify ? KeySource.Metadata : KeySource.Generated;
+                UpdateKeyBadge(keySource);
 
                 if (!string.IsNullOrEmpty(analysisData.StemsPath) && Directory.Exists(analysisData.StemsPath))
                     pathForPlayer = analysisData.StemsPath;
@@ -195,6 +215,16 @@ namespace AiMusicWorkstation.Desktop
                         title = parts[1].Trim();
                     }
 
+                    string genre = "Uncategorized";
+                    if (isSpotify && !string.IsNullOrEmpty(spotifyUrl))
+                    {
+                        StatusLabel.Text = "Fetching genre from Spotify...";
+                        string trackId = _importer.ExtractSpotifyId(spotifyUrl);
+                        var meta = await _importer.GetOfficialMetadata(trackId);
+                        if (!string.IsNullOrEmpty(meta.Genre) && meta.Genre != "Uncategorized")
+                            genre = meta.Genre;
+                    }
+
                     _library.AddProject(new SongProject
                     {
                         Title = title,
@@ -202,10 +232,15 @@ namespace AiMusicWorkstation.Desktop
                         Bpm = _currentPrimaryBpm,
                         Key = detectedKey,
                         StemsPath = pathForPlayer,
+                        OriginalPath = inputPath, // NY
                         Duration = _player.TotalTime,
                         GroupName = "General",
                         DateAdded = DateTime.Now,
-                        IsOfficialData = isSpotify
+                        IsOfficialData = isSpotify,
+                        KeySource = keySource,
+                        Genre = genre,
+                        SpotifyId = isSpotify ? _importer.ExtractSpotifyId(spotifyUrl) : null,
+                        TimeSignature = ts
                     });
                     RefreshLibrary();
                 }
@@ -296,12 +331,9 @@ namespace AiMusicWorkstation.Desktop
             if (_isTimerUpdate) return;
 
             if (_isDraggingTimeline)
-            {
                 CurrentTimeText.Text = TimeSpan.FromSeconds(e.NewValue).ToString(@"mm\:ss");
-            }
             else
             {
-                // Klick via IsMoveToPointEnabled
                 if (_player != null && _player.TotalTime.TotalSeconds > 0)
                     _player.CurrentTime = TimeSpan.FromSeconds(e.NewValue);
                 UpdateTimerText();
@@ -348,8 +380,6 @@ namespace AiMusicWorkstation.Desktop
                 {
                     foreach (var line in _currentLyrics) line.IsActive = false;
                     activeLine.IsActive = true;
-
-                    // Auto-scrolla till aktiv rad
                     LyricsList.ScrollIntoView(activeLine);
                 }
             }
@@ -357,16 +387,20 @@ namespace AiMusicWorkstation.Desktop
             if (_currentChords != null && _currentChords.Any())
             {
                 var activeChord = _currentChords.LastOrDefault(c => c.Time <= t);
-                if (activeChord != null && CurrentChordText.Text != activeChord.Chord)
+                if (activeChord != null)
                 {
-                    CurrentChordText.Text = activeChord.Chord;
-                    ChordDiagramHost.Child = (UIElement)ChordDiagramRenderer.Render(activeChord.Chord, 100);
+                    string displayChord = TransposeChord(activeChord.Chord, _currentSemitones);
+                    if (CurrentChordText.Text != displayChord)
+                    {
+                        CurrentChordText.Text = displayChord;
+                        ChordDiagramHost.Child = (UIElement)ChordDiagramRenderer.Render(displayChord, 100);
 
-                    var upcoming = _currentChords
-                        .Where(c => c.Time > t)
-                        .Take(3)
-                        .Select(c => c.Chord);
-                    NextChordsText.Text = string.Join("  →  ", upcoming);
+                        var upcoming = _currentChords
+                            .Where(c => c.Time > t)
+                            .Take(3)
+                            .Select(c => TransposeChord(c.Chord, _currentSemitones));
+                        NextChordsText.Text = string.Join("  →  ", upcoming);
+                    }
                 }
             }
         }
@@ -452,6 +486,25 @@ namespace AiMusicWorkstation.Desktop
                 StatusLabel.Text = _currentSemitones == 0
                     ? $"Original key: {_originalKey}"
                     : $"Transposed {(_currentSemitones > 0 ? "+" : "")}{_currentSemitones} st  ({_originalKey} → {transposedKey})";
+
+                if (_currentChords != null && _currentChords.Any())
+                {
+                    double t = _player.CurrentTime.TotalSeconds;
+                    var activeChord = _currentChords.LastOrDefault(c => c.Time <= t)
+                                      ?? _currentChords[0];
+                    string displayChord = TransposeChord(activeChord.Chord, _currentSemitones);
+                    CurrentChordText.Text = displayChord;
+                    ChordDiagramHost.Child = (UIElement)ChordDiagramRenderer.Render(displayChord, 100);
+
+                    var upcoming = _currentChords
+                        .Where(c => c.Time > t)
+                        .Take(3)
+                        .Select(c => TransposeChord(c.Chord, _currentSemitones));
+                    NextChordsText.Text = string.Join("  →  ", upcoming);
+                }
+
+                if (ScaleView.Visibility == Visibility.Visible)
+                    UpdateScaleDiagram();
             }
         }
 
@@ -461,6 +514,20 @@ namespace AiMusicWorkstation.Desktop
             string root = isMinor ? key[..^1] : key;
             int idx = Array.IndexOf(NoteNames, root);
             if (idx == -1) return key;
+            int newIdx = ((idx + semitones) % 12 + 12) % 12;
+            return NoteNames[newIdx] + (isMinor ? "m" : "");
+        }
+
+        private string TransposeChord(string chord, int semitones)
+        {
+            if (semitones == 0 || string.IsNullOrEmpty(chord)) return chord;
+
+            bool isMinor = chord.EndsWith("m");
+            string root = isMinor ? chord[..^1] : chord;
+
+            int idx = Array.IndexOf(NoteNames, root);
+            if (idx == -1) return chord;
+
             int newIdx = ((idx + semitones) % 12 + 12) % 12;
             return NoteNames[newIdx] + (isMinor ? "m" : "");
         }
@@ -528,13 +595,88 @@ namespace AiMusicWorkstation.Desktop
                 _player.Pause();
                 PlayPauseBtn.Content = "▶";
                 _timelineTimer.Stop();
+                _metronome.Stop();
+                _metronome.ResetEvents();
+                MetronomeBeatText.Text = "";
+                MetronomePulse.Opacity = 0.2;
             }
             else
             {
-                _player.Play();
-                PlayPauseBtn.Content = "⏸";
-                _timelineTimer.Start();
+                bool metroOn = MetronomeBtn.IsChecked == true;
+                bool countInOn = CountInBtn.IsChecked == true;
+
+                if (!countInOn)
+                {
+                    _player.Play();
+                    PlayPauseBtn.Content = "⏸";
+                    _timelineTimer.Start();
+
+                    if (metroOn) StartMetronomePlayback();
+                }
+                else
+                {
+                    if (_currentPrimaryBpm <= 0) { StatusLabel.Text = "No BPM loaded."; return; }
+
+                    StatusLabel.Text = "Count in...";
+
+                    _metronome.TimeSignature = int.Parse(
+                        ((ComboBoxItem)TimeSignatureCombo.SelectedItem).Content.ToString().Split('/')[0]);
+
+                    _metronome.ResetEvents();
+
+                    _metronome.OnBeat += (beat) => Dispatcher.Invoke(() =>
+                    {
+                        MetronomeBeatText.Text = string.Join(" ", Enumerable.Range(1, _metronome.TimeSignature)
+                            .Select(i => i == beat ? "●" : "○"));
+                        MetronomePulse.Opacity = beat == 1 ? 1.0 : 0.5;
+                        var t = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(80) };
+                        t.Tick += (s, _) => { MetronomePulse.Opacity = 0.2; t.Stop(); };
+                        t.Start();
+                    });
+
+                    _metronome.OnCountInComplete += () => Dispatcher.Invoke(() =>
+                    {
+                        _player.Play();
+                        PlayPauseBtn.Content = "⏸";
+                        _timelineTimer.Start();
+                        StatusLabel.Text = "▶ Playing";
+
+                        if (metroOn)
+                        {
+                            StartMetronomePlayback();
+                        }
+                        else
+                        {
+                            _metronome.Stop();
+                            _metronome.ResetEvents();
+                            MetronomeBeatText.Text = "";
+                            MetronomePulse.Opacity = 0.2;
+                        }
+                    });
+
+                    _metronome.Start(_currentPrimaryBpm, withCountIn: true);
+                }
             }
+        }
+
+        private void StartMetronomePlayback()
+        {
+            _metronome.TimeSignature = int.Parse(
+                ((ComboBoxItem)TimeSignatureCombo.SelectedItem).Content.ToString().Split('/')[0]);
+
+            _metronome.ResetEvents();
+
+            _metronome.OnBeat += (beat) => Dispatcher.Invoke(() =>
+            {
+                MetronomeBeatText.Text = string.Join(" ", Enumerable.Range(1, _metronome.TimeSignature)
+                    .Select(i => i == beat ? "●" : "○"));
+                MetronomePulse.Opacity = beat == 1 ? 1.0 : 0.5;
+                var t = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(80) };
+                t.Tick += (s, _) => { MetronomePulse.Opacity = 0.2; t.Stop(); };
+                t.Start();
+            });
+
+            _metronome.Start(_currentPrimaryBpm, withCountIn: false);
         }
 
         private void Stop_Click(object sender, RoutedEventArgs e)
@@ -554,18 +696,66 @@ namespace AiMusicWorkstation.Desktop
         }
 
         // --- LIBRARY ---
+        private void RefreshGenreCombo()
+        {
+            if (GenreCombo == null || _library?.Projects == null) return;
+
+            _isRefreshing = true;
+
+            var currentSelection = (GenreCombo.SelectedItem as ComboBoxItem)?.Content.ToString();
+
+            GenreCombo.Items.Clear();
+            GenreCombo.Items.Add(new ComboBoxItem { Content = "All Genres" });
+
+            var genres = _library.Projects
+                .Where(p => !string.IsNullOrWhiteSpace(p.Genre))
+                .Select(p => p.Genre)
+                .Distinct()
+                .OrderBy(g => g);
+
+            foreach (var genre in genres)
+                GenreCombo.Items.Add(new ComboBoxItem { Content = genre });
+
+            GenreCombo.SelectedIndex = 0;
+            if (currentSelection != null)
+            {
+                foreach (ComboBoxItem item in GenreCombo.Items)
+                {
+                    if (item.Content.ToString() == currentSelection)
+                    {
+                        GenreCombo.SelectedItem = item;
+                        break;
+                    }
+                }
+            }
+
+            _isRefreshing = false;
+        }
+
         private void RefreshLibrary()
         {
+            RefreshGenreCombo();
+
             if (_library?.Projects == null || ProjectList == null ||
                 SearchBox == null || SortCombo == null) return;
 
             var filtered = _library.Projects.AsEnumerable();
-            string search = SearchBox.Text.ToLower();
 
+            string search = SearchBox.Text.ToLower();
             if (!string.IsNullOrWhiteSpace(search))
                 filtered = filtered.Where(p =>
-                    p.Title.ToLower().Contains(search) ||
-                    (p.Artist != null && p.Artist.ToLower().Contains(search)));
+                    (p.Title?.ToLower().Contains(search) == true) ||
+                    (p.Artist?.ToLower().Contains(search) == true) ||
+                    (p.Key?.ToLower().Contains(search) == true) ||
+                    p.Bpm.ToString("F0").Contains(search));
+
+            if (GenreCombo.SelectedItem is ComboBoxItem genreItem &&
+                genreItem.Content.ToString() != "All Genres")
+            {
+                string selectedGenre = genreItem.Content.ToString();
+                filtered = filtered.Where(p =>
+                    p.Genre?.Equals(selectedGenre, StringComparison.OrdinalIgnoreCase) == true);
+            }
 
             if (SortCombo.SelectedItem is ComboBoxItem sortItem)
             {
@@ -586,6 +776,79 @@ namespace AiMusicWorkstation.Desktop
             }
         }
 
+        private async void RefreshMetadata_Click(object sender, RoutedEventArgs e)
+        {
+            var projects = _library.Projects.ToList();
+            if (!projects.Any()) { StatusLabel.Text = "No songs in library."; return; }
+
+            int updated = 0;
+            int total = projects.Count;
+
+            foreach (var project in projects)
+            {
+                StatusLabel.Text = $"[{updated + 1}/{total}] Refreshing: {project.Title}...";
+
+                try
+                {
+                    // 1. Genre via Spotify/MusicBrainz (bara för Spotify-låtar)
+                    if (project.IsOfficialData && !string.IsNullOrEmpty(project.SpotifyId))
+                    {
+                        var meta = await _importer.GetOfficialMetadata(project.SpotifyId);
+                        if (!string.IsNullOrEmpty(meta.Genre) && meta.Genre != "Uncategorized")
+                            project.Genre = meta.Genre;
+
+                        await Task.Delay(300);
+                    }
+
+                    // 2. Re-analysera BPM, taktart och tonart
+                    string analysisSource;
+                    if (!string.IsNullOrEmpty(project.OriginalPath) && File.Exists(project.OriginalPath))
+                    {
+                        // Bäst — skicka original till Python (kör full analys inkl. ny stems)
+                        analysisSource = project.OriginalPath;
+                    }
+                    else if (!string.IsNullOrEmpty(project.StemsPath) && Directory.Exists(project.StemsPath))
+                    {
+                        // Fallback för gamla låtar — använd drums.mp3 om den finns
+                        string drumsPath = Path.Combine(project.StemsPath, "drums.mp3");
+                        analysisSource = File.Exists(drumsPath)
+                            ? drumsPath
+                            : Directory.GetFiles(project.StemsPath, "*.mp3").FirstOrDefault()
+                              ?? project.StemsPath;
+                    }
+                    else continue;
+
+                    string jsonResponse = await _pythonBridge.ReAnalyzeAsync(analysisSource);
+
+                    int jsonStart = jsonResponse.IndexOf('{');
+                    if (jsonStart >= 0)
+                    {
+                        string cleanJson = jsonResponse.Substring(jsonStart);
+                        var result = JsonSerializer.Deserialize<AnalysisResult>(cleanJson);
+
+                        if (result != null && result.Status == "success")
+                        {
+                            if (result.Bpm > 0) project.Bpm = result.Bpm;
+                            if (result.TimeSignature > 0) project.TimeSignature = result.TimeSignature;
+                            if (!string.IsNullOrEmpty(result.Key)) project.Key = result.Key;
+
+                            if (result.Lyrics?.Any() == true || result.Chords?.Any() == true)
+                                SaveLyricsAndChords(project.StemsPath,
+                                    result.Lyrics ?? new List<LyricSegment>(),
+                                    result.Chords ?? new List<ChordEvent>());
+                        }
+                    }
+
+                    updated++;
+                }
+                catch { }
+            }
+
+            _library.SaveLibrary();
+            RefreshLibrary();
+            StatusLabel.Text = $"✅ Refreshed {updated}/{total} tracks.";
+        }
+
         private async void ProjectList_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (ProjectList.SelectedItem is SongProject p)
@@ -603,6 +866,16 @@ namespace AiMusicWorkstation.Desktop
                     _originalKey = p.Key;
                     _currentSemitones = 0;
                     TransposeLabel.Text = "0";
+                    int loadedTs = p.TimeSignature > 0 ? p.TimeSignature : 4;
+                    TimeSigText.Text = $"{loadedTs}/4";
+                    foreach (ComboBoxItem item in TimeSignatureCombo.Items)
+                    {
+                        if (item.Content.ToString().StartsWith(loadedTs.ToString()))
+                        {
+                            TimeSignatureCombo.SelectedItem = item;
+                            break;
+                        }
+                    }
 
                     var (lyrics, chords) = LoadLyricsAndChords(p.StemsPath);
                     _currentLyrics = new ObservableCollection<LyricSegment>(lyrics);
@@ -611,9 +884,11 @@ namespace AiMusicWorkstation.Desktop
 
                     if (_currentChords.Any())
                     {
-                        CurrentChordText.Text = _currentChords[0].Chord;
-                        ChordDiagramHost.Child = (UIElement)ChordDiagramRenderer.Render(_currentChords[0].Chord, 100);
-                        var upcoming = _currentChords.Skip(1).Take(3).Select(c => c.Chord);
+                        string firstChord = TransposeChord(_currentChords[0].Chord, _currentSemitones);
+                        CurrentChordText.Text = firstChord;
+                        ChordDiagramHost.Child = (UIElement)ChordDiagramRenderer.Render(firstChord, 100);
+                        var upcoming = _currentChords.Skip(1).Take(3)
+                            .Select(c => TransposeChord(c.Chord, _currentSemitones));
                         NextChordsText.Text = string.Join("  →  ", upcoming);
                     }
                     else
@@ -624,10 +899,10 @@ namespace AiMusicWorkstation.Desktop
                     }
 
                     HideImportSection();
-
                     StatusLabel.Text = $"Loaded: {p.Artist} – {p.Title}";
-                    OfficialBadge.Visibility = p.IsOfficialData ? Visibility.Visible : Visibility.Collapsed;
-                    AiBadge.Visibility = !p.IsOfficialData ? Visibility.Visible : Visibility.Collapsed;
+
+                    UpdateKeyBadge(p.KeySource);
+                    UpdateScaleDiagram();
 
                     _isTimerUpdate = true;
                     TimelineSlider.Maximum = _player.TotalTime.TotalSeconds;
@@ -639,7 +914,11 @@ namespace AiMusicWorkstation.Desktop
         }
 
         private void SearchBox_TextChanged(object sender, TextChangedEventArgs e) => RefreshLibrary();
-        private void Filter_Changed(object sender, SelectionChangedEventArgs e) => RefreshLibrary();
+        private void Filter_Changed(object sender, SelectionChangedEventArgs e)
+        {
+            if (_isRefreshing) return;
+            RefreshLibrary();
+        }
 
         private void Rename_Click(object sender, RoutedEventArgs e)
         {
@@ -723,8 +1002,6 @@ namespace AiMusicWorkstation.Desktop
                 TimelineSlider.Value = line.Start;
                 _isTimerUpdate = false;
                 UpdateTimerText();
-
-                // Deselecta direkt så highlight-logiken i timern fortsätter fungera
                 LyricsList.SelectedItem = null;
             }
         }
@@ -742,6 +1019,76 @@ namespace AiMusicWorkstation.Desktop
             LyricsPanel.Visibility = ToggleLyricsBtn.IsChecked == true
                 ? Visibility.Visible
                 : Visibility.Collapsed;
+        }
+
+        private void MetronomeToggle_Click(object sender, RoutedEventArgs e)
+        {
+            if (MetronomeBtn.IsChecked == true)
+            {
+                if (_currentPrimaryBpm <= 0)
+                {
+                    MetronomeBtn.IsChecked = false;
+                    StatusLabel.Text = "No BPM loaded.";
+                    return;
+                }
+                MetronomeBtn.Content = "⏹ Stop";
+                StatusLabel.Text = "Metronome armed — press Play to start.";
+            }
+            else
+            {
+                _metronome.Stop();
+                _metronome.ResetEvents();
+                MetronomeBtn.IsChecked = false;
+                MetronomeBtn.Content = "🥁 Metro";
+                MetronomePulse.Opacity = 0.2;
+                MetronomeBeatText.Text = "";
+                StatusLabel.Text = "Metronome stopped.";
+            }
+        }
+
+        // --- SCALE DIAGRAM ---
+        private bool _isPentatonic = true;
+
+        private void TabChord_Click(object sender, RoutedEventArgs e)
+        {
+            TabChordBtn.IsChecked = true;
+            TabScaleBtn.IsChecked = false;
+            ChordView.Visibility = Visibility.Visible;
+            ScaleView.Visibility = Visibility.Collapsed;
+        }
+
+        private void TabScale_Click(object sender, RoutedEventArgs e)
+        {
+            TabChordBtn.IsChecked = false;
+            TabScaleBtn.IsChecked = true;
+            ChordView.Visibility = Visibility.Collapsed;
+            ScaleView.Visibility = Visibility.Visible;
+            UpdateScaleDiagram();
+        }
+
+        private bool _scaleToggling = false;
+
+        private void ScaleToggle_Click(object sender, RoutedEventArgs e)
+        {
+            if (_scaleToggling) return;
+            _scaleToggling = true;
+
+            bool clickedPenta = sender == PentatonicBtn;
+            PentatonicBtn.IsChecked = clickedPenta;
+            MajorScaleBtn.IsChecked = !clickedPenta;
+            _isPentatonic = clickedPenta;
+            UpdateScaleDiagram();
+
+            _scaleToggling = false;
+        }
+
+        private void UpdateScaleDiagram()
+        {
+            string key = KeyText.Text;
+            if (string.IsNullOrEmpty(key) || key == "--") return;
+
+            ScaleKeyText.Text = $"{key}  {(_isPentatonic ? "Pentatonic" : (key.EndsWith("m") ? "Natural Minor" : "Major"))}";
+            ScaleDiagramHost.Child = (UIElement)ScaleDiagramRenderer.Render(key, _isPentatonic, 175, 12);
         }
     }
 }

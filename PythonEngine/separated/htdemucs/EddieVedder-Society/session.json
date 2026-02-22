@@ -1,0 +1,402 @@
+{
+  "lyrics": [
+    {
+      "start": 0,
+      "end": 11,
+      "text": "Hmmm...",
+      "IsActive": false
+    },
+    {
+      "start": 12,
+      "end": 16,
+      "text": "Oh, it\u0027s a mystery to me",
+      "IsActive": false
+    },
+    {
+      "start": 16,
+      "end": 19,
+      "text": "We have a greed",
+      "IsActive": false
+    },
+    {
+      "start": 19,
+      "end": 23,
+      "text": "With which we have a greed",
+      "IsActive": false
+    },
+    {
+      "start": 23,
+      "end": 29,
+      "text": "And you think you have to want more than you need",
+      "IsActive": false
+    },
+    {
+      "start": 29,
+      "end": 35,
+      "text": "Until you have it all, you won\u0027t be free",
+      "IsActive": false
+    },
+    {
+      "start": 37,
+      "end": 43,
+      "text": "Society, you\u0027re a crazy breed",
+      "IsActive": false
+    },
+    {
+      "start": 43,
+      "end": 50,
+      "text": "I hope you\u0027re not lonely without me",
+      "IsActive": false
+    },
+    {
+      "start": 52,
+      "end": 58,
+      "text": "When you want more than you have, you think you need",
+      "IsActive": false
+    },
+    {
+      "start": 58,
+      "end": 64,
+      "text": "And when you think more than you want, your thoughts begin to bleed",
+      "IsActive": false
+    },
+    {
+      "start": 64,
+      "end": 70,
+      "text": "Think I need to find a bigger place",
+      "IsActive": false
+    },
+    {
+      "start": 70,
+      "end": 76,
+      "text": "Because when you have more than you think, you need more space",
+      "IsActive": false
+    },
+    {
+      "start": 78,
+      "end": 84,
+      "text": "Society, you\u0027re a crazy breed",
+      "IsActive": false
+    },
+    {
+      "start": 84,
+      "end": 90,
+      "text": "I hope you\u0027re not lonely without me",
+      "IsActive": false
+    },
+    {
+      "start": 90,
+      "end": 96,
+      "text": "Society, you\u0027re a crazy breed",
+      "IsActive": false
+    },
+    {
+      "start": 96,
+      "end": 104,
+      "text": "I hope you\u0027re not lonely without me",
+      "IsActive": false
+    },
+    {
+      "start": 114,
+      "end": 122,
+      "text": "I hope you\u0027re not lonely without me",
+      "IsActive": false
+    },
+    {
+      "start": 122,
+      "end": 130,
+      "text": "I hope you\u0027re not lonely without me",
+      "IsActive": false
+    },
+    {
+      "start": 130,
+      "end": 136,
+      "text": "I hope you\u0027re not lonely without me",
+      "IsActive": false
+    },
+    {
+      "start": 136,
+      "end": 144,
+      "text": "I hope you\u0027re not lonely without me",
+      "IsActive": false
+    },
+    {
+      "start": 144,
+      "end": 150,
+      "text": "There\u0027s those thinking more or less, less is more",
+      "IsActive": false
+    },
+    {
+      "start": 150,
+      "end": 156,
+      "text": "But if less is more, how you keep in score",
+      "IsActive": false
+    },
+    {
+      "start": 156,
+      "end": 162,
+      "text": "It means for every point you make your level drops",
+      "IsActive": false
+    },
+    {
+      "start": 163,
+      "end": 167,
+      "text": "Kinda like you\u0027re starting from the top",
+      "IsActive": false
+    },
+    {
+      "start": 167,
+      "end": 170,
+      "text": "And you can\u0027t do that",
+      "IsActive": false
+    },
+    {
+      "start": 170,
+      "end": 176,
+      "text": "Society, you\u0027re a crazy breed",
+      "IsActive": false
+    },
+    {
+      "start": 176,
+      "end": 182,
+      "text": "I hope you\u0027re not lonely without me",
+      "IsActive": false
+    },
+    {
+      "start": 182,
+      "end": 188,
+      "text": "Society, you\u0027re a crazy ending",
+      "IsActive": false
+    },
+    {
+      "start": 188,
+      "end": 194,
+      "text": "I hope you\u0027re not lonely without me",
+      "IsActive": false
+    },
+    {
+      "start": 194,
+      "end": 200,
+      "text": "Society, have mercy on me",
+      "IsActive": false
+    },
+    {
+      "start": 200,
+      "end": 206,
+      "text": "I hope you\u0027re not angry if I disagree",
+      "IsActive": false
+    },
+    {
+      "start": 206,
+      "end": 212,
+      "text": "Society, you\u0027re a crazy ending",
+      "IsActive": false
+    },
+    {
+      "start": 212,
+      "end": 217,
+      "text": "I hope you\u0027re not lonely",
+      "IsActive": false
+    },
+    {
+      "start": 217,
+      "end": 223,
+      "text": "without me",
+      "IsActive": false
+    }
+  ],
+  "chords": [
+    {
+      "time": 0,
+      "chord": "Bb"
+    },
+    {
+      "time": 1.9969160997732427,
+      "chord": "G"
+    },
+    {
+      "time": 5.990748299319728,
+      "chord": "Bm"
+    },
+    {
+      "time": 7.987664399092971,
+      "chord": "G"
+    },
+    {
+      "time": 9.984580498866213,
+      "chord": "Bm"
+    },
+    {
+      "time": 11.981496598639456,
+      "chord": "Em"
+    },
+    {
+      "time": 13.978412698412699,
+      "chord": "F#m"
+    },
+    {
+      "time": 15.975328798185942,
+      "chord": "D"
+    },
+    {
+      "time": 19.969160997732427,
+      "chord": "G"
+    },
+    {
+      "time": 21.966077097505668,
+      "chord": "A"
+    },
+    {
+      "time": 23.962993197278912,
+      "chord": "D"
+    },
+    {
+      "time": 25.959909297052153,
+      "chord": "A"
+    },
+    {
+      "time": 27.956825396825398,
+      "chord": "Bm"
+    },
+    {
+      "time": 29.95374149659864,
+      "chord": "G"
+    },
+    {
+      "time": 31.950657596371883,
+      "chord": "A"
+    },
+    {
+      "time": 33.94757369614513,
+      "chord": "G"
+    },
+    {
+      "time": 35.944489795918365,
+      "chord": "Bm"
+    },
+    {
+      "time": 39.938321995464854,
+      "chord": "G"
+    },
+    {
+      "time": 41.9352380952381,
+      "chord": "D"
+    },
+    {
+      "time": 45.92907029478458,
+      "chord": "A"
+    },
+    {
+      "time": 47.925986394557825,
+      "chord": "B"
+    },
+    {
+      "time": 49.92290249433107,
+      "chord": "G"
+    },
+    {
+      "time": 51.919818594104306,
+      "chord": "Bm"
+    },
+    {
+      "time": 53.91673469387755,
+      "chord": "F#m"
+    },
+    {
+      "time": 55.913650793650795,
+      "chord": "A"
+    },
+    {
+      "time": 57.91056689342403,
+      "chord": "D"
+    },
+    {
+      "time": 61.90439909297052,
+      "chord": "G"
+    },
+    {
+      "time": 63.901315192743766,
+      "chord": "A"
+    },
+    {
+      "time": 65.89823129251701,
+      "chord": "G"
+    },
+    {
+      "time": 67.89514739229026,
+      "chord": "F#m"
+    },
+    {
+      "time": 69.89206349206349,
+      "chord": "Bm"
+    },
+    {
+      "time": 71.88897959183673,
+      "chord": "G"
+    },
+    {
+      "time": 73.88589569160997,
+      "chord": "Em"
+    },
+    {
+      "time": 75.88281179138322,
+      "chord": "Bm"
+    },
+    {
+      "time": 79.87664399092971,
+      "chord": "Em"
+    },
+    {
+      "time": 81.87356009070295,
+      "chord": "G"
+    },
+    {
+      "time": 83.8704761904762,
+      "chord": "D"
+    },
+    {
+      "time": 85.86739229024943,
+      "chord": "Em"
+    },
+    {
+      "time": 87.86430839002267,
+      "chord": "A"
+    },
+    {
+      "time": 89.86122448979592,
+      "chord": "Bm"
+    },
+    {
+      "time": 91.85814058956916,
+      "chord": "Em"
+    },
+    {
+      "time": 93.8550566893424,
+      "chord": "G"
+    },
+    {
+      "time": 95.85197278911565,
+      "chord": "D"
+    },
+    {
+      "time": 97.8488888888889,
+      "chord": "A"
+    },
+    {
+      "time": 101.84272108843537,
+      "chord": "G"
+    },
+    {
+      "time": 107.8334693877551,
+      "chord": "D"
+    },
+    {
+      "time": 115.82113378684807,
+      "chord": "A"
+    },
+    {
+      "time": 119.81496598639455,
+      "chord": "G"
+    }
+  ]
+}

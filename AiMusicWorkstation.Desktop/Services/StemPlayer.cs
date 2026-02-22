@@ -88,13 +88,6 @@ namespace AiMusicWorkstation.Desktop.Services
             _outputDevice.Init(_mixer);
             _outputDevice.PlaybackStopped += (s, e) => PlaybackStopped?.Invoke(this, EventArgs.Empty);
 
-            // Sätt position EFTER Init, INNAN Play
-            foreach (var ch in _channels.Values)
-            {
-                if (seekTo < ch.Reader.TotalTime)
-                    ch.Reader.CurrentTime = seekTo;
-            }
-
             UpdateMix();
             if (autoPlay) _outputDevice.Play();
         }

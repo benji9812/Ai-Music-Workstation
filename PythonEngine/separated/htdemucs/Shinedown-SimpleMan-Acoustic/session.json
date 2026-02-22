@@ -1,0 +1,624 @@
+{
+  "lyrics": [
+    {
+      "start": 0,
+      "end": 5,
+      "text": "One, two, three.",
+      "IsActive": false
+    },
+    {
+      "start": 19,
+      "end": 22,
+      "text": "Well mama told me",
+      "IsActive": false
+    },
+    {
+      "start": 23,
+      "end": 26,
+      "text": "when I was young",
+      "IsActive": false
+    },
+    {
+      "start": 26,
+      "end": 30,
+      "text": "sits it beside me",
+      "IsActive": false
+    },
+    {
+      "start": 30,
+      "end": 34,
+      "text": "my only son",
+      "IsActive": false
+    },
+    {
+      "start": 34,
+      "end": 38,
+      "text": "and listen closely",
+      "IsActive": false
+    },
+    {
+      "start": 38,
+      "end": 42,
+      "text": "to what I say",
+      "IsActive": false
+    },
+    {
+      "start": 42,
+      "end": 45,
+      "text": "and if you do this",
+      "IsActive": false
+    },
+    {
+      "start": 45,
+      "end": 49,
+      "text": "it\u0027ll help you some sunny day",
+      "IsActive": false
+    },
+    {
+      "start": 49,
+      "end": 53,
+      "text": "high at will",
+      "IsActive": false
+    },
+    {
+      "start": 56,
+      "end": 59,
+      "text": "you",
+      "IsActive": false
+    },
+    {
+      "start": 66,
+      "end": 70,
+      "text": "oh take your time",
+      "IsActive": false
+    },
+    {
+      "start": 70,
+      "end": 74,
+      "text": "don\u0027t live too fast",
+      "IsActive": false
+    },
+    {
+      "start": 74,
+      "end": 78,
+      "text": "troubles will come",
+      "IsActive": false
+    },
+    {
+      "start": 78,
+      "end": 82,
+      "text": "and they will pass",
+      "IsActive": false
+    },
+    {
+      "start": 82,
+      "end": 86,
+      "text": "you\u0027ll find a woman",
+      "IsActive": false
+    },
+    {
+      "start": 86,
+      "end": 90,
+      "text": "and you\u0027ll find love",
+      "IsActive": false
+    },
+    {
+      "start": 90,
+      "end": 92,
+      "text": "and don\u0027t forget that",
+      "IsActive": false
+    },
+    {
+      "start": 92,
+      "end": 94,
+      "text": "there is someone",
+      "IsActive": false
+    },
+    {
+      "start": 94,
+      "end": 98,
+      "text": "up above",
+      "IsActive": false
+    },
+    {
+      "start": 98,
+      "end": 102,
+      "text": "and be a simple",
+      "IsActive": false
+    },
+    {
+      "start": 102,
+      "end": 106,
+      "text": "kind of man",
+      "IsActive": false
+    },
+    {
+      "start": 106,
+      "end": 110,
+      "text": "and be something",
+      "IsActive": false
+    },
+    {
+      "start": 110,
+      "end": 114,
+      "text": "you love and understand",
+      "IsActive": false
+    },
+    {
+      "start": 114,
+      "end": 118,
+      "text": "and be a simple",
+      "IsActive": false
+    },
+    {
+      "start": 118,
+      "end": 122,
+      "text": "kind of man",
+      "IsActive": false
+    },
+    {
+      "start": 122,
+      "end": 126,
+      "text": "oh won\u0027t you do this for me son",
+      "IsActive": false
+    },
+    {
+      "start": 126,
+      "end": 130,
+      "text": "if you can",
+      "IsActive": false
+    },
+    {
+      "start": 130,
+      "end": 134,
+      "text": "if you can",
+      "IsActive": false
+    },
+    {
+      "start": 140,
+      "end": 146,
+      "text": "get your lust",
+      "IsActive": false
+    },
+    {
+      "start": 146,
+      "end": 150,
+      "text": "from the rich man\u0027s gold",
+      "IsActive": false
+    },
+    {
+      "start": 150,
+      "end": 154,
+      "text": "all that you need now",
+      "IsActive": false
+    },
+    {
+      "start": 154,
+      "end": 158,
+      "text": "is in your soul",
+      "IsActive": false
+    },
+    {
+      "start": 158,
+      "end": 160,
+      "text": "and you can do this",
+      "IsActive": false
+    },
+    {
+      "start": 160,
+      "end": 162,
+      "text": "oh baby",
+      "IsActive": false
+    },
+    {
+      "start": 162,
+      "end": 166,
+      "text": "if you try",
+      "IsActive": false
+    },
+    {
+      "start": 166,
+      "end": 170,
+      "text": "if you try",
+      "IsActive": false
+    },
+    {
+      "start": 170,
+      "end": 174,
+      "text": "all that I want from you my son",
+      "IsActive": false
+    },
+    {
+      "start": 174,
+      "end": 178,
+      "text": "is to be satisfied",
+      "IsActive": false
+    },
+    {
+      "start": 178,
+      "end": 182,
+      "text": "and be a simple",
+      "IsActive": false
+    },
+    {
+      "start": 182,
+      "end": 186,
+      "text": "kind of man",
+      "IsActive": false
+    },
+    {
+      "start": 186,
+      "end": 190,
+      "text": "and be something",
+      "IsActive": false
+    },
+    {
+      "start": 190,
+      "end": 194,
+      "text": "you love and understand",
+      "IsActive": false
+    },
+    {
+      "start": 194,
+      "end": 198,
+      "text": "and be a simple",
+      "IsActive": false
+    },
+    {
+      "start": 198,
+      "end": 202,
+      "text": "kind of man",
+      "IsActive": false
+    },
+    {
+      "start": 202,
+      "end": 206,
+      "text": "won\u0027t you do this for me son",
+      "IsActive": false
+    },
+    {
+      "start": 206,
+      "end": 210,
+      "text": "if you can",
+      "IsActive": false
+    },
+    {
+      "start": 210,
+      "end": 214,
+      "text": "if you can",
+      "IsActive": false
+    },
+    {
+      "start": 224,
+      "end": 228,
+      "text": "oh don\u0027t you worry",
+      "IsActive": false
+    },
+    {
+      "start": 228,
+      "end": 232,
+      "text": "you\u0027ll find yourself",
+      "IsActive": false
+    },
+    {
+      "start": 232,
+      "end": 236,
+      "text": "follow your heart",
+      "IsActive": false
+    },
+    {
+      "start": 236,
+      "end": 240,
+      "text": "and nothing else",
+      "IsActive": false
+    },
+    {
+      "start": 240,
+      "end": 244,
+      "text": "and you can do this",
+      "IsActive": false
+    },
+    {
+      "start": 244,
+      "end": 248,
+      "text": "oh baby if you try",
+      "IsActive": false
+    },
+    {
+      "start": 248,
+      "end": 252,
+      "text": "all that I want from you my son",
+      "IsActive": false
+    },
+    {
+      "start": 252,
+      "end": 256,
+      "text": "is to be satisfied",
+      "IsActive": false
+    },
+    {
+      "start": 256,
+      "end": 260,
+      "text": "and be a simple",
+      "IsActive": false
+    },
+    {
+      "start": 260,
+      "end": 264,
+      "text": "kind of man",
+      "IsActive": false
+    },
+    {
+      "start": 264,
+      "end": 268,
+      "text": "and be something",
+      "IsActive": false
+    },
+    {
+      "start": 268,
+      "end": 272,
+      "text": "you love and understand",
+      "IsActive": false
+    },
+    {
+      "start": 272,
+      "end": 276,
+      "text": "baby be a simple",
+      "IsActive": false
+    },
+    {
+      "start": 276,
+      "end": 280,
+      "text": "kind of man",
+      "IsActive": false
+    },
+    {
+      "start": 280,
+      "end": 284,
+      "text": "won\u0027t you do this for me son",
+      "IsActive": false
+    },
+    {
+      "start": 284,
+      "end": 288,
+      "text": "if you can",
+      "IsActive": false
+    },
+    {
+      "start": 288,
+      "end": 292,
+      "text": "so baby be a simple",
+      "IsActive": false
+    },
+    {
+      "start": 292,
+      "end": 296,
+      "text": "be a simple man",
+      "IsActive": false
+    },
+    {
+      "start": 296,
+      "end": 300,
+      "text": "oh won\u0027t you do this for me son",
+      "IsActive": false
+    },
+    {
+      "start": 300,
+      "end": 304,
+      "text": "if you can",
+      "IsActive": false
+    },
+    {
+      "start": 310,
+      "end": 314,
+      "text": "if you can",
+      "IsActive": false
+    }
+  ],
+  "chords": [
+    {
+      "time": 0,
+      "chord": "F"
+    },
+    {
+      "time": 1.9969160997732427,
+      "chord": "C"
+    },
+    {
+      "time": 3.9938321995464854,
+      "chord": "F#m"
+    },
+    {
+      "time": 5.990748299319728,
+      "chord": "Em"
+    },
+    {
+      "time": 7.987664399092971,
+      "chord": "G"
+    },
+    {
+      "time": 9.984580498866213,
+      "chord": "Am"
+    },
+    {
+      "time": 11.981496598639456,
+      "chord": "Em"
+    },
+    {
+      "time": 13.978412698412699,
+      "chord": "G"
+    },
+    {
+      "time": 15.975328798185942,
+      "chord": "D"
+    },
+    {
+      "time": 17.972244897959182,
+      "chord": "Am"
+    },
+    {
+      "time": 19.969160997732427,
+      "chord": "C"
+    },
+    {
+      "time": 21.966077097505668,
+      "chord": "G"
+    },
+    {
+      "time": 23.962993197278912,
+      "chord": "D"
+    },
+    {
+      "time": 25.959909297052153,
+      "chord": "Am"
+    },
+    {
+      "time": 27.956825396825398,
+      "chord": "C"
+    },
+    {
+      "time": 29.95374149659864,
+      "chord": "G"
+    },
+    {
+      "time": 31.950657596371883,
+      "chord": "Am"
+    },
+    {
+      "time": 35.944489795918365,
+      "chord": "C"
+    },
+    {
+      "time": 37.94140589569161,
+      "chord": "G"
+    },
+    {
+      "time": 39.938321995464854,
+      "chord": "A"
+    },
+    {
+      "time": 41.9352380952381,
+      "chord": "Am"
+    },
+    {
+      "time": 43.932154195011336,
+      "chord": "C"
+    },
+    {
+      "time": 45.92907029478458,
+      "chord": "G"
+    },
+    {
+      "time": 47.925986394557825,
+      "chord": "Am"
+    },
+    {
+      "time": 51.919818594104306,
+      "chord": "C"
+    },
+    {
+      "time": 53.91673469387755,
+      "chord": "G"
+    },
+    {
+      "time": 55.913650793650795,
+      "chord": "Am"
+    },
+    {
+      "time": 59.90748299319728,
+      "chord": "C"
+    },
+    {
+      "time": 61.90439909297052,
+      "chord": "G"
+    },
+    {
+      "time": 63.901315192743766,
+      "chord": "Am"
+    },
+    {
+      "time": 69.89206349206349,
+      "chord": "G"
+    },
+    {
+      "time": 71.88897959183673,
+      "chord": "Am"
+    },
+    {
+      "time": 75.88281179138322,
+      "chord": "C"
+    },
+    {
+      "time": 77.87972789115646,
+      "chord": "G"
+    },
+    {
+      "time": 79.87664399092971,
+      "chord": "Am"
+    },
+    {
+      "time": 83.8704761904762,
+      "chord": "C"
+    },
+    {
+      "time": 85.86739229024943,
+      "chord": "G"
+    },
+    {
+      "time": 87.86430839002267,
+      "chord": "A"
+    },
+    {
+      "time": 89.86122448979592,
+      "chord": "Am"
+    },
+    {
+      "time": 91.85814058956916,
+      "chord": "C"
+    },
+    {
+      "time": 93.8550566893424,
+      "chord": "G"
+    },
+    {
+      "time": 95.85197278911565,
+      "chord": "Am"
+    },
+    {
+      "time": 99.84580498866214,
+      "chord": "C"
+    },
+    {
+      "time": 101.84272108843537,
+      "chord": "G"
+    },
+    {
+      "time": 103.83963718820861,
+      "chord": "Am"
+    },
+    {
+      "time": 107.8334693877551,
+      "chord": "C"
+    },
+    {
+      "time": 109.83038548752835,
+      "chord": "G"
+    },
+    {
+      "time": 111.82730158730159,
+      "chord": "Am"
+    },
+    {
+      "time": 115.82113378684807,
+      "chord": "C"
+    },
+    {
+      "time": 117.81804988662131,
+      "chord": "G"
+    },
+    {
+      "time": 119.81496598639455,
+      "chord": "Am"
+    }
+  ]
+}

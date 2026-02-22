@@ -1,0 +1,350 @@
+{
+  "lyrics": [
+    {
+      "start": 0,
+      "end": 24,
+      "text": "I wanted you to know that I love the way you laugh",
+      "IsActive": false
+    },
+    {
+      "start": 24,
+      "end": 32,
+      "text": "I wanna hold you high and steal your pain away",
+      "IsActive": false
+    },
+    {
+      "start": 32,
+      "end": 40,
+      "text": "I keep your photograph and I know it serves me well",
+      "IsActive": false
+    },
+    {
+      "start": 40,
+      "end": 46,
+      "text": "I wanna hold you high and steal your pain",
+      "IsActive": false
+    },
+    {
+      "start": 46,
+      "end": 53,
+      "text": "Cause I\u0027m broken when I\u0027m lonesome",
+      "IsActive": false
+    },
+    {
+      "start": 53,
+      "end": 64,
+      "text": "And I don\u0027t feel right when you\u0027re gone away",
+      "IsActive": false
+    },
+    {
+      "start": 64,
+      "end": 68,
+      "text": "You\u0027ve got to wait on",
+      "IsActive": false
+    },
+    {
+      "start": 68,
+      "end": 76,
+      "text": "You don\u0027t feel me here anymore",
+      "IsActive": false
+    },
+    {
+      "start": 78,
+      "end": 86,
+      "text": "The worst is over now and we can breathe again",
+      "IsActive": false
+    },
+    {
+      "start": 86,
+      "end": 94,
+      "text": "I wanna hold you high and steal my pain away",
+      "IsActive": false
+    },
+    {
+      "start": 94,
+      "end": 101,
+      "text": "There\u0027s so much left to learn and no one left to fight",
+      "IsActive": false
+    },
+    {
+      "start": 101,
+      "end": 108,
+      "text": "I wanna hold you high and steal your pain",
+      "IsActive": false
+    },
+    {
+      "start": 108,
+      "end": 115,
+      "text": "Cause I\u0027m broken when I\u0027m lonesome",
+      "IsActive": false
+    },
+    {
+      "start": 115,
+      "end": 123,
+      "text": "And I don\u0027t feel right when you\u0027re gone away",
+      "IsActive": false
+    },
+    {
+      "start": 123,
+      "end": 131,
+      "text": "Cause I\u0027m broken when I\u0027m lonesome",
+      "IsActive": false
+    },
+    {
+      "start": 131,
+      "end": 140,
+      "text": "And I don\u0027t feel right when you\u0027re gone away",
+      "IsActive": false
+    },
+    {
+      "start": 153,
+      "end": 177,
+      "text": "Cause I\u0027m broken when I\u0027m open",
+      "IsActive": false
+    },
+    {
+      "start": 177,
+      "end": 185,
+      "text": "And I don\u0027t feel right, girl, strong enough",
+      "IsActive": false
+    },
+    {
+      "start": 185,
+      "end": 193,
+      "text": "Cause I\u0027m broken when I\u0027m lonesome",
+      "IsActive": false
+    },
+    {
+      "start": 193,
+      "end": 206,
+      "text": "And I don\u0027t feel right when you\u0027re gone away",
+      "IsActive": false
+    },
+    {
+      "start": 207,
+      "end": 224,
+      "text": "Cause I\u0027m broken when I\u0027m lonesome",
+      "IsActive": false
+    },
+    {
+      "start": 224,
+      "end": 234,
+      "text": "And I don\u0027t feel right when you\u0027re gone away",
+      "IsActive": false
+    },
+    {
+      "start": 235,
+      "end": 238,
+      "text": "You\u0027ve got to wait on",
+      "IsActive": false
+    },
+    {
+      "start": 238,
+      "end": 246,
+      "text": "You don\u0027t feel me here anymore",
+      "IsActive": false
+    }
+  ],
+  "chords": [
+    {
+      "time": 0,
+      "chord": "A"
+    },
+    {
+      "time": 1.9969160997732427,
+      "chord": "F#"
+    },
+    {
+      "time": 5.990748299319728,
+      "chord": "B"
+    },
+    {
+      "time": 7.987664399092971,
+      "chord": "F#"
+    },
+    {
+      "time": 9.984580498866213,
+      "chord": "B"
+    },
+    {
+      "time": 11.981496598639456,
+      "chord": "C#"
+    },
+    {
+      "time": 15.975328798185942,
+      "chord": "Fm"
+    },
+    {
+      "time": 17.972244897959182,
+      "chord": "B"
+    },
+    {
+      "time": 19.969160997732427,
+      "chord": "D#m"
+    },
+    {
+      "time": 21.966077097505668,
+      "chord": "B"
+    },
+    {
+      "time": 23.962993197278912,
+      "chord": "D#m"
+    },
+    {
+      "time": 25.959909297052153,
+      "chord": "B"
+    },
+    {
+      "time": 27.956825396825398,
+      "chord": "C#"
+    },
+    {
+      "time": 31.950657596371883,
+      "chord": "D#m"
+    },
+    {
+      "time": 33.94757369614513,
+      "chord": "B"
+    },
+    {
+      "time": 35.944489795918365,
+      "chord": "D#m"
+    },
+    {
+      "time": 37.94140589569161,
+      "chord": "B"
+    },
+    {
+      "time": 39.938321995464854,
+      "chord": "D#m"
+    },
+    {
+      "time": 41.9352380952381,
+      "chord": "B"
+    },
+    {
+      "time": 43.932154195011336,
+      "chord": "C#"
+    },
+    {
+      "time": 47.925986394557825,
+      "chord": "B"
+    },
+    {
+      "time": 49.92290249433107,
+      "chord": "C#"
+    },
+    {
+      "time": 51.919818594104306,
+      "chord": "B"
+    },
+    {
+      "time": 53.91673469387755,
+      "chord": "C#"
+    },
+    {
+      "time": 55.913650793650795,
+      "chord": "B"
+    },
+    {
+      "time": 57.91056689342403,
+      "chord": "C#"
+    },
+    {
+      "time": 59.90748299319728,
+      "chord": "D#m"
+    },
+    {
+      "time": 65.89823129251701,
+      "chord": "F#"
+    },
+    {
+      "time": 71.88897959183673,
+      "chord": "B"
+    },
+    {
+      "time": 73.88589569160997,
+      "chord": "F#"
+    },
+    {
+      "time": 75.88281179138322,
+      "chord": "C#"
+    },
+    {
+      "time": 79.87664399092971,
+      "chord": "B"
+    },
+    {
+      "time": 81.87356009070295,
+      "chord": "D#m"
+    },
+    {
+      "time": 83.8704761904762,
+      "chord": "B"
+    },
+    {
+      "time": 85.86739229024943,
+      "chord": "D#m"
+    },
+    {
+      "time": 87.86430839002267,
+      "chord": "B"
+    },
+    {
+      "time": 89.86122448979592,
+      "chord": "C#"
+    },
+    {
+      "time": 93.8550566893424,
+      "chord": "D#m"
+    },
+    {
+      "time": 95.85197278911565,
+      "chord": "B"
+    },
+    {
+      "time": 97.8488888888889,
+      "chord": "D#m"
+    },
+    {
+      "time": 99.84580498866214,
+      "chord": "B"
+    },
+    {
+      "time": 101.84272108843537,
+      "chord": "D#m"
+    },
+    {
+      "time": 103.83963718820861,
+      "chord": "F#"
+    },
+    {
+      "time": 105.83655328798186,
+      "chord": "C#"
+    },
+    {
+      "time": 109.83038548752835,
+      "chord": "B"
+    },
+    {
+      "time": 111.82730158730159,
+      "chord": "D#m"
+    },
+    {
+      "time": 113.82421768707484,
+      "chord": "B"
+    },
+    {
+      "time": 115.82113378684807,
+      "chord": "C#"
+    },
+    {
+      "time": 117.81804988662131,
+      "chord": "B"
+    },
+    {
+      "time": 119.81496598639455,
+      "chord": "C#"
+    }
+  ]
+}

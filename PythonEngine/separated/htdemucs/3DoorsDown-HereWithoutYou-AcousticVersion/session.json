@@ -1,0 +1,334 @@
+{
+  "lyrics": [
+    {
+      "start": 0,
+      "end": 19.400000000000002,
+      "text": "A hundred days have made me older Since the last time that I saw your pretty face"
+    },
+    {
+      "start": 19.400000000000002,
+      "end": 28.400000000000002,
+      "text": "A thousand lives have made me colder And I don\u0027t think I can look at this the same"
+    },
+    {
+      "start": 28.4,
+      "end": 47.8,
+      "text": "That all the miles that separate They disappear now when I\u0027m dreaming of your face"
+    },
+    {
+      "start": 47.8,
+      "end": 54.44,
+      "text": "I\u0027m here without you baby We\u0027re still on my lonely mind"
+    },
+    {
+      "start": 54.44,
+      "end": 61.08,
+      "text": "I think about you baby And I dream about you all the time"
+    },
+    {
+      "start": 61.08,
+      "end": 70.08,
+      "text": "I\u0027m here without you baby You sit with me in my dreams"
+    },
+    {
+      "start": 70.08,
+      "end": 77.08,
+      "text": "Since the last time that I saw your pretty face"
+    },
+    {
+      "start": 77.08,
+      "end": 88.08,
+      "text": "I\u0027m here without you baby You sit with me in my dreams"
+    },
+    {
+      "start": 88.08,
+      "end": 99.08,
+      "text": "Let\u0027s keep rolling as people leave their way to say hello"
+    },
+    {
+      "start": 99.08,
+      "end": 109.08,
+      "text": "And I\u0027ve earned this life so great But I hope that it gets better as we go"
+    },
+    {
+      "start": 109.08,
+      "end": 117.08,
+      "text": "Oh yeah yeah yeah yeah I\u0027m here without you baby"
+    },
+    {
+      "start": 117.08,
+      "end": 123.08,
+      "text": "We\u0027re still on my lonely mind I think about you baby"
+    },
+    {
+      "start": 123.08,
+      "end": 130.07999999999998,
+      "text": "And I dream about you all the time I\u0027m here without you baby"
+    },
+    {
+      "start": 130.08,
+      "end": 141.08,
+      "text": "We\u0027re still with me in my dreams And tonight girl, it\u0027s only you need"
+    },
+    {
+      "start": 141.08,
+      "end": 154.08,
+      "text": "Everything I know, yeah, anywhere I go, yeah, you get sorry but it won\u0027t take away my love"
+    },
+    {
+      "start": 154.08,
+      "end": 161.08,
+      "text": "And when the last one falls And when it stops saying it\u0027ll never"
+    },
+    {
+      "start": 161.08,
+      "end": 168.08,
+      "text": "But it gets hard but it won\u0027t take away my love"
+    },
+    {
+      "start": 168.08,
+      "end": 179.08,
+      "text": "Oh yeah"
+    },
+    {
+      "start": 184.08,
+      "end": 191.08,
+      "text": "I\u0027m here without you baby We\u0027re still on my lonely mind"
+    },
+    {
+      "start": 191.08,
+      "end": 197.08,
+      "text": "I think about you baby And I dream about you all the time"
+    },
+    {
+      "start": 197.08,
+      "end": 206.08,
+      "text": "I\u0027m here without you baby We\u0027re still with me in my dreams"
+    },
+    {
+      "start": 206.08,
+      "end": 216.08,
+      "text": "And tonight girl, it\u0027s only you need"
+    },
+    {
+      "start": 216.08,
+      "end": 218.08,
+      "text": "Oh yeah"
+    },
+    {
+      "start": 218.08,
+      "end": 225.08,
+      "text": "Oh yeah"
+    }
+  ],
+  "chords": [
+    {
+      "time": 0,
+      "chord": "Dm"
+    },
+    {
+      "time": 1.9969160997732427,
+      "chord": "Fm"
+    },
+    {
+      "time": 3.9938321995464854,
+      "chord": "F#"
+    },
+    {
+      "time": 5.990748299319728,
+      "chord": "G#"
+    },
+    {
+      "time": 7.987664399092971,
+      "chord": "Bbm"
+    },
+    {
+      "time": 11.981496598639456,
+      "chord": "G#"
+    },
+    {
+      "time": 13.978412698412699,
+      "chord": "Bb"
+    },
+    {
+      "time": 15.975328798185942,
+      "chord": "Fm"
+    },
+    {
+      "time": 17.972244897959182,
+      "chord": "F#"
+    },
+    {
+      "time": 19.969160997732427,
+      "chord": "G#"
+    },
+    {
+      "time": 21.966077097505668,
+      "chord": "Bbm"
+    },
+    {
+      "time": 23.962993197278912,
+      "chord": "G#"
+    },
+    {
+      "time": 27.956825396825398,
+      "chord": "Bbm"
+    },
+    {
+      "time": 31.950657596371883,
+      "chord": "G#"
+    },
+    {
+      "time": 33.94757369614513,
+      "chord": "Bb"
+    },
+    {
+      "time": 35.944489795918365,
+      "chord": "Bbm"
+    },
+    {
+      "time": 37.94140589569161,
+      "chord": "G#"
+    },
+    {
+      "time": 39.938321995464854,
+      "chord": "C#"
+    },
+    {
+      "time": 41.9352380952381,
+      "chord": "Bbm"
+    },
+    {
+      "time": 43.932154195011336,
+      "chord": "F#"
+    },
+    {
+      "time": 45.92907029478458,
+      "chord": "G#"
+    },
+    {
+      "time": 47.925986394557825,
+      "chord": "C#"
+    },
+    {
+      "time": 51.919818594104306,
+      "chord": "G#"
+    },
+    {
+      "time": 53.91673469387755,
+      "chord": "D#m"
+    },
+    {
+      "time": 55.913650793650795,
+      "chord": "Bbm"
+    },
+    {
+      "time": 57.91056689342403,
+      "chord": "F#"
+    },
+    {
+      "time": 59.90748299319728,
+      "chord": "G#"
+    },
+    {
+      "time": 61.90439909297052,
+      "chord": "C#"
+    },
+    {
+      "time": 65.89823129251701,
+      "chord": "G#"
+    },
+    {
+      "time": 67.89514739229026,
+      "chord": "Bbm"
+    },
+    {
+      "time": 71.88897959183673,
+      "chord": "G#"
+    },
+    {
+      "time": 73.88589569160997,
+      "chord": "Bb"
+    },
+    {
+      "time": 75.88281179138322,
+      "chord": "Fm"
+    },
+    {
+      "time": 77.87972789115646,
+      "chord": "G#"
+    },
+    {
+      "time": 81.87356009070295,
+      "chord": "Bbm"
+    },
+    {
+      "time": 83.8704761904762,
+      "chord": "C#"
+    },
+    {
+      "time": 85.86739229024943,
+      "chord": "G#"
+    },
+    {
+      "time": 87.86430839002267,
+      "chord": "Bbm"
+    },
+    {
+      "time": 91.85814058956916,
+      "chord": "G#"
+    },
+    {
+      "time": 93.8550566893424,
+      "chord": "D#m"
+    },
+    {
+      "time": 95.85197278911565,
+      "chord": "F"
+    },
+    {
+      "time": 97.8488888888889,
+      "chord": "F#"
+    },
+    {
+      "time": 99.84580498866214,
+      "chord": "G#"
+    },
+    {
+      "time": 101.84272108843537,
+      "chord": "Bbm"
+    },
+    {
+      "time": 103.83963718820861,
+      "chord": "C#"
+    },
+    {
+      "time": 105.83655328798186,
+      "chord": "G#"
+    },
+    {
+      "time": 107.8334693877551,
+      "chord": "Bb"
+    },
+    {
+      "time": 109.83038548752835,
+      "chord": "Bbm"
+    },
+    {
+      "time": 111.82730158730159,
+      "chord": "C#"
+    },
+    {
+      "time": 113.82421768707484,
+      "chord": "G#"
+    },
+    {
+      "time": 115.82113378684807,
+      "chord": "C#"
+    },
+    {
+      "time": 117.81804988662131,
+      "chord": "G#"
+    }
+  ]
+}

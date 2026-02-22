@@ -30,6 +30,9 @@ namespace AiMusicWorkstation.Desktop.Models
 
         [JsonPropertyName("chords")]
         public List<ChordEvent> Chords { get; set; }
+
+        [JsonPropertyName("time_signature")]
+        public int TimeSignature { get; set; } = 4;
     }
 
     public class LyricSegment : INotifyPropertyChanged

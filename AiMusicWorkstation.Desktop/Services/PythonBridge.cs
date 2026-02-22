@@ -108,5 +108,26 @@ namespace AiMusicWorkstation.Desktop.Services
             }
             return "{\"error\": \"Kunde inte nå AI-motorn. Kontrollera Python-miljön.\"}";
         }
+
+        public async Task<string> ReAnalyzeAsync(string filePath)
+        {
+            if (!File.Exists(filePath)) return "{\"status\":\"error\"}";
+
+            for (int i = 0; i < 3; i++)
+            {
+                try
+                {
+                    using var content = new MultipartFormDataContent();
+                    byte[] fileBytes = await File.ReadAllBytesAsync(filePath);
+                    content.Add(new ByteArrayContent(fileBytes), "file", Path.GetFileName(filePath));
+
+                    var response = await _client.PostAsync("analyze-only", content);
+                    if (response.IsSuccessStatusCode)
+                        return await response.Content.ReadAsStringAsync();
+                }
+                catch { await Task.Delay(2000); }
+            }
+            return "{\"status\":\"error\"}";
+        }
     }
 }

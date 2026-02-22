@@ -6,6 +6,13 @@ using System.Linq;
 
 namespace AiMusicWorkstation.Desktop.Services
 {
+    public enum KeySource
+    {
+        Unknown,
+        Metadata,
+        Generated
+    }
+
     public class SongProject
     {
         public string Id { get; set; } = Guid.NewGuid().ToString();
@@ -14,17 +21,16 @@ namespace AiMusicWorkstation.Desktop.Services
         public double Bpm { get; set; }
         public string Key { get; set; }
         public string StemsPath { get; set; }
-
+        public string OriginalPath { get; set; } // NY
+        public string SpotifyId { get; set; }
         public TimeSpan Duration { get; set; }
         public string Genre { get; set; } = "Uncategorized";
-
-        // NYHET: Mapp-namn (Om den är tom hamnar den i "General")
         public string GroupName { get; set; } = "General";
-
         public DateTime DateAdded { get; set; } = DateTime.Now;
         public string DurationDisplay => Duration.ToString(@"mm\:ss");
-        public bool IsOfficialData { get; set; } // <--- KRÄVS FÖR ATT SPARA STATUSEN
-
+        public bool IsOfficialData { get; set; }
+        public KeySource KeySource { get; set; } = KeySource.Unknown;
+        public int TimeSignature { get; set; } = 4;
     }
 
     public class LibraryManager
@@ -45,6 +51,11 @@ namespace AiMusicWorkstation.Desktop.Services
                 {
                     string json = File.ReadAllText(_libraryFile);
                     Projects = JsonSerializer.Deserialize<List<SongProject>>(json) ?? new List<SongProject>();
+
+                    foreach (var p in Projects.Where(p => p.KeySource == KeySource.Unknown))
+                        p.KeySource = p.IsOfficialData ? KeySource.Metadata : KeySource.Generated;
+
+                    SaveLibrary();
                 }
                 catch
                 {

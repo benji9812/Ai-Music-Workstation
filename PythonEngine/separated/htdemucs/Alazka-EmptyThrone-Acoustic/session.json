@@ -1,0 +1,586 @@
+{
+  "lyrics": [
+    {
+      "start": 30,
+      "end": 35,
+      "text": "When you say you\u0027re not so bad, I\u0027ll take them closer",
+      "IsActive": false
+    },
+    {
+      "start": 35,
+      "end": 39,
+      "text": "Take a look inside my head",
+      "IsActive": false
+    },
+    {
+      "start": 39,
+      "end": 45,
+      "text": "My king, the fool",
+      "IsActive": false
+    },
+    {
+      "start": 45,
+      "end": 49,
+      "text": "In empty, don\u0027t please in the dark",
+      "IsActive": false
+    },
+    {
+      "start": 49,
+      "end": 54,
+      "text": "The mother searching for her child",
+      "IsActive": false
+    },
+    {
+      "start": 54,
+      "end": 58,
+      "text": "My mind\u0027s renewed",
+      "IsActive": false
+    },
+    {
+      "start": 58,
+      "end": 61,
+      "text": "Rising tension in my sleep",
+      "IsActive": false
+    },
+    {
+      "start": 61,
+      "end": 64,
+      "text": "And out of my head",
+      "IsActive": false
+    },
+    {
+      "start": 64,
+      "end": 67,
+      "text": "So much to come bring you",
+      "IsActive": false
+    },
+    {
+      "start": 67,
+      "end": 70,
+      "text": "Moving up so with my eyes open",
+      "IsActive": false
+    },
+    {
+      "start": 70,
+      "end": 74,
+      "text": "I\u0027ll give the words in my mouth",
+      "IsActive": false
+    },
+    {
+      "start": 74,
+      "end": 77,
+      "text": "I\u0027ll say it aloud",
+      "IsActive": false
+    },
+    {
+      "start": 77,
+      "end": 80,
+      "text": "Welcome my friend",
+      "IsActive": false
+    },
+    {
+      "start": 80,
+      "end": 84,
+      "text": "To a world where the table won\u0027t turn",
+      "IsActive": false
+    },
+    {
+      "start": 84,
+      "end": 89,
+      "text": "There\u0027s some more right just to win this thing",
+      "IsActive": false
+    },
+    {
+      "start": 89,
+      "end": 94,
+      "text": "And I wouldn\u0027t doubt it",
+      "IsActive": false
+    },
+    {
+      "start": 96,
+      "end": 98,
+      "text": "See I started",
+      "IsActive": false
+    },
+    {
+      "start": 98,
+      "end": 103,
+      "text": "See I tried to find a way to steal my own bro",
+      "IsActive": false
+    },
+    {
+      "start": 103,
+      "end": 108,
+      "text": "And they know the words you say and it\u0027s no use",
+      "IsActive": false
+    },
+    {
+      "start": 108,
+      "end": 113,
+      "text": "So the wings are my hatch just like the echo",
+      "IsActive": false
+    },
+    {
+      "start": 113,
+      "end": 117,
+      "text": "Like the voice behind my back",
+      "IsActive": false
+    },
+    {
+      "start": 117,
+      "end": 123,
+      "text": "I\u0027ll find my home",
+      "IsActive": false
+    },
+    {
+      "start": 123,
+      "end": 126,
+      "text": "Approver from one half a ground",
+      "IsActive": false
+    },
+    {
+      "start": 126,
+      "end": 132,
+      "text": "The locker with no place to hide",
+      "IsActive": false
+    },
+    {
+      "start": 132,
+      "end": 135,
+      "text": "I\u0027m trapped in my mind",
+      "IsActive": false
+    },
+    {
+      "start": 135,
+      "end": 138,
+      "text": "Rising tension in my world",
+      "IsActive": false
+    },
+    {
+      "start": 138,
+      "end": 141,
+      "text": "Slipping out of my hands",
+      "IsActive": false
+    },
+    {
+      "start": 141,
+      "end": 144,
+      "text": "So much to come bring you",
+      "IsActive": false
+    },
+    {
+      "start": 144,
+      "end": 148,
+      "text": "Moving up so with my eyes open",
+      "IsActive": false
+    },
+    {
+      "start": 148,
+      "end": 151,
+      "text": "I\u0027ll give the words in my mouth",
+      "IsActive": false
+    },
+    {
+      "start": 151,
+      "end": 154,
+      "text": "I\u0027ll say it aloud",
+      "IsActive": false
+    },
+    {
+      "start": 154,
+      "end": 157,
+      "text": "Welcome my friend",
+      "IsActive": false
+    },
+    {
+      "start": 157,
+      "end": 161,
+      "text": "To a world where the table won\u0027t turn",
+      "IsActive": false
+    },
+    {
+      "start": 161,
+      "end": 166,
+      "text": "There\u0027s some more right just to win this thing",
+      "IsActive": false
+    },
+    {
+      "start": 166,
+      "end": 168,
+      "text": "See I started",
+      "IsActive": false
+    },
+    {
+      "start": 168,
+      "end": 173,
+      "text": "See I tried to find a way to steal my own bro",
+      "IsActive": false
+    },
+    {
+      "start": 173,
+      "end": 178,
+      "text": "And they know the words you say and it\u0027s no use",
+      "IsActive": false
+    },
+    {
+      "start": 178,
+      "end": 182,
+      "text": "So the wings are my hatch just like the echo",
+      "IsActive": false
+    },
+    {
+      "start": 182,
+      "end": 185,
+      "text": "Like the voice behind my back",
+      "IsActive": false
+    },
+    {
+      "start": 185,
+      "end": 188,
+      "text": "I\u0027ll find my home",
+      "IsActive": false
+    },
+    {
+      "start": 188,
+      "end": 191,
+      "text": "Approver from one half a ground",
+      "IsActive": false
+    },
+    {
+      "start": 191,
+      "end": 195,
+      "text": "The locker with no place to hide",
+      "IsActive": false
+    },
+    {
+      "start": 196,
+      "end": 203,
+      "text": "Now I can\u0027t forget",
+      "IsActive": false
+    },
+    {
+      "start": 210,
+      "end": 214,
+      "text": "In my head",
+      "IsActive": false
+    },
+    {
+      "start": 214,
+      "end": 218,
+      "text": "In my head",
+      "IsActive": false
+    },
+    {
+      "start": 218,
+      "end": 219,
+      "text": "Oh yeah",
+      "IsActive": false
+    },
+    {
+      "start": 219,
+      "end": 223,
+      "text": "In my head",
+      "IsActive": false
+    },
+    {
+      "start": 223,
+      "end": 224,
+      "text": "Yeah",
+      "IsActive": false
+    },
+    {
+      "start": 224,
+      "end": 227,
+      "text": "In my head",
+      "IsActive": false
+    },
+    {
+      "start": 227,
+      "end": 229,
+      "text": "Oh yeah",
+      "IsActive": false
+    },
+    {
+      "start": 231,
+      "end": 234,
+      "text": "Welcome my friend",
+      "IsActive": false
+    },
+    {
+      "start": 234,
+      "end": 238,
+      "text": "To a world where the table won\u0027t turn",
+      "IsActive": false
+    },
+    {
+      "start": 238,
+      "end": 243,
+      "text": "There\u0027s some more right just to win this thing",
+      "IsActive": false
+    },
+    {
+      "start": 243,
+      "end": 244,
+      "text": "Yeah",
+      "IsActive": false
+    },
+    {
+      "start": 244,
+      "end": 247,
+      "text": "What a time it would have been",
+      "IsActive": false
+    },
+    {
+      "start": 247,
+      "end": 254,
+      "text": "And I don\u0027t need your excuses",
+      "IsActive": false
+    },
+    {
+      "start": 254,
+      "end": 259,
+      "text": "And I don\u0027t need your regret",
+      "IsActive": false
+    },
+    {
+      "start": 259,
+      "end": 265,
+      "text": "What is one in you to understand",
+      "IsActive": false
+    },
+    {
+      "start": 265,
+      "end": 268,
+      "text": "That I can\u0027t forget",
+      "IsActive": false
+    },
+    {
+      "start": 268,
+      "end": 271,
+      "text": "That I can\u0027t forget",
+      "IsActive": false
+    },
+    {
+      "start": 277,
+      "end": 280,
+      "text": "Now I can\u0027t forget",
+      "IsActive": false
+    },
+    {
+      "start": 286,
+      "end": 290,
+      "text": "Now I can\u0027t forget",
+      "IsActive": false
+    }
+  ],
+  "chords": [
+    {
+      "time": 0,
+      "chord": "Fm"
+    },
+    {
+      "time": 1.9969160997732427,
+      "chord": "D#"
+    },
+    {
+      "time": 3.9938321995464854,
+      "chord": "Gm"
+    },
+    {
+      "time": 5.990748299319728,
+      "chord": "G#"
+    },
+    {
+      "time": 9.984580498866213,
+      "chord": "C"
+    },
+    {
+      "time": 11.981496598639456,
+      "chord": "D#"
+    },
+    {
+      "time": 15.975328798185942,
+      "chord": "Cm"
+    },
+    {
+      "time": 19.969160997732427,
+      "chord": "D#"
+    },
+    {
+      "time": 21.966077097505668,
+      "chord": "Bb"
+    },
+    {
+      "time": 23.962993197278912,
+      "chord": "Gm"
+    },
+    {
+      "time": 25.959909297052153,
+      "chord": "G#"
+    },
+    {
+      "time": 27.956825396825398,
+      "chord": "D#"
+    },
+    {
+      "time": 31.950657596371883,
+      "chord": "Bb"
+    },
+    {
+      "time": 33.94757369614513,
+      "chord": "D#"
+    },
+    {
+      "time": 35.944489795918365,
+      "chord": "Fm"
+    },
+    {
+      "time": 37.94140589569161,
+      "chord": "G#"
+    },
+    {
+      "time": 39.938321995464854,
+      "chord": "Cm"
+    },
+    {
+      "time": 41.9352380952381,
+      "chord": "Bb"
+    },
+    {
+      "time": 43.932154195011336,
+      "chord": "Gm"
+    },
+    {
+      "time": 45.92907029478458,
+      "chord": "Cm"
+    },
+    {
+      "time": 47.925986394557825,
+      "chord": "Fm"
+    },
+    {
+      "time": 51.919818594104306,
+      "chord": "D#"
+    },
+    {
+      "time": 53.91673469387755,
+      "chord": "Cm"
+    },
+    {
+      "time": 57.91056689342403,
+      "chord": "F"
+    },
+    {
+      "time": 59.90748299319728,
+      "chord": "D#"
+    },
+    {
+      "time": 61.90439909297052,
+      "chord": "Gm"
+    },
+    {
+      "time": 63.901315192743766,
+      "chord": "F"
+    },
+    {
+      "time": 65.89823129251701,
+      "chord": "Fm"
+    },
+    {
+      "time": 67.89514739229026,
+      "chord": "Bb"
+    },
+    {
+      "time": 69.89206349206349,
+      "chord": "D#"
+    },
+    {
+      "time": 71.88897959183673,
+      "chord": "Gm"
+    },
+    {
+      "time": 73.88589569160997,
+      "chord": "Bb"
+    },
+    {
+      "time": 77.87972789115646,
+      "chord": "Gm"
+    },
+    {
+      "time": 79.87664399092971,
+      "chord": "Bbm"
+    },
+    {
+      "time": 81.87356009070295,
+      "chord": "D#"
+    },
+    {
+      "time": 83.8704761904762,
+      "chord": "Fm"
+    },
+    {
+      "time": 85.86739229024943,
+      "chord": "F"
+    },
+    {
+      "time": 87.86430839002267,
+      "chord": "Gm"
+    },
+    {
+      "time": 89.86122448979592,
+      "chord": "D#"
+    },
+    {
+      "time": 91.85814058956916,
+      "chord": "Dm"
+    },
+    {
+      "time": 93.8550566893424,
+      "chord": "F"
+    },
+    {
+      "time": 97.8488888888889,
+      "chord": "G#"
+    },
+    {
+      "time": 99.84580498866214,
+      "chord": "Bb"
+    },
+    {
+      "time": 101.84272108843537,
+      "chord": "G#"
+    },
+    {
+      "time": 103.83963718820861,
+      "chord": "Fm"
+    },
+    {
+      "time": 105.83655328798186,
+      "chord": "D#"
+    },
+    {
+      "time": 109.83038548752835,
+      "chord": "Dm"
+    },
+    {
+      "time": 111.82730158730159,
+      "chord": "G#"
+    },
+    {
+      "time": 113.82421768707484,
+      "chord": "Cm"
+    },
+    {
+      "time": 115.82113378684807,
+      "chord": "D#"
+    },
+    {
+      "time": 117.81804988662131,
+      "chord": "Cm"
+    },
+    {
+      "time": 119.81496598639455,
+      "chord": "Bb"
+    }
+  ]
+}

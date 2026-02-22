@@ -11,10 +11,11 @@
 using System;
 using System.Reflection;
 
+[assembly: Microsoft.Extensions.Configuration.UserSecrets.UserSecretsIdAttribute("e4da71d6-2434-40dd-b75f-9b5b3ce790f6")]
 [assembly: System.Reflection.AssemblyCompanyAttribute("AiMusicWorkstation.Desktop")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+7ec720860c35e3873da227b9eaa4937f914342c6")]
 [assembly: System.Reflection.AssemblyProductAttribute("AiMusicWorkstation.Desktop")]
 [assembly: System.Reflection.AssemblyTitleAttribute("AiMusicWorkstation.Desktop")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

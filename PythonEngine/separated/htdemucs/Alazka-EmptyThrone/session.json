@@ -1,0 +1,634 @@
+{
+  "lyrics": [
+    {
+      "start": 0,
+      "end": 2,
+      "text": "I",
+      "IsActive": false
+    },
+    {
+      "start": 16.32,
+      "end": 18.32,
+      "text": "That\u0027s all I\u0027ve got",
+      "IsActive": false
+    },
+    {
+      "start": 18.6,
+      "end": 21.72,
+      "text": "Trying to show you what you got. She says my fault",
+      "IsActive": false
+    },
+    {
+      "start": 22.44,
+      "end": 25.48,
+      "text": "It\u0027s the ultimate thing you think you might be",
+      "IsActive": false
+    },
+    {
+      "start": 26.32,
+      "end": 29.36,
+      "text": "We say it\u0027s not so bad. I say I\u0027m closer",
+      "IsActive": false
+    },
+    {
+      "start": 30.16,
+      "end": 32.16,
+      "text": "Take a look inside my head",
+      "IsActive": false
+    },
+    {
+      "start": 34.2,
+      "end": 36.2,
+      "text": "My kingdom falls",
+      "IsActive": false
+    },
+    {
+      "start": 37.76,
+      "end": 40.76,
+      "text": "An empty zone plays into the earth",
+      "IsActive": false
+    },
+    {
+      "start": 40.76,
+      "end": 44.76,
+      "text": "A mother searching for her child",
+      "IsActive": false
+    },
+    {
+      "start": 44.76,
+      "end": 47.760000000000005,
+      "text": "My mind\u0027s turning wild",
+      "IsActive": false
+    },
+    {
+      "start": 47.760000000000005,
+      "end": 51.760000000000005,
+      "text": "Rising down to never wash the piano in my hands",
+      "IsActive": false
+    },
+    {
+      "start": 51.760000000000005,
+      "end": 54.760000000000005,
+      "text": "Too much to complain at",
+      "IsActive": false
+    },
+    {
+      "start": 54.760000000000005,
+      "end": 57.760000000000005,
+      "text": "Burning up so with my eyes open wide",
+      "IsActive": false
+    },
+    {
+      "start": 57.76,
+      "end": 59.76,
+      "text": "And the words in my mouth",
+      "IsActive": false
+    },
+    {
+      "start": 60.76,
+      "end": 62.76,
+      "text": "I will say it loud",
+      "IsActive": false
+    },
+    {
+      "start": 62.76,
+      "end": 64.75999999999999,
+      "text": "World, come my son",
+      "IsActive": false
+    },
+    {
+      "start": 64.75999999999999,
+      "end": 66.75999999999999,
+      "text": "To all worlds, rest the tables",
+      "IsActive": false
+    },
+    {
+      "start": 66.75999999999999,
+      "end": 69.75999999999999,
+      "text": "One time the sun won\u0027t rise",
+      "IsActive": false
+    },
+    {
+      "start": 69.75999999999999,
+      "end": 72.75999999999999,
+      "text": "To end this year",
+      "IsActive": false
+    },
+    {
+      "start": 72.75999999999999,
+      "end": 74.75999999999999,
+      "text": "What is time, come to bed",
+      "IsActive": false
+    },
+    {
+      "start": 74.75999999999999,
+      "end": 76.75999999999999,
+      "text": "What is time, come to bed",
+      "IsActive": false
+    },
+    {
+      "start": 77.75999999999999,
+      "end": 79.75999999999999,
+      "text": "Say I tried to",
+      "IsActive": false
+    },
+    {
+      "start": 79.75999999999999,
+      "end": 82.75999999999999,
+      "text": "See I tried to find a way to stay in my home ground",
+      "IsActive": false
+    },
+    {
+      "start": 83.75999999999999,
+      "end": 86.75999999999999,
+      "text": "And I know the words you say and it\u0027s no use",
+      "IsActive": false
+    },
+    {
+      "start": 86.76,
+      "end": 90.76,
+      "text": "For the way inside my head just like the air calls",
+      "IsActive": false
+    },
+    {
+      "start": 90.76,
+      "end": 93.76,
+      "text": "Like a voice behind my back",
+      "IsActive": false
+    },
+    {
+      "start": 93.76,
+      "end": 97.76,
+      "text": "I\u0027ll find my own",
+      "IsActive": false
+    },
+    {
+      "start": 98.76,
+      "end": 101.76,
+      "text": "Approval for one of the crown",
+      "IsActive": false
+    },
+    {
+      "start": 101.76,
+      "end": 105.76,
+      "text": "Like a window placed through my",
+      "IsActive": false
+    },
+    {
+      "start": 105.76,
+      "end": 108.76,
+      "text": "I\u0027m chanting my mind",
+      "IsActive": false
+    },
+    {
+      "start": 108.76,
+      "end": 112.76,
+      "text": "Rising down to never wash the piano in my hands",
+      "IsActive": false
+    },
+    {
+      "start": 112.76,
+      "end": 115.76,
+      "text": "Too much to complain at",
+      "IsActive": false
+    },
+    {
+      "start": 115.76,
+      "end": 118.76,
+      "text": "Burning up so with my eyes open wide",
+      "IsActive": false
+    },
+    {
+      "start": 118.76,
+      "end": 120.76,
+      "text": "And the words in my mouth",
+      "IsActive": false
+    },
+    {
+      "start": 121.76,
+      "end": 123.76,
+      "text": "I will say it loud",
+      "IsActive": false
+    },
+    {
+      "start": 123.76,
+      "end": 125.76,
+      "text": "World, come my son",
+      "IsActive": false
+    },
+    {
+      "start": 125.76,
+      "end": 128.76,
+      "text": "To all worlds, rest the tables",
+      "IsActive": false
+    },
+    {
+      "start": 128.76,
+      "end": 130.76,
+      "text": "One time the sun won\u0027t rise",
+      "IsActive": false
+    },
+    {
+      "start": 130.76,
+      "end": 133.76,
+      "text": "To end this year",
+      "IsActive": false
+    },
+    {
+      "start": 133.76,
+      "end": 136.76,
+      "text": "What is time, come to bed",
+      "IsActive": false
+    },
+    {
+      "start": 136.76,
+      "end": 138.76,
+      "text": "My soul calls",
+      "IsActive": false
+    },
+    {
+      "start": 138.76,
+      "end": 141.76,
+      "text": "And I don\u0027t need your excuses",
+      "IsActive": false
+    },
+    {
+      "start": 141.76,
+      "end": 145.76,
+      "text": "And I don\u0027t need your regret",
+      "IsActive": false
+    },
+    {
+      "start": 145.76,
+      "end": 149.76,
+      "text": "I just wanted you to understand",
+      "IsActive": false
+    },
+    {
+      "start": 149.76,
+      "end": 152.76,
+      "text": "That I gave up, yeah",
+      "IsActive": false
+    },
+    {
+      "start": 152.76,
+      "end": 154.76,
+      "text": "That I gave up",
+      "IsActive": false
+    },
+    {
+      "start": 159.76,
+      "end": 162.76,
+      "text": "No, I gave up",
+      "IsActive": false
+    },
+    {
+      "start": 162.76,
+      "end": 164.76,
+      "text": "I gave up, yeah",
+      "IsActive": false
+    },
+    {
+      "start": 164.76,
+      "end": 166.76,
+      "text": "I gave up, yeah",
+      "IsActive": false
+    },
+    {
+      "start": 166.76,
+      "end": 168.76,
+      "text": "No, I gave up",
+      "IsActive": false
+    },
+    {
+      "start": 168.76,
+      "end": 171.76,
+      "text": "Send my head",
+      "IsActive": false
+    },
+    {
+      "start": 171.76,
+      "end": 175.76,
+      "text": "Send my head",
+      "IsActive": false
+    },
+    {
+      "start": 175.76,
+      "end": 179.76,
+      "text": "Send my head",
+      "IsActive": false
+    },
+    {
+      "start": 179.76,
+      "end": 184.76,
+      "text": "Send my head",
+      "IsActive": false
+    },
+    {
+      "start": 184.76,
+      "end": 186.76,
+      "text": "Welcome my friend",
+      "IsActive": false
+    },
+    {
+      "start": 186.76,
+      "end": 189.76,
+      "text": "To all worlds, rest the tables",
+      "IsActive": false
+    },
+    {
+      "start": 189.76,
+      "end": 191.76,
+      "text": "One time the sun won\u0027t rise",
+      "IsActive": false
+    },
+    {
+      "start": 191.76,
+      "end": 194.76,
+      "text": "To end this year",
+      "IsActive": false
+    },
+    {
+      "start": 194.76,
+      "end": 197.76,
+      "text": "What is time, come to bed",
+      "IsActive": false
+    },
+    {
+      "start": 198.76,
+      "end": 201.76,
+      "text": "Welcome my friend",
+      "IsActive": false
+    },
+    {
+      "start": 201.76,
+      "end": 204.76,
+      "text": "To all worlds, rest the tables",
+      "IsActive": false
+    },
+    {
+      "start": 204.76,
+      "end": 206.76,
+      "text": "One time the sun won\u0027t rise",
+      "IsActive": false
+    },
+    {
+      "start": 206.76,
+      "end": 209.76,
+      "text": "To end this year",
+      "IsActive": false
+    },
+    {
+      "start": 209.76,
+      "end": 212.76,
+      "text": "What is time, come to bed",
+      "IsActive": false
+    },
+    {
+      "start": 212.76,
+      "end": 214.76,
+      "text": "My soul calls",
+      "IsActive": false
+    },
+    {
+      "start": 214.76,
+      "end": 217.76,
+      "text": "And I don\u0027t need your excuses",
+      "IsActive": false
+    },
+    {
+      "start": 217.76,
+      "end": 221.76,
+      "text": "And I don\u0027t need your regret",
+      "IsActive": false
+    },
+    {
+      "start": 221.76,
+      "end": 225.76,
+      "text": "I just wanted you to understand",
+      "IsActive": false
+    },
+    {
+      "start": 225.76,
+      "end": 228.76,
+      "text": "That I gave up, yeah",
+      "IsActive": false
+    },
+    {
+      "start": 228.76,
+      "end": 230.76,
+      "text": "That I gave up",
+      "IsActive": false
+    },
+    {
+      "start": 235.76,
+      "end": 238.76,
+      "text": "No, I gave up",
+      "IsActive": false
+    },
+    {
+      "start": 247.76,
+      "end": 250.76,
+      "text": "No, I gave up",
+      "IsActive": false
+    }
+  ],
+  "chords": [
+    {
+      "time": 0,
+      "chord": "Dm"
+    },
+    {
+      "time": 3.9938321995464854,
+      "chord": "F"
+    },
+    {
+      "time": 5.990748299319728,
+      "chord": "Am"
+    },
+    {
+      "time": 7.987664399092971,
+      "chord": "F"
+    },
+    {
+      "time": 9.984580498866213,
+      "chord": "Dm"
+    },
+    {
+      "time": 11.981496598639456,
+      "chord": "C"
+    },
+    {
+      "time": 13.978412698412699,
+      "chord": "Dm"
+    },
+    {
+      "time": 15.975328798185942,
+      "chord": "F"
+    },
+    {
+      "time": 17.972244897959182,
+      "chord": "Dm"
+    },
+    {
+      "time": 19.969160997732427,
+      "chord": "C"
+    },
+    {
+      "time": 21.966077097505668,
+      "chord": "Bb"
+    },
+    {
+      "time": 25.959909297052153,
+      "chord": "Dm"
+    },
+    {
+      "time": 27.956825396825398,
+      "chord": "C"
+    },
+    {
+      "time": 29.95374149659864,
+      "chord": "Bb"
+    },
+    {
+      "time": 33.94757369614513,
+      "chord": "F"
+    },
+    {
+      "time": 35.944489795918365,
+      "chord": "C"
+    },
+    {
+      "time": 37.94140589569161,
+      "chord": "Bb"
+    },
+    {
+      "time": 39.938321995464854,
+      "chord": "F"
+    },
+    {
+      "time": 41.9352380952381,
+      "chord": "Dm"
+    },
+    {
+      "time": 43.932154195011336,
+      "chord": "Am"
+    },
+    {
+      "time": 45.92907029478458,
+      "chord": "Bb"
+    },
+    {
+      "time": 47.925986394557825,
+      "chord": "F"
+    },
+    {
+      "time": 49.92290249433107,
+      "chord": "Am"
+    },
+    {
+      "time": 51.919818594104306,
+      "chord": "G"
+    },
+    {
+      "time": 55.913650793650795,
+      "chord": "F"
+    },
+    {
+      "time": 57.91056689342403,
+      "chord": "Am"
+    },
+    {
+      "time": 59.90748299319728,
+      "chord": "C"
+    },
+    {
+      "time": 63.901315192743766,
+      "chord": "Am"
+    },
+    {
+      "time": 65.89823129251701,
+      "chord": "C"
+    },
+    {
+      "time": 67.89514739229026,
+      "chord": "G"
+    },
+    {
+      "time": 71.88897959183673,
+      "chord": "Am"
+    },
+    {
+      "time": 73.88589569160997,
+      "chord": "F"
+    },
+    {
+      "time": 75.88281179138322,
+      "chord": "G"
+    },
+    {
+      "time": 79.87664399092971,
+      "chord": "Dm"
+    },
+    {
+      "time": 81.87356009070295,
+      "chord": "C"
+    },
+    {
+      "time": 83.8704761904762,
+      "chord": "Bb"
+    },
+    {
+      "time": 87.86430839002267,
+      "chord": "F"
+    },
+    {
+      "time": 91.85814058956916,
+      "chord": "Bb"
+    },
+    {
+      "time": 93.8550566893424,
+      "chord": "Dm"
+    },
+    {
+      "time": 95.85197278911565,
+      "chord": "F"
+    },
+    {
+      "time": 97.8488888888889,
+      "chord": "Bb"
+    },
+    {
+      "time": 101.84272108843537,
+      "chord": "Dm"
+    },
+    {
+      "time": 103.83963718820861,
+      "chord": "F"
+    },
+    {
+      "time": 105.83655328798186,
+      "chord": "Bb"
+    },
+    {
+      "time": 109.83038548752835,
+      "chord": "F"
+    },
+    {
+      "time": 111.82730158730159,
+      "chord": "Am"
+    },
+    {
+      "time": 113.82421768707484,
+      "chord": "G"
+    },
+    {
+      "time": 117.81804988662131,
+      "chord": "F"
+    },
+    {
+      "time": 119.81496598639455,
+      "chord": "Am"
+    }
+  ]
+}
