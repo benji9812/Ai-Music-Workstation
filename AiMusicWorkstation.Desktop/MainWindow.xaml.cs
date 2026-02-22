@@ -1,23 +1,18 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text.Json;
-using System.Threading.Tasks;
-using System.IO;
-using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Controls.Primitives;
-using System.Windows.Threading;
-using System.Windows.Input;
-using System.Windows.Data;
-using System.ComponentModel;
+﻿using AiMusicWorkstation.Desktop.Models;
+using AiMusicWorkstation.Desktop.Services;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Win32;
 using NAudio.Wave;
 using System.Collections.ObjectModel;
-
-using AiMusicWorkstation.Desktop.Services;
-using AiMusicWorkstation.Desktop.Models;
-using Microsoft.Extensions.Configuration;
+using System.ComponentModel;
+using System.IO;
+using System.Text.Json;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
+using System.Windows.Data;
+using System.Windows.Input;
+using System.Windows.Threading;
 
 namespace AiMusicWorkstation.Desktop
 {

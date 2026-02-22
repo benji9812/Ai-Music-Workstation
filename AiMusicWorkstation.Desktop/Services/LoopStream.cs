@@ -1,5 +1,4 @@
 ﻿using NAudio.Wave;
-using System;
 
 namespace AiMusicWorkstation.Desktop.Services
 {
