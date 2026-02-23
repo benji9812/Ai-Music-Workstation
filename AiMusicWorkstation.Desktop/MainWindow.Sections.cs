@@ -13,16 +13,6 @@ namespace AiMusicWorkstation.Desktop
     {
         private List<SongSection> _currentSections = new List<SongSection>();
 
-        private void TabSections_Click(object sender, RoutedEventArgs e)
-        {
-            TabChordBtn.IsChecked = false;
-            TabScaleBtn.IsChecked = false;
-            TabSectionsBtn.IsChecked = true;
-            ChordView.Visibility = Visibility.Collapsed;
-            ScaleView.Visibility = Visibility.Collapsed;
-            SectionsView.Visibility = Visibility.Visible;
-        }
-
         private void AddSection_Click(object sender, RoutedEventArgs e)
         {
             double total = _player.TotalTime.TotalSeconds;
@@ -95,6 +85,18 @@ namespace AiMusicWorkstation.Desktop
                 double end = sec.EndTime > 0 ? sec.EndTime : TimelineSlider.Maximum;
                 sec.IsActive = currentTime >= sec.StartTime && currentTime < end;
             }
+        }
+
+        private void ClearSections()
+        {
+            _currentSections.Clear();
+            RefreshSectionsList();
+        }
+
+        private void SectionsEdit_Click(object sender, RoutedEventArgs e)
+        {
+            bool isEdit = SectionsEditBtn.IsChecked == true;
+            SectionsEditBar.Visibility = isEdit ? Visibility.Visible : Visibility.Collapsed;
         }
     }
 }

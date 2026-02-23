@@ -18,6 +18,7 @@ C:\Project C.O.D.E\AiMusicWorkstation\AiMusicWorkstation.Api\obj\Debug\net10.0\A
 C:\Project C.O.D.E\AiMusicWorkstation\AiMusicWorkstation.Api\obj\Debug\net10.0\AiMusicWorkstation.Api.csproj.CoreCompileInputs.cache
 C:\Project C.O.D.E\AiMusicWorkstation\AiMusicWorkstation.Api\obj\Debug\net10.0\AiMusicWorkstation.Api.MvcApplicationPartsAssemblyInfo.cs
 C:\Project C.O.D.E\AiMusicWorkstation\AiMusicWorkstation.Api\obj\Debug\net10.0\AiMusicWorkstation.Api.MvcApplicationPartsAssemblyInfo.cache
+C:\Project C.O.D.E\AiMusicWorkstation\AiMusicWorkstation.Api\obj\Debug\net10.0\AiMusicWorkstation.Api.sourcelink.json
 C:\Project C.O.D.E\AiMusicWorkstation\AiMusicWorkstation.Api\obj\Debug\net10.0\rjimswa.dswa.cache.json
 C:\Project C.O.D.E\AiMusicWorkstation\AiMusicWorkstation.Api\obj\Debug\net10.0\rjsmrazor.dswa.cache.json
 C:\Project C.O.D.E\AiMusicWorkstation\AiMusicWorkstation.Api\obj\Debug\net10.0\rjsmcshtml.dswa.cache.json

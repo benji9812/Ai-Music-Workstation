@@ -175,8 +175,9 @@ namespace AiMusicWorkstation.Desktop
                 }
 
                 _currentLyrics = new ObservableCollection<LyricSegment>(
-                    analysisData.Lyrics ?? new List<LyricSegment>());
+                 analysisData.Lyrics ?? new List<LyricSegment>());
                 _currentChords = analysisData.Chords ?? new List<ChordEvent>();
+                ClearSections();
                 LyricsList.ItemsSource = _currentLyrics;
 
                 if (analysisData.Bpm > 0)
@@ -893,6 +894,7 @@ namespace AiMusicWorkstation.Desktop
                         }
                     }
 
+                    ClearSections();
                     var (lyrics, chords) = LoadLyricsAndChords(p.StemsPath);
                     _currentLyrics = new ObservableCollection<LyricSegment>(lyrics);
                     _currentChords = chords;
@@ -1069,20 +1071,16 @@ namespace AiMusicWorkstation.Desktop
         {
             TabChordBtn.IsChecked = true;
             TabScaleBtn.IsChecked = false;
-            TabSectionsBtn.IsChecked = false;
             ChordView.Visibility = Visibility.Visible;
             ScaleView.Visibility = Visibility.Collapsed;
-            SectionsView.Visibility = Visibility.Collapsed;
         }
 
         private void TabScale_Click(object sender, RoutedEventArgs e)
         {
             TabChordBtn.IsChecked = false;
             TabScaleBtn.IsChecked = true;
-            TabSectionsBtn.IsChecked = false;
             ChordView.Visibility = Visibility.Collapsed;
             ScaleView.Visibility = Visibility.Visible;
-            SectionsView.Visibility = Visibility.Collapsed;
             UpdateScaleDiagram();
         }
 
@@ -1129,6 +1127,13 @@ namespace AiMusicWorkstation.Desktop
             var brush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Colors.DodgerBlue);
             CurrentChordText.Foreground = brush;
             brush.BeginAnimation(System.Windows.Media.SolidColorBrush.ColorProperty, animation);
+        }
+
+        private void ToggleSections_Click(object sender, RoutedEventArgs e)
+        {
+            bool show = ToggleSectionsBtn.IsChecked == true;
+            SectionsPanel.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+            SectionsColumn.Width = show ? new GridLength(180) : new GridLength(0);
         }
     }
 }

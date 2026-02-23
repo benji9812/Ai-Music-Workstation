@@ -5,6 +5,7 @@ C:\Project C.O.D.E\AiMusicWorkstation\AiMusicWorkstation.Shared\obj\Debug\net10.
 C:\Project C.O.D.E\AiMusicWorkstation\AiMusicWorkstation.Shared\obj\Debug\net10.0\AiMusicWorkstation.Shared.AssemblyInfoInputs.cache
 C:\Project C.O.D.E\AiMusicWorkstation\AiMusicWorkstation.Shared\obj\Debug\net10.0\AiMusicWorkstation.Shared.AssemblyInfo.cs
 C:\Project C.O.D.E\AiMusicWorkstation\AiMusicWorkstation.Shared\obj\Debug\net10.0\AiMusicWorkstation.Shared.csproj.CoreCompileInputs.cache
+C:\Project C.O.D.E\AiMusicWorkstation\AiMusicWorkstation.Shared\obj\Debug\net10.0\AiMusicWorkstation.Shared.sourcelink.json
 C:\Project C.O.D.E\AiMusicWorkstation\AiMusicWorkstation.Shared\obj\Debug\net10.0\AiMusicWorkstation.Shared.dll
 C:\Project C.O.D.E\AiMusicWorkstation\AiMusicWorkstation.Shared\obj\Debug\net10.0\refint\AiMusicWorkstation.Shared.dll
 C:\Project C.O.D.E\AiMusicWorkstation\AiMusicWorkstation.Shared\obj\Debug\net10.0\AiMusicWorkstation.Shared.pdb

@@ -465,9 +465,10 @@
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition x:Name="ChordColumn" Width="190"/>
                                 <ColumnDefinition Width="*"/>
+                                <ColumnDefinition x:Name="SectionsColumn" Width="180"/>
                             </Grid.ColumnDefinitions>
 
-                            <!-- CHORD / SCALE / SECTIONS PANEL -->
+                            <!-- CHORD / SCALE PANEL -->
                             <Border x:Name="ChordPanel" Grid.Column="0" Background="#161616"
                                     CornerRadius="12,0,0,12" Padding="10,8">
                                 <Grid>
@@ -476,10 +477,9 @@
                                         <RowDefinition Height="*"/>
                                     </Grid.RowDefinitions>
 
-                                    <!-- Flik-knappar: Chord | Scale | Sections -->
+                                    <!-- Flik-knappar: Chord | Scale -->
                                     <Grid Grid.Row="0" Margin="0,0,0,6">
                                         <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="*"/>
                                         </Grid.ColumnDefinitions>
@@ -497,7 +497,7 @@
                                                     <Setter Property="Cursor" Value="Hand"/>
                                                     <Style.Triggers>
                                                         <Trigger Property="IsChecked" Value="True">
-                                                            <Setter Property="Background" Value="#007acc"/>
+                                                            <Setter Property="Background" Value="#2A5A7A"/>
                                                             <Setter Property="Foreground" Value="White"/>
                                                             <Setter Property="FontWeight" Value="Bold"/>
                                                         </Trigger>
@@ -522,32 +522,7 @@
                                                     <Setter Property="Cursor" Value="Hand"/>
                                                     <Style.Triggers>
                                                         <Trigger Property="IsChecked" Value="True">
-                                                            <Setter Property="Background" Value="#007acc"/>
-                                                            <Setter Property="Foreground" Value="White"/>
-                                                            <Setter Property="FontWeight" Value="Bold"/>
-                                                        </Trigger>
-                                                        <Trigger Property="IsMouseOver" Value="True">
-                                                            <Setter Property="Background" Value="#2a2a2a"/>
-                                                        </Trigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </ToggleButton.Style>
-                                        </ToggleButton>
-
-                                        <ToggleButton x:Name="TabSectionsBtn" Grid.Column="2"
-                                                      Content="Sections"
-                                                      Click="TabSections_Click">
-                                            <ToggleButton.Style>
-                                                <Style TargetType="ToggleButton">
-                                                    <Setter Property="Background" Value="#252525"/>
-                                                    <Setter Property="Foreground" Value="#888"/>
-                                                    <Setter Property="BorderThickness" Value="0"/>
-                                                    <Setter Property="FontSize" Value="10"/>
-                                                    <Setter Property="Padding" Value="4,3"/>
-                                                    <Setter Property="Cursor" Value="Hand"/>
-                                                    <Style.Triggers>
-                                                        <Trigger Property="IsChecked" Value="True">
-                                                            <Setter Property="Background" Value="#007acc"/>
+                                                            <Setter Property="Background" Value="#2A5A7A"/>
                                                             <Setter Property="Foreground" Value="White"/>
                                                             <Setter Property="FontWeight" Value="Bold"/>
                                                         </Trigger>
@@ -596,7 +571,7 @@
                                                         <Setter Property="Cursor" Value="Hand"/>
                                                         <Style.Triggers>
                                                             <Trigger Property="IsChecked" Value="True">
-                                                                <Setter Property="Background" Value="#007acc"/>
+                                                                <Setter Property="Background" Value="#2A5A7A"/>
                                                                 <Setter Property="Foreground" Value="White"/>
                                                                 <Setter Property="FontWeight" Value="Bold"/>
                                                             </Trigger>
@@ -620,7 +595,7 @@
                                                         <Setter Property="Cursor" Value="Hand"/>
                                                         <Style.Triggers>
                                                             <Trigger Property="IsChecked" Value="True">
-                                                                <Setter Property="Background" Value="#007acc"/>
+                                                                <Setter Property="Background" Value="#2A5A7A"/>
                                                                 <Setter Property="Foreground" Value="White"/>
                                                                 <Setter Property="FontWeight" Value="Bold"/>
                                                             </Trigger>
@@ -641,102 +616,119 @@
                                                 Background="Transparent"
                                                 ClipToBounds="True"/>
                                     </StackPanel>
+                                </Grid>
+                            </Border>
 
-                                    <!-- Sections-vy -->
-                                    <Grid x:Name="SectionsView" Grid.Row="1" Visibility="Collapsed">
-                                        <Grid.RowDefinitions>
-                                            <RowDefinition Height="*"/>
-                                            <RowDefinition Height="Auto"/>
-                                        </Grid.RowDefinitions>
+                            <!-- SECTIONS PANEL (standalone, kolumn 2) -->
+                            <Border x:Name="SectionsPanel" Grid.Column="2"
+                                    Background="#161616" CornerRadius="0,12,12,0"
+                                    Margin="1,0,0,0">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="*"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
 
-                                        <!-- Sektionslista -->
-                                        <ScrollViewer Grid.Row="0"
-                                                      VerticalScrollBarVisibility="Auto"
-                                                      HorizontalScrollBarVisibility="Disabled">
-                                            <ItemsControl x:Name="SectionsList">
-                                                <ItemsControl.ItemTemplate>
-                                                    <DataTemplate>
-                                                        <Border x:Name="SectionItemBorder"
-                                                                Background="Transparent"
-                                                                Padding="4,5,4,5"
-                                                                Cursor="Hand">
-                                                            <Border.Style>
-                                                                <Style TargetType="Border">
-                                                                    <Style.Triggers>
-                                                                        <Trigger Property="IsMouseOver" Value="True">
-                                                                            <Setter Property="Background" Value="#1A2530"/>
-                                                                        </Trigger>
-                                                                        <DataTrigger Binding="{Binding IsActive}" Value="True">
-                                                                            <Setter Property="Background" Value="#0D2035"/>
-                                                                        </DataTrigger>
-                                                                    </Style.Triggers>
-                                                                </Style>
-                                                            </Border.Style>
-                                                            <Grid>
-                                                                <Grid.ColumnDefinitions>
-                                                                    <ColumnDefinition Width="Auto"/>
-                                                                    <ColumnDefinition Width="*"/>
-                                                                    <ColumnDefinition Width="Auto"/>
-                                                                </Grid.ColumnDefinitions>
+                                    <!-- Header -->
+                                    <Border Grid.Row="0" Padding="8,6"
+                                            BorderThickness="0,0,0,1" BorderBrush="#2A2A2A">
+                                        <TextBlock Text="SECTIONS" Foreground="#555"
+                                                   FontSize="10" FontWeight="Bold"/>
+                                    </Border>
 
-                                                                <!-- Färgindikator -->
-                                                                <Border Grid.Column="0"
-                                                                        Width="3" CornerRadius="2"
-                                                                        Margin="0,0,7,0"
-                                                                        Background="{Binding ColorBrush}"/>
+                                    <!-- Sektionslista -->
+                                    <ScrollViewer Grid.Row="1"
+                                                  VerticalScrollBarVisibility="Auto"
+                                                  HorizontalScrollBarVisibility="Disabled">
+                                        <ItemsControl x:Name="SectionsList">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border x:Name="SectionItemBorder"
+                                                            Background="Transparent"
+                                                            Padding="4,5,4,5"
+                                                            Cursor="Hand"
+                                                            MouseDown="SectionItem_MouseDown">
+                                                        <Border.Style>
+                                                            <Style TargetType="Border">
+                                                                <Style.Triggers>
+                                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                                        <Setter Property="Background" Value="#1A2530"/>
+                                                                    </Trigger>
+                                                                    <DataTrigger Binding="{Binding IsActive}" Value="True">
+                                                                        <Setter Property="Background" Value="#0D2035"/>
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </Border.Style>
+                                                        <Grid>
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                                <ColumnDefinition Width="*"/>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                            </Grid.ColumnDefinitions>
+                                                            <Border Grid.Column="0"
+                                                                    Width="3" CornerRadius="2"
+                                                                    Margin="0,0,7,0"
+                                                                    Background="{Binding ColorBrush}"/>
+                                                            <TextBlock Grid.Column="1"
+                                                                       Text="{Binding Label}"
+                                                                       VerticalAlignment="Center"
+                                                                       FontSize="12" FontWeight="SemiBold">
+                                                                <TextBlock.Style>
+                                                                    <Style TargetType="TextBlock">
+                                                                        <Setter Property="Foreground" Value="#AAA"/>
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding IsActive}" Value="True">
+                                                                                <Setter Property="Foreground" Value="White"/>
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </TextBlock.Style>
+                                                            </TextBlock>
+                                                            <TextBlock Grid.Column="2"
+                                                                       Text="{Binding TimeDisplay}"
+                                                                       VerticalAlignment="Center"
+                                                                       FontSize="10">
+                                                                <TextBlock.Style>
+                                                                    <Style TargetType="TextBlock">
+                                                                        <Setter Property="Foreground" Value="#555"/>
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding IsActive}" Value="True">
+                                                                                <Setter Property="Foreground" Value="#2A5A7A"/>
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </TextBlock.Style>
+                                                            </TextBlock>
+                                                        </Grid>
+                                                        <Border.ContextMenu>
+                                                            <ContextMenu>
+                                                                <MenuItem Header="❌ Remove" Click="RemoveSection_Click"
+                                                                          Tag="{Binding}"/>
+                                                            </ContextMenu>
+                                                        </Border.ContextMenu>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </ScrollViewer>
 
-                                                                <!-- Label -->
-                                                                <TextBlock Grid.Column="1"
-                                                                           Text="{Binding Label}"
-                                                                           VerticalAlignment="Center"
-                                                                           FontSize="12" FontWeight="SemiBold">
-                                                                    <TextBlock.Style>
-                                                                        <Style TargetType="TextBlock">
-                                                                            <Setter Property="Foreground" Value="#AAA"/>
-                                                                            <Style.Triggers>
-                                                                                <DataTrigger Binding="{Binding IsActive}" Value="True">
-                                                                                    <Setter Property="Foreground" Value="White"/>
-                                                                                </DataTrigger>
-                                                                            </Style.Triggers>
-                                                                        </Style>
-                                                                    </TextBlock.Style>
-                                                                </TextBlock>
-
-                                                                <!-- Tid -->
-                                                                <TextBlock Grid.Column="2"
-                                                                           Text="{Binding TimeDisplay}"
-                                                                           VerticalAlignment="Center"
-                                                                           FontSize="10">
-                                                                    <TextBlock.Style>
-                                                                        <Style TargetType="TextBlock">
-                                                                            <Setter Property="Foreground" Value="#555"/>
-                                                                            <Style.Triggers>
-                                                                                <DataTrigger Binding="{Binding IsActive}" Value="True">
-                                                                                    <Setter Property="Foreground" Value="#007ACC"/>
-                                                                                </DataTrigger>
-                                                                            </Style.Triggers>
-                                                                        </Style>
-                                                                    </TextBlock.Style>
-                                                                </TextBlock>
-                                                            </Grid>
-
-                                                            <!-- Högerklick: ta bort -->
-                                                            <Border.ContextMenu>
-                                                                <ContextMenu>
-                                                                    <MenuItem Header="❌ Remove" Click="RemoveSection_Click"
-                                                                    Tag="{Binding}"/>
-                                                                </ContextMenu>
-                                                            </Border.ContextMenu>
-                                                        </Border>
-                                                    </DataTemplate>
-                                                </ItemsControl.ItemTemplate>
-                                            </ItemsControl>
-                                        </ScrollViewer>
-
-                                        <!-- Lägg till sektion -->
-                                        <Border Grid.Row="1" Background="#111" Padding="6,5"
-                                                BorderThickness="0,1,0,0" BorderBrush="#2A2A2A">
-                                            <Grid>
+                                    <!-- Edit toolbar -->
+                                    <Border Grid.Row="2" Background="#111" Padding="6,5"
+                                            BorderThickness="0,1,0,0" BorderBrush="#2A2A2A">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <ToggleButton x:Name="SectionsEditBtn" Grid.Column="0"
+                                                          Content="✏️ Edit" Click="SectionsEdit_Click"
+                                                          Background="#2A2A2A" Foreground="#888"
+                                                          FontSize="10" Padding="6,3"
+                                                          Cursor="Hand" Height="22"/>
+                                            <Grid x:Name="SectionsEditBar" Grid.Column="1"
+                                                    Visibility="Collapsed" Margin="6,0,0,0">
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="*"/>
                                                     <ColumnDefinition Width="Auto"/>
@@ -763,16 +755,16 @@
                                                 </ComboBox>
                                                 <Button Grid.Column="1" Content="＋ Mark"
                                                         Click="AddSection_Click"
-                                                        Background="#007ACC" Foreground="White"
+                                                        Background="#2A5A7A" Foreground="White"
                                                         FontSize="10" FontWeight="Bold"
                                                         Padding="8,3" Margin="4,0,0,0"
-                                                        Cursor="Hand" Height="22"
-                                                        ToolTip="Mark current playback position as section start"/>
+                                                        Cursor="Hand" Height="22"/>
                                             </Grid>
-                                        </Border>
-                                    </Grid>
+                                        </Grid>
+                                    </Border>
                                 </Grid>
                             </Border>
+
 
                             <!-- LYRICS -->
                             <Grid x:Name="LyricsPanel" Grid.Column="1"
@@ -851,6 +843,12 @@
                                               Width="26" Height="26" FontSize="13"
                                               IsChecked="True" Margin="4,0,0,0"
                                               Click="ToggleLyrics_Click"
+                                              Background="#2A2A2A" Foreground="White"/>
+                                <ToggleButton x:Name="ToggleSectionsBtn"
+                                              Content="🎼" ToolTip="Visa/dölj sections"
+                                              Width="26" Height="26" FontSize="13"
+                                              IsChecked="True" Margin="4,0,0,0"
+                                              Click="ToggleSections_Click"
                                               Background="#2A2A2A" Foreground="White"/>
                             </StackPanel>
                         </Grid>
