@@ -29,6 +29,7 @@ namespace AiMusicWorkstation.Desktop
         private bool _isTimerUpdate = false;
         private bool _isTransposing = false;
         private bool _isRefreshing = false;
+        private bool _isHandlingPlaybackStopped = false;
 
         private double _currentPrimaryBpm = 0;
         private double _currentAltBpm = 0;
@@ -58,11 +59,26 @@ namespace AiMusicWorkstation.Desktop
                 Dispatcher.Invoke(() =>
                 {
                     if (_isTransposing) return;
+                    if (_isHandlingPlaybackStopped) return;
+                    _isHandlingPlaybackStopped = true;
+
+                    _metronome.Stop();
+                    _metronome.ResetEvents();
+                    MetronomeBtn.IsChecked = false;
+                    MetronomeBtn.Content = "🥁 Metro";
+                    MetronomeBeatText.Text = "";
+                    MetronomePulse.Opacity = 0.2;
+
                     PlayPauseBtn.Content = "▶";
                     _timelineTimer.Stop();
+
+                    _player.Reinitialize(); // Re-init WaveOutEvent så Play() fungerar igen
                     _isTimerUpdate = true;
                     TimelineSlider.Value = 0;
                     _isTimerUpdate = false;
+                    UpdateTimerText();
+
+                    _isHandlingPlaybackStopped = false;
                 });
             };
 

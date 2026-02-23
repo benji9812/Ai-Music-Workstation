@@ -15,7 +15,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("AiMusicWorkstation.Desktop")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+5a93b0994e86f63ca1d2a7b3b75643ff13d22f5b")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+5bfd03ffec84712fd0aefb3032c1d88cbc0e7229")]
 [assembly: System.Reflection.AssemblyProductAttribute("AiMusicWorkstation.Desktop")]
 [assembly: System.Reflection.AssemblyTitleAttribute("AiMusicWorkstation.Desktop")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
