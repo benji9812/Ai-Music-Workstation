@@ -122,12 +122,12 @@
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
                     <TextBlock Text="LIBRARY" Foreground="#888" FontWeight="Bold"
-               FontSize="12" VerticalAlignment="Center"/>
+                               FontSize="12" VerticalAlignment="Center"/>
                     <Button Grid.Column="1" Content="⟳ Refresh Metadata"
-            Click="RefreshMetadata_Click"
-            Background="#1A2E3D" Foreground="#007ACC"
-            FontSize="10" FontWeight="Bold"
-            Padding="8,4" Cursor="Hand"/>
+                            Click="RefreshMetadata_Click"
+                            Background="#1A2E3D" Foreground="#007ACC"
+                            FontSize="10" FontWeight="Bold"
+                            Padding="8,4" Cursor="Hand"/>
                 </Grid>
                 <Border Background="#2A2A2A" CornerRadius="5" Padding="8,5" Margin="0,0,0,10">
                     <TextBox x:Name="SearchBox" TextChanged="SearchBox_TextChanged"
@@ -149,29 +149,29 @@
                         <ComboBoxItem Content="BPM"/>
                     </ComboBox>
                     <ComboBox x:Name="GenreCombo" Grid.Column="2"
-          SelectionChanged="Filter_Changed" SelectedIndex="0"
-          Background="#333" Foreground="Black">
+                              SelectionChanged="Filter_Changed" SelectedIndex="0"
+                              Background="#333" Foreground="Black">
                         <ComboBoxItem Content="All Genres"/>
                     </ComboBox>
                 </Grid>
             </StackPanel>
 
             <ListBox x:Name="ProjectList" Grid.Row="1"
-         Background="Transparent" BorderThickness="0"
-         SelectionChanged="ProjectList_SelectionChanged"
-         Margin="10,0,10,10">
+                     Background="Transparent" BorderThickness="0"
+                     SelectionChanged="ProjectList_SelectionChanged"
+                     Margin="10,0,10,10">
                 <ListBox.ItemTemplate>
                     <DataTemplate>
                         <Grid Margin="0,3" Background="Transparent" Tag="{Binding}">
                             <Grid.ContextMenu>
                                 <ContextMenu>
                                     <MenuItem Header="✏️ Rename" Click="Rename_Click"
-                                  Tag="{Binding PlacementTarget.Tag, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                              Tag="{Binding PlacementTarget.Tag, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                                     <MenuItem Header="📁 Move to Group..." Click="MoveToGroup_Click"
-                                  Tag="{Binding PlacementTarget.Tag, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                              Tag="{Binding PlacementTarget.Tag, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                                     <Separator/>
                                     <MenuItem Header="❌ Delete" Click="Delete_Click"
-                                  Tag="{Binding PlacementTarget.Tag, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                                              Tag="{Binding PlacementTarget.Tag, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                                 </ContextMenu>
                             </Grid.ContextMenu>
                             <Grid.ColumnDefinitions>
@@ -179,30 +179,30 @@
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
                             <Border Grid.Column="0" Background="#007ACC"
-                        CornerRadius="2" Margin="0,2"/>
+                                    CornerRadius="2" Margin="0,2"/>
                             <StackPanel Grid.Column="1" Margin="10,4,4,4">
                                 <TextBlock Text="{Binding Title}"
-                               FontWeight="SemiBold" FontSize="13"
-                               Foreground="White" TextTrimming="CharacterEllipsis"/>
+                                           FontWeight="SemiBold" FontSize="13"
+                                           Foreground="White" TextTrimming="CharacterEllipsis"/>
                                 <TextBlock Text="{Binding Artist}"
-                               FontSize="11" Foreground="#999"
-                               TextTrimming="CharacterEllipsis"/>
+                                           FontSize="11" Foreground="#999"
+                                           TextTrimming="CharacterEllipsis"/>
                                 <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
                                     <TextBlock Text="{Binding Bpm, StringFormat={}{0:F0}}"
-               Foreground="#555" FontSize="10"/>
+                                               Foreground="#555" FontSize="10"/>
                                     <TextBlock Text=" BPM • " Foreground="#444" FontSize="10"/>
                                     <TextBlock Text="{Binding Key}"
-               Foreground="#555" FontSize="10" FontWeight="Bold"/>
+                                               Foreground="#555" FontSize="10" FontWeight="Bold"/>
                                     <TextBlock Text=" • " Foreground="#444" FontSize="10"/>
                                     <TextBlock Text="{Binding Genre}"
-               Foreground="#666" FontSize="10" FontStyle="Italic"/>
+                                               Foreground="#666" FontSize="10" FontStyle="Italic"/>
                                 </StackPanel>
                             </StackPanel>
                         </Grid>
                     </DataTemplate>
                 </ListBox.ItemTemplate>
 
-                <!-- NY: Grupprubriker med separator-linjer -->
+                <!-- Grupprubriker med separator-linjer -->
                 <ListBox.GroupStyle>
                     <GroupStyle>
                         <GroupStyle.HeaderTemplate>
@@ -318,22 +318,22 @@
                         <!-- BPM -->
                         <StackPanel>
                             <TextBlock Text="TEMPO" Foreground="#555"
-                   HorizontalAlignment="Center" FontSize="12" FontWeight="Bold"/>
+                                       HorizontalAlignment="Center" FontSize="12" FontWeight="Bold"/>
                             <StackPanel HorizontalAlignment="Center">
                                 <TextBlock x:Name="BpmText" Text="--" Foreground="#007ACC"
-                       FontSize="56" FontWeight="Bold" Cursor="Hand"
-                       ToolTip="Klicka för att växla BPM"
-                       Background="Transparent"/>
+                                           FontSize="56" FontWeight="Bold" Cursor="Hand"
+                                           ToolTip="Klicka för att växla BPM"
+                                           Background="Transparent"/>
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,4,0,0">
                                     <Border x:Name="OfficialBadge" Visibility="Collapsed"
-                        Background="#1DB954" CornerRadius="12" Padding="8,3">
+                                            Background="#1DB954" CornerRadius="12" Padding="8,3">
                                         <TextBlock Text="✓ SPOTIFY" Foreground="White"
-                               FontSize="9" FontWeight="Bold"/>
+                                                   FontSize="9" FontWeight="Bold"/>
                                     </Border>
                                     <Border x:Name="AiBadge" Visibility="Collapsed"
-                        Background="#333" CornerRadius="12" Padding="8,3">
+                                            Background="#333" CornerRadius="12" Padding="8,3">
                                         <TextBlock Text="⚡ AI ANALYSIS" Foreground="#888"
-                               FontSize="9" FontWeight="Bold"/>
+                                                   FontSize="9" FontWeight="Bold"/>
                                     </Border>
                                 </StackPanel>
                             </StackPanel>
@@ -342,15 +342,15 @@
                         <!-- TIME SIGNATURE -->
                         <StackPanel>
                             <TextBlock Text="TIME SIG" Foreground="#555"
-                   HorizontalAlignment="Center" FontSize="12" FontWeight="Bold"/>
+                                       HorizontalAlignment="Center" FontSize="12" FontWeight="Bold"/>
                             <StackPanel HorizontalAlignment="Center">
                                 <TextBlock x:Name="TimeSigText" Text="--" Foreground="#007ACC"
-                       FontSize="56" FontWeight="Bold"
-                       HorizontalAlignment="Center"/>
+                                           FontSize="56" FontWeight="Bold"
+                                           HorizontalAlignment="Center"/>
                                 <Border Background="#333" CornerRadius="12" Padding="8,3"
-                    HorizontalAlignment="Center" Margin="0,4,0,0">
+                                        HorizontalAlignment="Center" Margin="0,4,0,0">
                                     <TextBlock x:Name="TimeSigBadge" Text="⚡ AI ANALYSIS"
-                           Foreground="#888" FontSize="9" FontWeight="Bold"/>
+                                               Foreground="#888" FontSize="9" FontWeight="Bold"/>
                                 </Border>
                             </StackPanel>
                         </StackPanel>
@@ -358,21 +358,21 @@
                         <!-- KEY -->
                         <StackPanel>
                             <TextBlock Text="KEY" Foreground="#555"
-                   HorizontalAlignment="Center" FontSize="12" FontWeight="Bold"/>
+                                       HorizontalAlignment="Center" FontSize="12" FontWeight="Bold"/>
                             <StackPanel HorizontalAlignment="Center">
                                 <TextBlock x:Name="KeyText" Text="--" Foreground="#007ACC"
-                       FontSize="56" FontWeight="Bold"
-                       HorizontalAlignment="Center"/>
+                                           FontSize="56" FontWeight="Bold"
+                                           HorizontalAlignment="Center"/>
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,4,0,0">
                                     <Border x:Name="KeyOfficialBadge" Visibility="Collapsed"
-                        Background="#1DB954" CornerRadius="12" Padding="8,3">
+                                            Background="#1DB954" CornerRadius="12" Padding="8,3">
                                         <TextBlock Text="✓ SPOTIFY" Foreground="White"
-                               FontSize="9" FontWeight="Bold"/>
+                                                   FontSize="9" FontWeight="Bold"/>
                                     </Border>
                                     <Border x:Name="KeyAiBadge" Visibility="Collapsed"
-                        Background="#333" CornerRadius="12" Padding="8,3">
+                                            Background="#333" CornerRadius="12" Padding="8,3">
                                         <TextBlock Text="⚡ AI ANALYSIS" Foreground="#888"
-                               FontSize="9" FontWeight="Bold"/>
+                                                   FontSize="9" FontWeight="Bold"/>
                                     </Border>
                                 </StackPanel>
                             </StackPanel>
@@ -405,20 +405,21 @@
                                     Background="#2A2A2A" Foreground="#888" FontSize="16"
                                     Click="TransposeReset_Click" Cursor="Hand"
                                     ToolTip="Reset to original key"/>
+                            
                             <!-- METRONOM -->
                             <Border Background="#1A1A1A" CornerRadius="6" Padding="8,4" Margin="16,0,0,0">
                                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                     <Border x:Name="MetronomePulse" Width="10" Height="10"
-                Background="#007ACC" CornerRadius="5"
-                Opacity="0.2" Margin="0,0,8,0"/>
+                                            Background="#007ACC" CornerRadius="5"
+                                            Opacity="0.2" Margin="0,0,8,0"/>
                                     <ComboBox x:Name="TimeSignatureCombo" Width="55"
-                  Background="#333" Foreground="Black"
-                  FontSize="11" Margin="0,0,8,0"
-                  SelectedIndex="0">
-                                        <ComboBoxItem Content="4/4"/>
-                                        <ComboBoxItem Content="3/4"/>
-                                        <ComboBoxItem Content="6/8"/>
-                                        <ComboBoxItem Content="2/4"/>
+                                              Background="#333" Foreground="Black"
+                                              FontSize="11" Margin="0,0,8,0"
+                                              SelectedIndex="0">
+                                    <ComboBoxItem Content="4/4"/>
+                                    <ComboBoxItem Content="3/4"/>
+                                    <ComboBoxItem Content="6/8"/>
+                                    <ComboBoxItem Content="2/4"/>
                                     </ComboBox>
                                     <ToggleButton x:Name="CountInBtn"
                                                   Content="Count In"
@@ -440,24 +441,23 @@
                                         </ToggleButton.Style>
                                     </ToggleButton>
                                     <TextBlock x:Name="MetronomeBeatText" Text=""
-                   Foreground="#007ACC" FontSize="11"
-                   VerticalAlignment="Center" Margin="0,0,8,0"
-                   MinWidth="50"/>
+                                               Foreground="#007ACC" FontSize="11"
+                                               VerticalAlignment="Center" Margin="0,0,8,0"
+                                               MinWidth="50"/>
                                     <ToggleButton x:Name="MetronomeBtn"
-                      Content="🥁 Metro"
-                      Click="MetronomeToggle_Click"
-                      Background="#2A2A2A" Foreground="White"
-                      FontSize="11" FontWeight="Bold"
-                      Padding="8,4" Cursor="Hand"/>
+                                                  Content="🥁 Metro"
+                                                  Click="MetronomeToggle_Click"
+                                                  Background="#2A2A2A" Foreground="White"
+                                                  FontSize="11" FontWeight="Bold"
+                                                  Padding="8,4" Cursor="Hand"/>
                                 </StackPanel>
                             </Border>
-
                         </StackPanel>
                     </Border>
 
                     <!-- LYRICS + CHORD PANEL -->
                     <Border Background="#1E1E1E" CornerRadius="12"
-        Height="220" Margin="0,0,0,20">
+                            Height="220" Margin="0,0,0,20">
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="*"/>
@@ -467,26 +467,32 @@
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
 
-                            <!-- CHORD / SCALE PANEL -->
+                            <!-- CHORD / SCALE / SECTIONS PANEL -->
                             <Border x:Name="ChordPanel" Grid.Column="0" Background="#161616"
-                CornerRadius="12,0,0,12" Padding="10,8">
-                                <StackPanel>
+                                    CornerRadius="12,0,0,12" Padding="10,8">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="*"/>
+                                    </Grid.RowDefinitions>
 
-                                    <!-- Chord / Scale flik-knappar -->
-                                    <Grid Margin="0,0,0,6">
+                                    <!-- Flik-knappar: Chord | Scale | Sections -->
+                                    <Grid Grid.Row="0" Margin="0,0,0,6">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
                                         </Grid.ColumnDefinitions>
+
                                         <ToggleButton x:Name="TabChordBtn" Grid.Column="0"
-                                  Content="Chord" IsChecked="True"
-                                  Click="TabChord_Click">
+                                                      Content="Chord" IsChecked="True"
+                                                      Click="TabChord_Click">
                                             <ToggleButton.Style>
                                                 <Style TargetType="ToggleButton">
                                                     <Setter Property="Background" Value="#252525"/>
                                                     <Setter Property="Foreground" Value="#888"/>
                                                     <Setter Property="BorderThickness" Value="0"/>
-                                                    <Setter Property="FontSize" Value="11"/>
+                                                    <Setter Property="FontSize" Value="10"/>
                                                     <Setter Property="Padding" Value="4,3"/>
                                                     <Setter Property="Cursor" Value="Hand"/>
                                                     <Style.Triggers>
@@ -502,15 +508,41 @@
                                                 </Style>
                                             </ToggleButton.Style>
                                         </ToggleButton>
+
                                         <ToggleButton x:Name="TabScaleBtn" Grid.Column="1"
-                                  Content="Scale"
-                                  Click="TabScale_Click">
+                                                      Content="Scale"
+                                                      Click="TabScale_Click">
                                             <ToggleButton.Style>
                                                 <Style TargetType="ToggleButton">
                                                     <Setter Property="Background" Value="#252525"/>
                                                     <Setter Property="Foreground" Value="#888"/>
                                                     <Setter Property="BorderThickness" Value="0"/>
-                                                    <Setter Property="FontSize" Value="11"/>
+                                                    <Setter Property="FontSize" Value="10"/>
+                                                    <Setter Property="Padding" Value="4,3"/>
+                                                    <Setter Property="Cursor" Value="Hand"/>
+                                                    <Style.Triggers>
+                                                        <Trigger Property="IsChecked" Value="True">
+                                                            <Setter Property="Background" Value="#007acc"/>
+                                                            <Setter Property="Foreground" Value="White"/>
+                                                            <Setter Property="FontWeight" Value="Bold"/>
+                                                        </Trigger>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter Property="Background" Value="#2a2a2a"/>
+                                                        </Trigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </ToggleButton.Style>
+                                        </ToggleButton>
+
+                                        <ToggleButton x:Name="TabSectionsBtn" Grid.Column="2"
+                                                      Content="Sections"
+                                                      Click="TabSections_Click">
+                                            <ToggleButton.Style>
+                                                <Style TargetType="ToggleButton">
+                                                    <Setter Property="Background" Value="#252525"/>
+                                                    <Setter Property="Foreground" Value="#888"/>
+                                                    <Setter Property="BorderThickness" Value="0"/>
+                                                    <Setter Property="FontSize" Value="10"/>
                                                     <Setter Property="Padding" Value="4,3"/>
                                                     <Setter Property="Cursor" Value="Hand"/>
                                                     <Style.Triggers>
@@ -529,33 +561,31 @@
                                     </Grid>
 
                                     <!-- Chord-vy -->
-                                    <StackPanel x:Name="ChordView"
-                            HorizontalAlignment="Center"
-                            VerticalAlignment="Center">
+                                    <StackPanel x:Name="ChordView" Grid.Row="1"
+                                                HorizontalAlignment="Center"
+                                                VerticalAlignment="Center">
                                         <TextBlock x:Name="CurrentChordText" Text="--"
-                               Foreground="Gold" FontSize="30" FontWeight="Bold"
-                               HorizontalAlignment="Center" Margin="0,0,0,4"/>
+                                                   Foreground="Gold" FontSize="30" FontWeight="Bold"
+                                                   HorizontalAlignment="Center" Margin="0,0,0,4"/>
                                         <Border x:Name="ChordDiagramHost"
-                            HorizontalAlignment="Center"
-                            Background="Transparent"/>
+                                                HorizontalAlignment="Center"
+                                                Background="Transparent"/>
                                         <TextBlock x:Name="NextChordsText" Text=""
-           Foreground="#555" FontSize="9"
-           TextWrapping="Wrap" TextAlignment="Center"
-           Margin="0,4,0,0"/>
+                                                   Foreground="#555" FontSize="9"
+                                                   TextWrapping="Wrap" TextAlignment="Center"
+                                                   Margin="0,4,0,0"/>
                                     </StackPanel>
 
                                     <!-- Scale-vy -->
-                                    <StackPanel x:Name="ScaleView" Visibility="Collapsed">
-
-                                        <!-- Penta / Maj-Min toggle -->
+                                    <StackPanel x:Name="ScaleView" Grid.Row="1" Visibility="Collapsed">
                                         <Grid Margin="0,0,0,4">
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="*"/>
                                                 <ColumnDefinition Width="*"/>
                                             </Grid.ColumnDefinitions>
                                             <ToggleButton x:Name="PentatonicBtn" Grid.Column="0"
-                                      Content="Penta" IsChecked="True"
-                                      Click="ScaleToggle_Click">
+                                                          Content="Penta" IsChecked="True"
+                                                          Click="ScaleToggle_Click">
                                                 <ToggleButton.Style>
                                                     <Style TargetType="ToggleButton">
                                                         <Setter Property="Background" Value="#252525"/>
@@ -578,8 +608,8 @@
                                                 </ToggleButton.Style>
                                             </ToggleButton>
                                             <ToggleButton x:Name="MajorScaleBtn" Grid.Column="1"
-                                      Content="Maj/Min"
-                                      Click="ScaleToggle_Click">
+                                                          Content="Maj/Min"
+                                                          Click="ScaleToggle_Click">
                                                 <ToggleButton.Style>
                                                     <Style TargetType="ToggleButton">
                                                         <Setter Property="Background" Value="#252525"/>
@@ -602,37 +632,162 @@
                                                 </ToggleButton.Style>
                                             </ToggleButton>
                                         </Grid>
-
-                                        <!-- Skalanamn -->
                                         <TextBlock x:Name="ScaleKeyText" Text=""
-                               Foreground="#aaa" FontSize="10"
-                               HorizontalAlignment="Center"
-                               Margin="0,0,0,4"/>
-
-                                        <!-- Skaldiagram -->
+                                                   Foreground="#aaa" FontSize="10"
+                                                   HorizontalAlignment="Center"
+                                                   Margin="0,0,0,4"/>
                                         <Border x:Name="ScaleDiagramHost"
-                            HorizontalAlignment="Center"
-                            Background="Transparent"
-                            ClipToBounds="True"/>
+                                                HorizontalAlignment="Center"
+                                                Background="Transparent"
+                                                ClipToBounds="True"/>
                                     </StackPanel>
 
-                                </StackPanel>
+                                    <!-- Sections-vy -->
+                                    <Grid x:Name="SectionsView" Grid.Row="1" Visibility="Collapsed">
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="*"/>
+                                            <RowDefinition Height="Auto"/>
+                                        </Grid.RowDefinitions>
+
+                                        <!-- Sektionslista -->
+                                        <ScrollViewer Grid.Row="0"
+                                                      VerticalScrollBarVisibility="Auto"
+                                                      HorizontalScrollBarVisibility="Disabled">
+                                            <ItemsControl x:Name="SectionsList">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Border x:Name="SectionItemBorder"
+                                                                Background="Transparent"
+                                                                Padding="4,5,4,5"
+                                                                Cursor="Hand">
+                                                            <Border.Style>
+                                                                <Style TargetType="Border">
+                                                                    <Style.Triggers>
+                                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                                            <Setter Property="Background" Value="#1A2530"/>
+                                                                        </Trigger>
+                                                                        <DataTrigger Binding="{Binding IsActive}" Value="True">
+                                                                            <Setter Property="Background" Value="#0D2035"/>
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </Border.Style>
+                                                            <Grid>
+                                                                <Grid.ColumnDefinitions>
+                                                                    <ColumnDefinition Width="Auto"/>
+                                                                    <ColumnDefinition Width="*"/>
+                                                                    <ColumnDefinition Width="Auto"/>
+                                                                </Grid.ColumnDefinitions>
+
+                                                                <!-- Färgindikator -->
+                                                                <Border Grid.Column="0"
+                                                                        Width="3" CornerRadius="2"
+                                                                        Margin="0,0,7,0"
+                                                                        Background="{Binding ColorBrush}"/>
+
+                                                                <!-- Label -->
+                                                                <TextBlock Grid.Column="1"
+                                                                           Text="{Binding Label}"
+                                                                           VerticalAlignment="Center"
+                                                                           FontSize="12" FontWeight="SemiBold">
+                                                                    <TextBlock.Style>
+                                                                        <Style TargetType="TextBlock">
+                                                                            <Setter Property="Foreground" Value="#AAA"/>
+                                                                            <Style.Triggers>
+                                                                                <DataTrigger Binding="{Binding IsActive}" Value="True">
+                                                                                    <Setter Property="Foreground" Value="White"/>
+                                                                                </DataTrigger>
+                                                                            </Style.Triggers>
+                                                                        </Style>
+                                                                    </TextBlock.Style>
+                                                                </TextBlock>
+
+                                                                <!-- Tid -->
+                                                                <TextBlock Grid.Column="2"
+                                                                           Text="{Binding TimeDisplay}"
+                                                                           VerticalAlignment="Center"
+                                                                           FontSize="10">
+                                                                    <TextBlock.Style>
+                                                                        <Style TargetType="TextBlock">
+                                                                            <Setter Property="Foreground" Value="#555"/>
+                                                                            <Style.Triggers>
+                                                                                <DataTrigger Binding="{Binding IsActive}" Value="True">
+                                                                                    <Setter Property="Foreground" Value="#007ACC"/>
+                                                                                </DataTrigger>
+                                                                            </Style.Triggers>
+                                                                        </Style>
+                                                                    </TextBlock.Style>
+                                                                </TextBlock>
+                                                            </Grid>
+
+                                                            <!-- Högerklick: ta bort -->
+                                                            <Border.ContextMenu>
+                                                                <ContextMenu>
+                                                                    <MenuItem Header="❌ Remove" Click="RemoveSection_Click"
+                                                                    Tag="{Binding}"/>
+                                                                </ContextMenu>
+                                                            </Border.ContextMenu>
+                                                        </Border>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </ScrollViewer>
+
+                                        <!-- Lägg till sektion -->
+                                        <Border Grid.Row="1" Background="#111" Padding="6,5"
+                                                BorderThickness="0,1,0,0" BorderBrush="#2A2A2A">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <ComboBox x:Name="SectionTypeCombo" Grid.Column="0"
+                                                          Background="#222" Foreground="White"
+                                                          FontSize="10" BorderThickness="0"
+                                                          SelectedIndex="0" Height="22">
+                                                    <ComboBox.ItemContainerStyle>
+                                                        <Style TargetType="ComboBoxItem">
+                                                            <Setter Property="Foreground" Value="White"/>
+                                                            <Setter Property="Background" Value="#222"/>
+                                                        </Style>
+                                                    </ComboBox.ItemContainerStyle>
+                                                    <ComboBoxItem Content="Intro"/>
+                                                    <ComboBoxItem Content="Verse"/>
+                                                    <ComboBoxItem Content="Pre"/>
+                                                    <ComboBoxItem Content="Chorus"/>
+                                                    <ComboBoxItem Content="Bridge"/>
+                                                    <ComboBoxItem Content="Solo"/>
+                                                    <ComboBoxItem Content="Instrumental"/>
+                                                    <ComboBoxItem Content="Outro"/>
+                                                    <ComboBoxItem Content="Break"/>
+                                                </ComboBox>
+                                                <Button Grid.Column="1" Content="＋ Mark"
+                                                        Click="AddSection_Click"
+                                                        Background="#007ACC" Foreground="White"
+                                                        FontSize="10" FontWeight="Bold"
+                                                        Padding="8,3" Margin="4,0,0,0"
+                                                        Cursor="Hand" Height="22"
+                                                        ToolTip="Mark current playback position as section start"/>
+                                            </Grid>
+                                        </Border>
+                                    </Grid>
+                                </Grid>
                             </Border>
 
                             <!-- LYRICS -->
                             <Grid x:Name="LyricsPanel" Grid.Column="1"
-              Margin="16,10,16,10" ClipToBounds="True">
+                                  Margin="16,10,16,10" ClipToBounds="True">
                                 <ScrollViewer x:Name="LyricsScroller"
-                          VerticalScrollBarVisibility="Hidden"
-                          HorizontalScrollBarVisibility="Disabled"
-                          CanContentScroll="False">
+                                              VerticalScrollBarVisibility="Hidden"
+                                              HorizontalScrollBarVisibility="Disabled"
+                                              CanContentScroll="False">
                                     <ListBox x:Name="LyricsList"
-                         Background="Transparent"
-                         BorderThickness="0"
-                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                         ScrollViewer.VerticalScrollBarVisibility="Disabled"
-                         SelectionChanged="LyricsLine_Click"
-                         VerticalAlignment="Top">
+                                             Background="Transparent"
+                                             BorderThickness="0"
+                                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                             ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                                             SelectionChanged="LyricsLine_Click"
+                                             VerticalAlignment="Top">
                                         <ListBox.ItemContainerStyle>
                                             <Style TargetType="ListBoxItem">
                                                 <Setter Property="Background" Value="Transparent"/>
@@ -658,8 +813,8 @@
                                         <ListBox.ItemTemplate>
                                             <DataTemplate>
                                                 <TextBlock Text="{Binding Text}"
-                                       FontWeight="Bold"
-                                       TextWrapping="Wrap">
+                                                           FontWeight="Bold"
+                                                           TextWrapping="Wrap">
                                                     <TextBlock.Style>
                                                         <Style TargetType="TextBlock">
                                                             <Setter Property="Foreground" Value="#666"/>
@@ -683,22 +838,21 @@
 
                             <!-- Toggle-knappar uppe till höger -->
                             <StackPanel Grid.Column="1" Orientation="Horizontal"
-                    HorizontalAlignment="Right" VerticalAlignment="Top"
-                    Margin="0,6,8,0">
+                                        HorizontalAlignment="Right" VerticalAlignment="Top"
+                                        Margin="0,6,8,0">
                                 <ToggleButton x:Name="ToggleChordsBtn"
-                          Content="🎸" ToolTip="Visa/dölj ackord"
-                          Width="26" Height="26" FontSize="13"
-                          IsChecked="True"
-                          Click="ToggleChords_Click"
-                          Background="#2A2A2A" Foreground="White"/>
+                                              Content="🎸" ToolTip="Visa/dölj ackord"
+                                              Width="26" Height="26" FontSize="13"
+                                              IsChecked="True"
+                                              Click="ToggleChords_Click"
+                                              Background="#2A2A2A" Foreground="White"/>
                                 <ToggleButton x:Name="ToggleLyricsBtn"
-                          Content="🎤" ToolTip="Visa/dölj lyrics"
-                          Width="26" Height="26" FontSize="13"
-                          IsChecked="True" Margin="4,0,0,0"
-                          Click="ToggleLyrics_Click"
-                          Background="#2A2A2A" Foreground="White"/>
+                                              Content="🎤" ToolTip="Visa/dölj lyrics"
+                                              Width="26" Height="26" FontSize="13"
+                                              IsChecked="True" Margin="4,0,0,0"
+                                              Click="ToggleLyrics_Click"
+                                              Background="#2A2A2A" Foreground="White"/>
                             </StackPanel>
-
                         </Grid>
                     </Border>
 
@@ -803,7 +957,6 @@
                                               Foreground="Gold" Tag="vocals" Click="Solo_Click"/>
                             </StackPanel>
                         </StackPanel>
-
                     </UniformGrid>
                 </StackPanel>
             </Viewbox>

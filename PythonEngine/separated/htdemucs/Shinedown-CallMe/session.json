@@ -1,0 +1,489 @@
+{
+  "lyrics": [
+    {
+      "start": 0,
+      "end": 15.8,
+      "text": "Wrapped me in a bolt of lightning Send me on my way still smiling",
+      "IsActive": false
+    },
+    {
+      "start": 15.8,
+      "end": 20.72,
+      "text": "Maybe that\u0027s the way I should go Straight into the mouth of the unknown",
+      "IsActive": false
+    },
+    {
+      "start": 20.72,
+      "end": 25.68,
+      "text": "I left the spare key on the table I never really thought I\u0027d be able",
+      "IsActive": false
+    },
+    {
+      "start": 25.919999999999998,
+      "end": 30.08,
+      "text": "Say I merely visit on the weekends I lost my whole life and a dear friend",
+      "IsActive": false
+    },
+    {
+      "start": 30.08,
+      "end": 39.72,
+      "text": "I\u0027ve said it so many times I would change my ways, no, never mind",
+      "IsActive": false
+    },
+    {
+      "start": 39.72,
+      "end": 48.8,
+      "text": "God knows I\u0027ve tried Call me a sinner, call me a saint",
+      "IsActive": false
+    },
+    {
+      "start": 49.4,
+      "end": 53.76,
+      "text": "Tell me it\u0027s over, I\u0027ll still rob you the same",
+      "IsActive": false
+    },
+    {
+      "start": 53.76,
+      "end": 63.8,
+      "text": "Call me your favorite, call me the worst Tell me it\u0027s over, I don\u0027t want you to hurt",
+      "IsActive": false
+    },
+    {
+      "start": 63.8,
+      "end": 72.47999999999999,
+      "text": "It\u0027s all that I can say So I\u0027ll be on my way",
+      "IsActive": false
+    },
+    {
+      "start": 78.8,
+      "end": 86.96,
+      "text": "I finally put it all together That nothing really lasts forever",
+      "IsActive": false
+    },
+    {
+      "start": 86.96,
+      "end": 92.56,
+      "text": "I had to make a choice that was not mine I had to say goodbye for the last time",
+      "IsActive": false
+    },
+    {
+      "start": 92.56,
+      "end": 97.56,
+      "text": "I kept my whole life in a suitcase Never really stayed in one place",
+      "IsActive": false
+    },
+    {
+      "start": 97.56,
+      "end": 102.47999999999999,
+      "text": "Maybe that\u0027s the way it should be You know I live my life like a gypsy",
+      "IsActive": false
+    },
+    {
+      "start": 103.36,
+      "end": 112.2,
+      "text": "I\u0027ve said it so many times I would change my ways, no, never mind",
+      "IsActive": false
+    },
+    {
+      "start": 112.2,
+      "end": 121.28,
+      "text": "God knows I\u0027ve tried Call me a sinner, call me a saint",
+      "IsActive": false
+    },
+    {
+      "start": 121.28,
+      "end": 126.28,
+      "text": "Tell me it\u0027s over, I\u0027ll still rob you the same",
+      "IsActive": false
+    },
+    {
+      "start": 127.28,
+      "end": 137.28,
+      "text": "Call me your favorite, call me the worst Tell me it\u0027s over, I don\u0027t want you to hurt",
+      "IsActive": false
+    },
+    {
+      "start": 137.28,
+      "end": 147.28,
+      "text": "It\u0027s all that I can say So I\u0027ll be on my way",
+      "IsActive": false
+    },
+    {
+      "start": 147.28,
+      "end": 154.28,
+      "text": "I\u0027ll always keep you inside You healed my heart and my life",
+      "IsActive": false
+    },
+    {
+      "start": 154.28,
+      "end": 165.28,
+      "text": "And you know I tried Call me a sinner, call me a saint",
+      "IsActive": false
+    },
+    {
+      "start": 165.28,
+      "end": 170.28,
+      "text": "Tell me it\u0027s over, I\u0027ll still rob you the same",
+      "IsActive": false
+    },
+    {
+      "start": 170.28,
+      "end": 179.28,
+      "text": "Call me your favorite, call me the worst Tell me it\u0027s over, I don\u0027t want you to hurt",
+      "IsActive": false
+    },
+    {
+      "start": 179.28,
+      "end": 188.28,
+      "text": "It\u0027s all that I can say So I\u0027ll be on my way",
+      "IsActive": false
+    },
+    {
+      "start": 188.28,
+      "end": 198.28,
+      "text": "So I\u0027ll be on my way So I\u0027ll be on my way",
+      "IsActive": true
+    },
+    {
+      "start": 209.28,
+      "end": 214.28,
+      "text": "Thanks for watching!",
+      "IsActive": false
+    }
+  ],
+  "chords": [
+    {
+      "time": 0,
+      "chord": "F7"
+    },
+    {
+      "time": 1.9969160997732427,
+      "chord": "E7"
+    },
+    {
+      "time": 3.9938321995464854,
+      "chord": "F#7"
+    },
+    {
+      "time": 5.990748299319728,
+      "chord": "B7"
+    },
+    {
+      "time": 7.987664399092971,
+      "chord": "D7"
+    },
+    {
+      "time": 9.984580498866213,
+      "chord": "A7"
+    },
+    {
+      "time": 11.981496598639456,
+      "chord": "E7"
+    },
+    {
+      "time": 15.975328798185942,
+      "chord": "G#7"
+    },
+    {
+      "time": 17.972244897959182,
+      "chord": "A7"
+    },
+    {
+      "time": 21.966077097505668,
+      "chord": "E7"
+    },
+    {
+      "time": 23.962993197278912,
+      "chord": "C7"
+    },
+    {
+      "time": 25.959909297052153,
+      "chord": "C#7"
+    },
+    {
+      "time": 27.956825396825398,
+      "chord": "A7"
+    },
+    {
+      "time": 29.95374149659864,
+      "chord": "C#7"
+    },
+    {
+      "time": 31.950657596371883,
+      "chord": "B7"
+    },
+    {
+      "time": 33.94757369614513,
+      "chord": "D7"
+    },
+    {
+      "time": 35.944489795918365,
+      "chord": "A7"
+    },
+    {
+      "time": 37.94140589569161,
+      "chord": "E7"
+    },
+    {
+      "time": 39.938321995464854,
+      "chord": "A7"
+    },
+    {
+      "time": 41.9352380952381,
+      "chord": "C#7"
+    },
+    {
+      "time": 43.932154195011336,
+      "chord": "A7"
+    },
+    {
+      "time": 45.92907029478458,
+      "chord": "C#7"
+    },
+    {
+      "time": 47.925986394557825,
+      "chord": "G#7"
+    },
+    {
+      "time": 49.92290249433107,
+      "chord": "A7"
+    },
+    {
+      "time": 51.919818594104306,
+      "chord": "D7"
+    },
+    {
+      "time": 53.91673469387755,
+      "chord": "F#7"
+    },
+    {
+      "time": 55.913650793650795,
+      "chord": "C7"
+    },
+    {
+      "time": 57.91056689342403,
+      "chord": "B7"
+    },
+    {
+      "time": 59.90748299319728,
+      "chord": "A7"
+    },
+    {
+      "time": 61.90439909297052,
+      "chord": "C#m"
+    },
+    {
+      "time": 63.901315192743766,
+      "chord": "F#7"
+    },
+    {
+      "time": 65.89823129251701,
+      "chord": "A7"
+    },
+    {
+      "time": 67.89514739229026,
+      "chord": "C#7"
+    },
+    {
+      "time": 69.89206349206349,
+      "chord": "A7"
+    },
+    {
+      "time": 71.88897959183673,
+      "chord": "Bb7"
+    },
+    {
+      "time": 75.88281179138322,
+      "chord": "C#7"
+    },
+    {
+      "time": 77.87972789115646,
+      "chord": "F#7"
+    },
+    {
+      "time": 79.87664399092971,
+      "chord": "A7"
+    },
+    {
+      "time": 81.87356009070295,
+      "chord": "F#7"
+    },
+    {
+      "time": 83.8704761904762,
+      "chord": "F7"
+    },
+    {
+      "time": 85.86739229024943,
+      "chord": "D7"
+    },
+    {
+      "time": 87.86430839002267,
+      "chord": "F#7"
+    },
+    {
+      "time": 89.86122448979592,
+      "chord": "C7"
+    },
+    {
+      "time": 91.85814058956916,
+      "chord": "B7"
+    },
+    {
+      "time": 93.8550566893424,
+      "chord": "F#7"
+    },
+    {
+      "time": 95.85197278911565,
+      "chord": "G#7"
+    },
+    {
+      "time": 97.8488888888889,
+      "chord": "F#7"
+    },
+    {
+      "time": 101.84272108843537,
+      "chord": "F7"
+    },
+    {
+      "time": 103.83963718820861,
+      "chord": "A7"
+    },
+    {
+      "time": 109.83038548752835,
+      "chord": "E7"
+    },
+    {
+      "time": 111.82730158730159,
+      "chord": "D#7"
+    },
+    {
+      "time": 113.82421768707484,
+      "chord": "A7"
+    },
+    {
+      "time": 115.82113378684807,
+      "chord": "E7"
+    },
+    {
+      "time": 117.81804988662131,
+      "chord": "F#7"
+    },
+    {
+      "time": 119.81496598639455,
+      "chord": "E7"
+    },
+    {
+      "time": 121.8118820861678,
+      "chord": "A7"
+    },
+    {
+      "time": 123.80879818594104,
+      "chord": "C#m"
+    },
+    {
+      "time": 125.80571428571429,
+      "chord": "F#7"
+    },
+    {
+      "time": 127.80263038548753,
+      "chord": "C#7"
+    },
+    {
+      "time": 129.79954648526078,
+      "chord": "C7"
+    },
+    {
+      "time": 131.79646258503402,
+      "chord": "A7"
+    },
+    {
+      "time": 133.79337868480727,
+      "chord": "C#7"
+    },
+    {
+      "time": 137.78721088435375,
+      "chord": "E7"
+    },
+    {
+      "time": 139.78412698412697,
+      "chord": "F7"
+    },
+    {
+      "time": 141.78104308390022,
+      "chord": "G#7"
+    },
+    {
+      "time": 143.77795918367346,
+      "chord": "A7"
+    },
+    {
+      "time": 145.7748752834467,
+      "chord": "C#7"
+    },
+    {
+      "time": 147.77179138321995,
+      "chord": "F7"
+    },
+    {
+      "time": 149.7687074829932,
+      "chord": "G#7"
+    },
+    {
+      "time": 151.76562358276644,
+      "chord": "A7"
+    },
+    {
+      "time": 153.76253968253968,
+      "chord": "E7"
+    },
+    {
+      "time": 155.75945578231293,
+      "chord": "F#7"
+    },
+    {
+      "time": 159.75328798185942,
+      "chord": "G7"
+    },
+    {
+      "time": 161.75020408163266,
+      "chord": "A7"
+    },
+    {
+      "time": 163.7471201814059,
+      "chord": "F#7"
+    },
+    {
+      "time": 165.74403628117915,
+      "chord": "Bb7"
+    },
+    {
+      "time": 167.7409523809524,
+      "chord": "E7"
+    },
+    {
+      "time": 169.73786848072564,
+      "chord": "C#7"
+    },
+    {
+      "time": 171.73478458049885,
+      "chord": "E7"
+    },
+    {
+      "time": 173.7317006802721,
+      "chord": "A7"
+    },
+    {
+      "time": 175.72861678004534,
+      "chord": "C#7"
+    },
+    {
+      "time": 177.7255328798186,
+      "chord": "A7"
+    },
+    {
+      "time": 179.72244897959183,
+      "chord": "D7"
+    }
+  ],
+  "sections": []
+}

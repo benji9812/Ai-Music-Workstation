@@ -1,0 +1,453 @@
+{
+  "lyrics": [
+    {
+      "start": 0,
+      "end": 25,
+      "text": "My eyes are open wide by the way I made it through the day",
+      "IsActive": false
+    },
+    {
+      "start": 25,
+      "end": 34,
+      "text": "I watched the world outside by the way I\u0027m leaving now today",
+      "IsActive": false
+    },
+    {
+      "start": 34,
+      "end": 44,
+      "text": "I just saw Haley\u0027s comet shoot away Said why you always running in place?",
+      "IsActive": false
+    },
+    {
+      "start": 44,
+      "end": 53,
+      "text": "Even the man in the moon disappeared Somewhere in the stratosphere",
+      "IsActive": false
+    },
+    {
+      "start": 53,
+      "end": 62,
+      "text": "Tell my mother, tell my father I\u0027ve done the best I can",
+      "IsActive": false
+    },
+    {
+      "start": 62,
+      "end": 72,
+      "text": "To make them realize this is my life I hope they understand",
+      "IsActive": false
+    },
+    {
+      "start": 72,
+      "end": 84,
+      "text": "I\u0027m not angry, I\u0027m just saying Sometimes goodbye is a second chance",
+      "IsActive": false
+    },
+    {
+      "start": 84,
+      "end": 94,
+      "text": "Please don\u0027t cry one tear for me I\u0027m not afraid of what I have to say",
+      "IsActive": false
+    },
+    {
+      "start": 94,
+      "end": 103,
+      "text": "This is my one and only voice So listen close, it\u0027s only for today",
+      "IsActive": false
+    },
+    {
+      "start": 103,
+      "end": 113,
+      "text": "I just saw Haley\u0027s comet shoot away Said why you always running in place?",
+      "IsActive": false
+    },
+    {
+      "start": 113,
+      "end": 122,
+      "text": "Even the man in the moon disappeared Somewhere in the stratosphere",
+      "IsActive": false
+    },
+    {
+      "start": 122,
+      "end": 132,
+      "text": "Tell my mother, tell my father I\u0027ve done the best I can",
+      "IsActive": false
+    },
+    {
+      "start": 132,
+      "end": 142,
+      "text": "To make them realize this is my life I hope they understand",
+      "IsActive": false
+    },
+    {
+      "start": 142,
+      "end": 159,
+      "text": "I\u0027m not angry, I\u0027m just saying Sometimes goodbye is a second chance",
+      "IsActive": false
+    },
+    {
+      "start": 160,
+      "end": 174,
+      "text": "Here\u0027s my chance This is my chance",
+      "IsActive": false
+    },
+    {
+      "start": 174,
+      "end": 184,
+      "text": "Tell my mother, tell my father I\u0027ve done the best I can",
+      "IsActive": false
+    },
+    {
+      "start": 184,
+      "end": 194,
+      "text": "To make them realize this is my life I hope they understand",
+      "IsActive": false
+    },
+    {
+      "start": 194,
+      "end": 205,
+      "text": "I\u0027m not angry, I\u0027m just saying Sometimes goodbye is a second chance",
+      "IsActive": false
+    },
+    {
+      "start": 205,
+      "end": 215,
+      "text": "Sometimes goodbye is a second chance Sometimes goodbye is a second chance",
+      "IsActive": false
+    }
+  ],
+  "chords": [
+    {
+      "time": 0,
+      "chord": "F7"
+    },
+    {
+      "time": 1.9969160997732427,
+      "chord": "C7"
+    },
+    {
+      "time": 5.990748299319728,
+      "chord": "F7"
+    },
+    {
+      "time": 9.984580498866213,
+      "chord": "G#7"
+    },
+    {
+      "time": 11.981496598639456,
+      "chord": "F7"
+    },
+    {
+      "time": 13.978412698412699,
+      "chord": "G7"
+    },
+    {
+      "time": 15.975328798185942,
+      "chord": "Cm"
+    },
+    {
+      "time": 17.972244897959182,
+      "chord": "Bb7"
+    },
+    {
+      "time": 19.969160997732427,
+      "chord": "G#7"
+    },
+    {
+      "time": 21.966077097505668,
+      "chord": "Cm"
+    },
+    {
+      "time": 23.962993197278912,
+      "chord": "D7"
+    },
+    {
+      "time": 25.959909297052153,
+      "chord": "D#7"
+    },
+    {
+      "time": 27.956825396825398,
+      "chord": "C#7"
+    },
+    {
+      "time": 29.95374149659864,
+      "chord": "A7"
+    },
+    {
+      "time": 31.950657596371883,
+      "chord": "C7"
+    },
+    {
+      "time": 33.94757369614513,
+      "chord": "Bb7"
+    },
+    {
+      "time": 35.944489795918365,
+      "chord": "G#7"
+    },
+    {
+      "time": 39.938321995464854,
+      "chord": "C7"
+    },
+    {
+      "time": 41.9352380952381,
+      "chord": "C#m"
+    },
+    {
+      "time": 43.932154195011336,
+      "chord": "G#7"
+    },
+    {
+      "time": 45.92907029478458,
+      "chord": "Cm"
+    },
+    {
+      "time": 47.925986394557825,
+      "chord": "D7"
+    },
+    {
+      "time": 49.92290249433107,
+      "chord": "C7"
+    },
+    {
+      "time": 51.919818594104306,
+      "chord": "C#7"
+    },
+    {
+      "time": 53.91673469387755,
+      "chord": "G7"
+    },
+    {
+      "time": 55.913650793650795,
+      "chord": "G#7"
+    },
+    {
+      "time": 57.91056689342403,
+      "chord": "F7"
+    },
+    {
+      "time": 59.90748299319728,
+      "chord": "G#7"
+    },
+    {
+      "time": 61.90439909297052,
+      "chord": "G7"
+    },
+    {
+      "time": 63.901315192743766,
+      "chord": "Bb7"
+    },
+    {
+      "time": 65.89823129251701,
+      "chord": "C#7"
+    },
+    {
+      "time": 67.89514739229026,
+      "chord": "G7"
+    },
+    {
+      "time": 69.89206349206349,
+      "chord": "G#7"
+    },
+    {
+      "time": 71.88897959183673,
+      "chord": "C#7"
+    },
+    {
+      "time": 73.88589569160997,
+      "chord": "D#7"
+    },
+    {
+      "time": 75.88281179138322,
+      "chord": "F7"
+    },
+    {
+      "time": 77.87972789115646,
+      "chord": "C#7"
+    },
+    {
+      "time": 79.87664399092971,
+      "chord": "D#7"
+    },
+    {
+      "time": 81.87356009070295,
+      "chord": "G#7"
+    },
+    {
+      "time": 83.8704761904762,
+      "chord": "B7"
+    },
+    {
+      "time": 85.86739229024943,
+      "chord": "C7"
+    },
+    {
+      "time": 87.86430839002267,
+      "chord": "A7"
+    },
+    {
+      "time": 89.86122448979592,
+      "chord": "D7"
+    },
+    {
+      "time": 91.85814058956916,
+      "chord": "G7"
+    },
+    {
+      "time": 95.85197278911565,
+      "chord": "F7"
+    },
+    {
+      "time": 97.8488888888889,
+      "chord": "A7"
+    },
+    {
+      "time": 99.84580498866214,
+      "chord": "C7"
+    },
+    {
+      "time": 101.84272108843537,
+      "chord": "G#7"
+    },
+    {
+      "time": 105.83655328798186,
+      "chord": "Cm"
+    },
+    {
+      "time": 107.8334693877551,
+      "chord": "G#7"
+    },
+    {
+      "time": 109.83038548752835,
+      "chord": "A7"
+    },
+    {
+      "time": 111.82730158730159,
+      "chord": "F7"
+    },
+    {
+      "time": 115.82113378684807,
+      "chord": "G7"
+    },
+    {
+      "time": 117.81804988662131,
+      "chord": "A7"
+    },
+    {
+      "time": 119.81496598639455,
+      "chord": "D#7"
+    },
+    {
+      "time": 121.8118820861678,
+      "chord": "F7"
+    },
+    {
+      "time": 123.80879818594104,
+      "chord": "A7"
+    },
+    {
+      "time": 125.80571428571429,
+      "chord": "D#7"
+    },
+    {
+      "time": 127.80263038548753,
+      "chord": "A7"
+    },
+    {
+      "time": 129.79954648526078,
+      "chord": "F#7"
+    },
+    {
+      "time": 131.79646258503402,
+      "chord": "Bb7"
+    },
+    {
+      "time": 133.79337868480727,
+      "chord": "G#7"
+    },
+    {
+      "time": 137.78721088435375,
+      "chord": "G7"
+    },
+    {
+      "time": 139.78412698412697,
+      "chord": "D7"
+    },
+    {
+      "time": 141.78104308390022,
+      "chord": "C7"
+    },
+    {
+      "time": 143.77795918367346,
+      "chord": "F#7"
+    },
+    {
+      "time": 145.7748752834467,
+      "chord": "D#7"
+    },
+    {
+      "time": 147.77179138321995,
+      "chord": "F7"
+    },
+    {
+      "time": 149.7687074829932,
+      "chord": "C7"
+    },
+    {
+      "time": 151.76562358276644,
+      "chord": "Bb7"
+    },
+    {
+      "time": 153.76253968253968,
+      "chord": "G7"
+    },
+    {
+      "time": 155.75945578231293,
+      "chord": "C#7"
+    },
+    {
+      "time": 157.75637188208617,
+      "chord": "G#7"
+    },
+    {
+      "time": 161.75020408163266,
+      "chord": "A7"
+    },
+    {
+      "time": 163.7471201814059,
+      "chord": "C7"
+    },
+    {
+      "time": 165.74403628117915,
+      "chord": "F#7"
+    },
+    {
+      "time": 167.7409523809524,
+      "chord": "C#7"
+    },
+    {
+      "time": 169.73786848072564,
+      "chord": "G7"
+    },
+    {
+      "time": 171.73478458049885,
+      "chord": "F7"
+    },
+    {
+      "time": 173.7317006802721,
+      "chord": "E7"
+    },
+    {
+      "time": 175.72861678004534,
+      "chord": "F7"
+    },
+    {
+      "time": 177.7255328798186,
+      "chord": "F#7"
+    },
+    {
+      "time": 179.72244897959183,
+      "chord": "D7"
+    }
+  ],
+  "sections": []
+}

@@ -273,17 +273,19 @@ namespace AiMusicWorkstation.Desktop
         }
 
         // --- SESSION: SPARA & LADDA LYRICS/CHORDS ---
-        private void SaveLyricsAndChords(string stemsPath, List<LyricSegment> lyrics, List<ChordEvent> chords)
+        private void SaveLyricsAndChords(string stemsPath, List<LyricSegment> lyrics,
+     List<ChordEvent> chords, List<SongSection> sections = null)
         {
             try
             {
                 string dir = Directory.Exists(stemsPath) ? stemsPath : Path.GetDirectoryName(stemsPath);
-                var data = new { lyrics, chords };
+                var data = new { lyrics, chords, sections = sections ?? new List<SongSection>() };
                 string json = JsonSerializer.Serialize(data, new JsonSerializerOptions { WriteIndented = true });
                 File.WriteAllText(Path.Combine(dir, "session.json"), json);
             }
             catch { }
         }
+
 
         private (List<LyricSegment> lyrics, List<ChordEvent> chords) LoadLyricsAndChords(string stemsPath)
         {
@@ -1067,16 +1069,20 @@ namespace AiMusicWorkstation.Desktop
         {
             TabChordBtn.IsChecked = true;
             TabScaleBtn.IsChecked = false;
+            TabSectionsBtn.IsChecked = false;
             ChordView.Visibility = Visibility.Visible;
             ScaleView.Visibility = Visibility.Collapsed;
+            SectionsView.Visibility = Visibility.Collapsed;
         }
 
         private void TabScale_Click(object sender, RoutedEventArgs e)
         {
             TabChordBtn.IsChecked = false;
             TabScaleBtn.IsChecked = true;
+            TabSectionsBtn.IsChecked = false;
             ChordView.Visibility = Visibility.Collapsed;
             ScaleView.Visibility = Visibility.Visible;
+            SectionsView.Visibility = Visibility.Collapsed;
             UpdateScaleDiagram();
         }
 
