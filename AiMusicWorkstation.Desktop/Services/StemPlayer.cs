@@ -241,7 +241,43 @@ namespace AiMusicWorkstation.Desktop.Services
         public void Stop()
         {
             _outputDevice?.Stop();
-            foreach (var ch in _channels.Values) ch.Reader.Position = 0;
+            ResetPosition();
+        }
+
+        public void ResetPosition()
+        {
+            foreach (var ch in _channels.Values)
+                ch.Reader.CurrentTime = TimeSpan.Zero;
+        }
+
+        public void Reinitialize()
+        {
+            if (_outputDevice == null || _channels.Count == 0) return;
+
+            var sources = new List<ISampleProvider>();
+            float masterVol = _outputDevice.Volume;
+
+            _outputDevice.Stop();
+            _outputDevice.Dispose();
+
+            float pitchFactor = (float)Math.Pow(2.0, _semitoneShift / 12.0);
+
+            foreach (var kvp in _channels)
+            {
+                kvp.Value.Reader.CurrentTime = TimeSpan.Zero;
+                ISampleProvider provider = kvp.Value.Looper.ToSampleProvider();
+                if (Math.Abs(_semitoneShift) > 0)
+                    provider = new SmbPitchShiftingSampleProvider(provider) { PitchFactor = pitchFactor };
+                sources.Add(provider);
+            }
+
+            _mixer = new MixingSampleProvider(sources);
+            _outputDevice = new WaveOutEvent();
+            _outputDevice.Volume = masterVol;
+            _outputDevice.Init(_mixer);
+            _outputDevice.PlaybackStopped += (s, e) => PlaybackStopped?.Invoke(this, EventArgs.Empty);
+
+            UpdateMix();
         }
 
         public void SetMasterVolume(float volume)
