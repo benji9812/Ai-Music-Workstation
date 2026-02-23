@@ -13,6 +13,7 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Threading;
+using System.Windows.Media.Animation;
 
 namespace AiMusicWorkstation.Desktop
 {
@@ -405,6 +406,7 @@ namespace AiMusicWorkstation.Desktop
                     {
                         CurrentChordText.Text = displayChord;
                         ChordDiagramHost.Child = (UIElement)ChordDiagramRenderer.Render(displayChord, 100);
+                        FlashChordColor(); // NY
 
                         var upcoming = _currentChords
                             .Where(c => c.Time > t)
@@ -506,6 +508,7 @@ namespace AiMusicWorkstation.Desktop
                     string displayChord = TransposeChord(activeChord.Chord, _currentSemitones);
                     CurrentChordText.Text = displayChord;
                     ChordDiagramHost.Child = (UIElement)ChordDiagramRenderer.Render(displayChord, 100);
+                    FlashChordColor(); // NY
 
                     var upcoming = _currentChords
                         .Where(c => c.Time > t)
@@ -1100,6 +1103,26 @@ namespace AiMusicWorkstation.Desktop
 
             ScaleKeyText.Text = $"{key}  {(_isPentatonic ? "Pentatonic" : (key.EndsWith("m") ? "Natural Minor" : "Major"))}";
             ScaleDiagramHost.Child = (UIElement)ScaleDiagramRenderer.Render(key, _isPentatonic, 175, 12);
+        }
+
+        private void FlashChordColor()
+        {
+            if (_currentSemitones == 0) return;
+
+            var animation = new System.Windows.Media.Animation.ColorAnimation
+            {
+                From = System.Windows.Media.Colors.DodgerBlue,
+                To = System.Windows.Media.Colors.Gold,
+                Duration = TimeSpan.FromMilliseconds(2000),
+                EasingFunction = new System.Windows.Media.Animation.QuadraticEase
+                {
+                    EasingMode = System.Windows.Media.Animation.EasingMode.EaseOut
+                }
+            };
+
+            var brush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Colors.DodgerBlue);
+            CurrentChordText.Foreground = brush;
+            brush.BeginAnimation(System.Windows.Media.SolidColorBrush.ColorProperty, animation);
         }
     }
 }
