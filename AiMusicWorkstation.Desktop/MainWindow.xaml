@@ -726,14 +726,18 @@
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="Auto"/>
                                                 <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
+
                                             <ToggleButton x:Name="SectionsEditBtn" Grid.Column="0"
                                                           Content="✏️ Edit" Click="SectionsEdit_Click"
                                                           Background="#2A2A2A" Foreground="#888"
-                                                          FontSize="10" Padding="6,3"
-                                                          Cursor="Hand" Height="22"/>
+                                                          FontSize="11" FontWeight="SemiBold"
+                                                          Padding="8,4" Height="26"
+                                                          Cursor="Hand"/>
+
                                             <Grid x:Name="SectionsEditBar" Grid.Column="1"
-                                                    Visibility="Collapsed" Margin="6,0,0,0">
+                                                  Visibility="Collapsed" Margin="6,0,0,0">
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="*"/>
                                                     <ColumnDefinition Width="Auto"/>
@@ -758,15 +762,24 @@
                                                     <ComboBoxItem Content="Outro"/>
                                                     <ComboBoxItem Content="Break"/>
                                                 </ComboBox>
-                                                <Button Grid.Column="1" Content="＋ Mark"
+                                                <Button Grid.Column="1" Content="Add Section"
                                                         Click="AddSection_Click"
                                                         Background="#2A5A7A" Foreground="White"
                                                         FontSize="10" FontWeight="Bold"
                                                         Padding="8,3" Margin="4,0,0,0"
                                                         Cursor="Hand" Height="22"/>
                                             </Grid>
+
+                                            <!-- 🤖 knappen — ny i kolumn 2 -->
+                                            <Button x:Name="AutoDetectBtn" Grid.Column="2"
+                                                    Content="🤖" Click="AutoDetectStructure_Click"
+                                                    Background="#2A2A2A" Foreground="#888"
+                                                    FontSize="13" Width="26" Height="26"
+                                                    Cursor="Hand" Margin="4,0,0,0"
+                                                    ToolTip="Auto-detect structure via AI"/>
                                         </Grid>
                                     </Border>
+
                                 </Grid>
                             </Border>
 

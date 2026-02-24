@@ -46,7 +46,7 @@
       "start": 84,
       "end": 94,
       "text": "Please don\u0027t cry one tear for me I\u0027m not afraid of what I have to say",
-      "IsActive": true
+      "IsActive": false
     },
     {
       "start": 94,
@@ -112,7 +112,7 @@
       "start": 205,
       "end": 215,
       "text": "Sometimes goodbye is a second chance Sometimes goodbye is a second chance",
-      "IsActive": false
+      "IsActive": true
     }
   ],
   "chords": [
@@ -449,5 +449,66 @@
       "chord": "D7"
     }
   ],
-  "sections": []
+  "sections": [
+    {
+      "label": "Intro",
+      "start": 0,
+      "end": 14,
+      "color": "#4A4A8A"
+    },
+    {
+      "label": "Verse",
+      "start": 14,
+      "end": 34,
+      "color": "#1A6B3A"
+    },
+    {
+      "label": "Pre",
+      "start": 34,
+      "end": 53,
+      "color": "#6B4A1A"
+    },
+    {
+      "label": "Chorus",
+      "start": 53,
+      "end": 84,
+      "color": "#8B1A1A"
+    },
+    {
+      "label": "Verse 2",
+      "start": 84,
+      "end": 104,
+      "color": "#1A6B3A"
+    },
+    {
+      "label": "Pre 2",
+      "start": 104,
+      "end": 122,
+      "color": "#6B4A1A"
+    },
+    {
+      "label": "Chorus 2",
+      "start": 122,
+      "end": 153,
+      "color": "#8B1A1A"
+    },
+    {
+      "label": "Bridge",
+      "start": 153,
+      "end": 172,
+      "color": "#6B1A6B"
+    },
+    {
+      "label": "Chorus 3",
+      "start": 172,
+      "end": 206,
+      "color": "#8B1A1A"
+    },
+    {
+      "label": "Outro",
+      "start": 206,
+      "end": 223.8954875,
+      "color": "#2A4A6B"
+    }
+  ]
 }

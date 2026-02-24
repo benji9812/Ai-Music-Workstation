@@ -9,6 +9,7 @@
 # Secrets & config
 appsettings.Development.json
 secrets.json
+.env
 
 # Python
 PythonEngine/venv/

@@ -3,6 +3,7 @@ using AiMusicWorkstation.Desktop.Services;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -133,5 +134,55 @@ namespace AiMusicWorkstation.Desktop
             }
         }
 
+        private async void AutoDetectStructure_Click(object sender, RoutedEventArgs e)
+        {
+            if (ProjectList.SelectedItem is not SongProject p)
+            { StatusLabel.Text = "Load a song first."; return; }
+
+            double duration = _player.TotalTime.TotalSeconds;
+            if (duration <= 0)
+            { StatusLabel.Text = "Load a song first."; return; }
+
+            StatusLabel.Text = "🤖 Fetching structure from AI...";
+            AutoDetectBtn.IsEnabled = false;
+
+            try
+            {
+                string json = await _pythonBridge.GetStructureAsync(p.Artist, p.Title, duration);
+                using var doc = JsonDocument.Parse(json);
+
+                if (doc.RootElement.GetProperty("status").GetString() != "success")
+                {
+                    string msg = doc.RootElement.TryGetProperty("message", out var m)
+                        ? m.GetString() : "Unknown error";
+                    StatusLabel.Text = $"AI: {msg}";
+                    return;
+                }
+
+                var sectionsEl = doc.RootElement.GetProperty("sections");
+                var newSections = new List<SongSection>();
+
+                foreach (var s in sectionsEl.EnumerateArray())
+                {
+                    string label = s.GetProperty("label").GetString() ?? "Section";
+                    newSections.Add(new SongSection
+                    {
+                        Label = label,
+                        StartTime = s.GetProperty("start").GetDouble(),
+                        EndTime = s.GetProperty("end").GetDouble(),
+                        Color = SectionColors.Get(label)
+                    });
+                }
+
+                _currentSections = newSections;
+                RefreshSectionsList();
+                SaveLyricsAndChords(_player.CurrentStemsPath,
+                    _currentLyrics.ToList(), _currentChords, _currentSections);
+
+                StatusLabel.Text = $"✅ Structure loaded: {_currentSections.Count} sections";
+            }
+            catch (Exception ex) { StatusLabel.Text = $"Error: {ex.Message}"; }
+            finally { AutoDetectBtn.IsEnabled = true; }
+        }
     }
 }

@@ -126,5 +126,20 @@ namespace AiMusicWorkstation.Desktop.Services
             }
             return "{\"status\":\"error\"}";
         }
+
+        public async Task<string> GetStructureAsync(string artist, string title, double duration)
+        {
+            try
+            {
+                var payload = new { artist, title, duration };
+                var json = System.Text.Json.JsonSerializer.Serialize(payload);
+                var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
+                var response = await _client.PostAsync("structure", content);
+                if (response.IsSuccessStatusCode)
+                    return await response.Content.ReadAsStringAsync();
+            }
+            catch { }
+            return "{\"status\":\"error\"}";
+        }
     }
 }

@@ -1,5 +1,9 @@
 import uvicorn
 from fastapi import FastAPI, UploadFile, File
+from google import genai as google_genai
+from pydantic import BaseModel
+from dotenv import load_dotenv
+load_dotenv()
 import os
 import shutil
 import warnings
@@ -15,6 +19,7 @@ import soundfile as sf
 warnings.filterwarnings("ignore")
 
 app = FastAPI(title="AI Music Engine")
+gemini_client = google_genai.Client(api_key=os.environ["GOOGLE_API_KEY"])
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 UPLOAD_DIR = os.path.join(BASE_DIR, "temp_uploads")
@@ -274,6 +279,51 @@ async def analyze_audio(file: UploadFile = File(...)):
 
     except Exception as e:
         traceback.print_exc()
+        return {"status": "error", "message": str(e)}
+
+class StructureRequest(BaseModel):
+    artist: str
+    title: str
+    duration: float
+
+@app.post("/structure")
+async def get_structure(req: StructureRequest):
+    try:
+        prompt = (
+            f"List the song structure for \"{req.artist} - {req.title}\" "
+            f"(total duration: {int(req.duration)} seconds).\n"
+            "Return ONLY a JSON array, no explanation. Format:\n"
+            "[{\"label\": \"Intro\", \"start\": 0}, {\"label\": \"Verse\", \"start\": 14}, ...]\n"
+            "Use these section names only: Intro, Verse, Pre, Chorus, Bridge, Solo, Instrumental, Outro, Break.\n"
+            "Start times must be in seconds (integers). First section must start at 0."
+        )
+
+        response = gemini_client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt
+        )
+        raw = response.text.strip()
+
+        start = raw.find("[")
+        end = raw.rfind("]") + 1
+        if start == -1 or end == 0:
+            return {"status": "error", "message": "No JSON in response"}
+
+        sections = json.loads(raw[start:end])
+
+        result = []
+        for i, sec in enumerate(sections):
+            end_time = sections[i + 1]["start"] if i + 1 < len(sections) else req.duration
+            result.append({
+                "label": sec["label"],
+                "start": float(sec["start"]),
+                "end": float(end_time),
+                "color": ""
+            })
+
+        return {"status": "success", "sections": result}
+
+    except Exception as e:
         return {"status": "error", "message": str(e)}
 
 if __name__ == "__main__":
