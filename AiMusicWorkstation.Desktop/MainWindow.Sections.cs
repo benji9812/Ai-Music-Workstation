@@ -98,5 +98,40 @@ namespace AiMusicWorkstation.Desktop
             bool isEdit = SectionsEditBtn.IsChecked == true;
             SectionsEditBar.Visibility = isEdit ? Visibility.Visible : Visibility.Collapsed;
         }
+
+        private void SectionItem_DoubleClick(object sender, MouseButtonEventArgs e)
+        {
+            if (e.ClickCount == 2 &&
+                sender is FrameworkElement fe &&
+                fe.DataContext is SongSection section)
+            {
+                var dialog = new EditSectionWindow(section.Label, section.StartTime)
+                {
+                    Owner = this
+                };
+
+                if (dialog.ShowDialog() == true)
+                {
+                    section.Label = dialog.SectionName;
+                    section.StartTime = dialog.SectionTime;
+                    section.Color = SectionColors.Get(dialog.SectionName);
+
+                    double total = _player.TotalTime.TotalSeconds;
+                    _currentSections = _currentSections
+                        .OrderBy(s => s.StartTime).ToList();
+
+                    for (int i = 0; i < _currentSections.Count - 1; i++)
+                        _currentSections[i].EndTime = _currentSections[i + 1].StartTime;
+                    _currentSections[^1].EndTime = total;
+
+                    RefreshSectionsList();
+                    SaveLyricsAndChords(_player.CurrentStemsPath,
+                        _currentLyrics.ToList(), _currentChords, _currentSections);
+                }
+
+                e.Handled = true;
+            }
+        }
+
     }
 }

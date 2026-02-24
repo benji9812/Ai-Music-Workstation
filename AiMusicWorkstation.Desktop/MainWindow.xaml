@@ -641,14 +641,18 @@
                                     <ScrollViewer Grid.Row="1"
                                                   VerticalScrollBarVisibility="Auto"
                                                   HorizontalScrollBarVisibility="Disabled">
-                                        <ItemsControl x:Name="SectionsList">
+                                        <ItemsControl x:Name="SectionsList"
+                                                      Focusable="False">
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate>
                                                     <Border x:Name="SectionItemBorder"
                                                             Background="Transparent"
                                                             Padding="4,5,4,5"
                                                             Cursor="Hand"
-                                                            MouseDown="SectionItem_MouseDown">
+                                                            Focusable="False"
+                                                            FocusVisualStyle="{x:Null}"
+                                                            MouseDown="SectionItem_MouseDown"
+                                                            MouseLeftButtonDown="SectionItem_DoubleClick">
                                                         <Border.Style>
                                                             <Style TargetType="Border">
                                                                 <Style.Triggers>
