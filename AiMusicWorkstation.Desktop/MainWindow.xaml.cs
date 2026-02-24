@@ -14,6 +14,7 @@ using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Threading;
 using System.Windows.Media.Animation;
+using System.Linq;
 
 namespace AiMusicWorkstation.Desktop
 {
@@ -280,12 +281,22 @@ namespace AiMusicWorkstation.Desktop
             try
             {
                 string dir = Directory.Exists(stemsPath) ? stemsPath : Path.GetDirectoryName(stemsPath);
-                var data = new { lyrics, chords, sections = sections ?? new List<SongSection>() };
-                string json = JsonSerializer.Serialize(data, new JsonSerializerOptions { WriteIndented = true });
+                var sectionDtos = (sections ?? new List<SongSection>()).Select(s => new
+                {
+                    label = s.Label,
+                    start = s.StartTime,
+                    end = s.EndTime,
+                    color = s.Color
+                }).ToList();
+
+                var data = new { lyrics, chords, sections = sectionDtos };
+                var opts = new JsonSerializerOptions { WriteIndented = true };
+                string json = JsonSerializer.Serialize(data, opts);
                 File.WriteAllText(Path.Combine(dir, "session.json"), json);
             }
             catch { }
         }
+
 
 
         private (List<LyricSegment> lyrics, List<ChordEvent> chords, List<SongSection> sections) LoadLyricsAndChords(string stemsPath)

@@ -20,19 +20,23 @@ namespace AiMusicWorkstation.Desktop.Models
 
         [JsonPropertyName("color")]
         public string Color { get; set; } = "#007ACC";
+        
+        [JsonIgnore]
         public bool IsActive
         {
             get => _isActive;
             set { _isActive = value; OnPropertyChanged(nameof(IsActive)); }
         }
 
+        [JsonIgnore]
         public string TimeDisplay =>
-            System.TimeSpan.FromSeconds(StartTime).ToString(@"m\:ss");
+        System.TimeSpan.FromSeconds(StartTime).ToString(@"m\:ss");
 
+        [JsonIgnore]
         public System.Windows.Media.SolidColorBrush ColorBrush =>
-            new System.Windows.Media.SolidColorBrush(
-                (System.Windows.Media.Color)System.Windows.Media.ColorConverter
-                .ConvertFromString(Color));
+        new System.Windows.Media.SolidColorBrush(
+        (System.Windows.Media.Color)System.Windows.Media.ColorConverter
+        .ConvertFromString(Color));
 
         public event PropertyChangedEventHandler PropertyChanged;
         protected void OnPropertyChanged(string name) =>

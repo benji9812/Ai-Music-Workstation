@@ -479,5 +479,72 @@
       "chord": "D7"
     }
   ],
-  "sections": []
+  "sections": [
+    {
+      "label": "Intro",
+      "start": 0,
+      "end": 10.4897732,
+      "color": "#4A4A8A"
+    },
+    {
+      "label": "Verse",
+      "start": 10.4897732,
+      "end": 31.1897505,
+      "color": "#1A6B3A"
+    },
+    {
+      "label": "Pre",
+      "start": 31.1897505,
+      "end": 45.4397505,
+      "color": "#6B4A1A"
+    },
+    {
+      "label": "Chorus",
+      "start": 45.4397505,
+      "end": 73.1924036,
+      "color": "#8B1A1A"
+    },
+    {
+      "label": "Instrumental",
+      "start": 73.1924036,
+      "end": 83.0924036,
+      "color": "#1A4A6B"
+    },
+    {
+      "label": "Verse 2",
+      "start": 83.0924036,
+      "end": 103.11,
+      "color": "#1A6B3A"
+    },
+    {
+      "label": "Pre 2",
+      "start": 103.11,
+      "end": 118.11,
+      "color": "#6B4A1A"
+    },
+    {
+      "label": "Chorus 2",
+      "start": 118.11,
+      "end": 147.96,
+      "color": "#8B1A1A"
+    },
+    {
+      "label": "Bridge",
+      "start": 147.96,
+      "end": 160.56,
+      "color": "#6B1A6B"
+    },
+    {
+      "label": "Chorus 3",
+      "start": 160.56,
+      "end": 198.21,
+      "color": "#8B1A1A"
+    },
+    {
+      "label": "Outro",
+      "start": 198.21,
+      "end": 223.9216099,
+      "color": "#2A4A6B"
+    }
+  ]
 }
