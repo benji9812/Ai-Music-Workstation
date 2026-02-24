@@ -1002,19 +1002,37 @@
 
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,12,0,0">
                     <ToggleButton x:Name="LoopBtn" Content="🔁" Width="50" Height="50"
-                                  Background="#222" Foreground="SkyBlue" FontSize="20"
-                                  Click="Loop_Click"/>
+                  Click="Loop_Click" Cursor="Hand">
+                        <ToggleButton.Style>
+                            <Style TargetType="ToggleButton">
+                                <Setter Property="Background" Value="#222"/>
+                                <Setter Property="Foreground" Value="#555"/>
+                                <Setter Property="FontSize" Value="20"/>
+                                <Style.Triggers>
+                                    <Trigger Property="IsChecked" Value="True">
+                                        <Setter Property="Background" Value="#1A3A2A"/>
+                                        <Setter Property="Foreground" Value="#1DB954"/>
+                                    </Trigger>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter Property="Opacity" Value="0.8"/>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </ToggleButton.Style>
+                    </ToggleButton>
                     <Button x:Name="PlayPauseBtn" Content="▶" Width="75" Height="75"
                             Margin="20,0" Background="#1DB954" Foreground="White"
-                            FontSize="35" Click="PlayPause_Click"/>
-                    <Button Content="⏹" Width="50" Height="50"
+                            FontSize="35" Click="PlayPause_Click" Cursor="Hand"/>
+                    <Button Content="⏮" Width="50" Height="50"
                             Background="#222" Foreground="IndianRed"
-                            FontSize="20" Click="Stop_Click"/>
+                            FontSize="20" Click="Stop_Click"
+                            Cursor="Hand" ToolTip="Restart &amp; Play"/>
                     <Button x:Name="ExportBtn" Content="💾 EXPORT MIX"
                             Click="ExportMix_Click" Width="140" Height="50"
                             Margin="30,0,0,0" Background="#007ACC"
                             Foreground="White" FontWeight="Bold" Cursor="Hand"/>
                 </StackPanel>
+
             </StackPanel>
         </Grid>
     </Grid>

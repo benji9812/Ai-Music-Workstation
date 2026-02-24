@@ -280,6 +280,57 @@ namespace AiMusicWorkstation.Desktop.Services
             UpdateMix();
         }
 
+        public void RestartAndPlay()
+        {
+            if (string.IsNullOrEmpty(CurrentStemsPath)) return;
+
+            var volumes = _channels.ToDictionary(k => k.Key, v => v.Value.UserVolume);
+            var mutes = _channels.ToDictionary(k => k.Key, v => v.Value.IsMuted);
+            var solos = _channels.ToDictionary(k => k.Key, v => v.Value.IsSolo);
+            float masterVol = _outputDevice?.Volume ?? 1f;
+            bool wasLooping = _isLooping;
+
+            DisposeOldStreams();
+            _isLooping = wasLooping;
+
+            var sources = new List<ISampleProvider>();
+            bool isFile = File.Exists(CurrentStemsPath);
+            string[] stems = isFile ? new[] { "backing" } : new[] { "drums", "bass", "vocals", "other" };
+
+            foreach (var stem in stems)
+            {
+                string p = isFile ? CurrentStemsPath : Path.Combine(CurrentStemsPath, $"{stem}.mp3");
+                if (!isFile && !File.Exists(p)) p = Path.Combine(CurrentStemsPath, $"{stem}.wav");
+                if (File.Exists(p))
+                {
+                    var reader = new AudioFileReader(p);
+                    reader.CurrentTime = TimeSpan.Zero;
+                    var looper = new LoopStream(reader) { EnableLooping = _isLooping };
+                    var channel = new StemChannel
+                    {
+                        Reader = reader,
+                        Looper = looper,
+                        UserVolume = volumes.ContainsKey(stem) ? volumes[stem] : (isFile ? 1.0f : 0.8f),
+                        IsMuted = mutes.ContainsKey(stem) && mutes[stem],
+                        IsSolo = solos.ContainsKey(stem) && solos[stem]
+                    };
+                    _channels.Add(stem, channel);
+                    sources.Add(looper.ToSampleProvider());
+                }
+            }
+
+            if (sources.Count == 0) return;
+
+            _mixer = new MixingSampleProvider(sources);
+            _outputDevice = new WaveOutEvent();
+            _outputDevice.Volume = masterVol;
+            _outputDevice.Init(_mixer);
+            _outputDevice.PlaybackStopped += (s, e) => PlaybackStopped?.Invoke(this, EventArgs.Empty);
+            UpdateMix();
+            _outputDevice.Play();
+        }
+
+
         public void SetMasterVolume(float volume)
         {
             if (_outputDevice != null) _outputDevice.Volume = Math.Clamp(volume, 0, 1);

@@ -62,7 +62,7 @@ namespace AiMusicWorkstation.Desktop
                 {
                     if (_isTransposing) return;
                     if (_isHandlingPlaybackStopped) return;
-                    _isHandlingPlaybackStopped = true;
+                    if (_player.IsPlaying) return; // ← lägg till denna rad
 
                     _metronome.Stop();
                     _metronome.ResetEvents();
@@ -70,19 +70,16 @@ namespace AiMusicWorkstation.Desktop
                     MetronomeBtn.Content = "🥁 Metro";
                     MetronomeBeatText.Text = "";
                     MetronomePulse.Opacity = 0.2;
-
                     PlayPauseBtn.Content = "▶";
                     _timelineTimer.Stop();
-
-                    _player.Reinitialize(); // Re-init WaveOutEvent så Play() fungerar igen
+                    _player.Reinitialize();
                     _isTimerUpdate = true;
                     TimelineSlider.Value = 0;
                     _isTimerUpdate = false;
                     UpdateTimerText();
-
-                    _isHandlingPlaybackStopped = false;
                 });
             };
+
 
             _timelineTimer = new DispatcherTimer();
             _timelineTimer.Interval = TimeSpan.FromMilliseconds(50);
@@ -716,21 +713,23 @@ namespace AiMusicWorkstation.Desktop
 
         private void Stop_Click(object sender, RoutedEventArgs e)
         {
-            _player.Stop();
-            PlayPauseBtn.Content = "▶";
-            _timelineTimer.Stop();
             _isTimerUpdate = true;
             TimelineSlider.Value = 0;
             _isTimerUpdate = false;
-            UpdateTimerText();
 
-            // Återställ lyrics till toppen
             if (_currentLyrics != null && _currentLyrics.Any())
             {
                 foreach (var line in _currentLyrics) line.IsActive = false;
                 LyricsScroller.ScrollToTop();
             }
+
+            _player.RestartAndPlay();
+
+            PlayPauseBtn.Content = "⏸";
+            _timelineTimer.Start();
         }
+
+
 
 
         private void Loop_Click(object sender, RoutedEventArgs e)
@@ -895,6 +894,7 @@ namespace AiMusicWorkstation.Desktop
         private async void ProjectList_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             // Ignorera om det inte är ett faktiskt val (t.ex. högerklick)
+            if (_suppressSelectionChange) return;
             if (e.AddedItems.Count == 0) return;
             if (ProjectList.SelectedItem is SongProject p)
             {
@@ -925,6 +925,8 @@ namespace AiMusicWorkstation.Desktop
                     ClearSections();
                     var (lyrics, chords, sections) = LoadLyricsAndChords(p.StemsPath);
                     _currentLyrics = new ObservableCollection<LyricSegment>(lyrics);
+                    foreach (var line in _currentLyrics) line.IsActive = false;
+                    LyricsScroller?.ScrollToTop();
                     _currentChords = chords;
                     _currentSections = sections;  // ← sätt listan INNAN
                     RefreshSectionsList();         // ← sedan refresh
@@ -961,15 +963,18 @@ namespace AiMusicWorkstation.Desktop
             }
         }
 
+        private bool _suppressSelectionChange = false;
+
         private void ProjectList_PreviewRightClick(object sender, MouseButtonEventArgs e)
         {
-            // Markera item under musen utan att trigga SelectionChanged
             var item = ItemsControl.ContainerFromElement(
                 ProjectList, e.OriginalSource as DependencyObject) as ListBoxItem;
             if (item != null)
             {
+                _suppressSelectionChange = true;
                 item.IsSelected = true;
-                e.Handled = true; // Stoppar SelectionChanged från att triggas
+                _suppressSelectionChange = false;
+                e.Handled = true;
             }
         }
 
