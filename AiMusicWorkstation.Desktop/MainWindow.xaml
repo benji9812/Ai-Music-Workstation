@@ -157,6 +157,7 @@
             </StackPanel>
 
             <ListBox x:Name="ProjectList" Grid.Row="1"
+                     PreviewMouseRightButtonDown="ProjectList_PreviewRightClick"
                      Background="Transparent" BorderThickness="0"
                      SelectionChanged="ProjectList_SelectionChanged"
                      Margin="10,0,10,10">

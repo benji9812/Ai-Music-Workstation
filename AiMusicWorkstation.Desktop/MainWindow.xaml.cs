@@ -275,7 +275,7 @@ namespace AiMusicWorkstation.Desktop
 
         // --- SESSION: SPARA & LADDA LYRICS/CHORDS ---
         private void SaveLyricsAndChords(string stemsPath, List<LyricSegment> lyrics,
-     List<ChordEvent> chords, List<SongSection> sections = null)
+        List<ChordEvent> chords, List<SongSection> sections = null)
         {
             try
             {
@@ -288,13 +288,14 @@ namespace AiMusicWorkstation.Desktop
         }
 
 
-        private (List<LyricSegment> lyrics, List<ChordEvent> chords) LoadLyricsAndChords(string stemsPath)
+        private (List<LyricSegment> lyrics, List<ChordEvent> chords, List<SongSection> sections) LoadLyricsAndChords(string stemsPath)
         {
             try
             {
                 string dir = Directory.Exists(stemsPath) ? stemsPath : Path.GetDirectoryName(stemsPath);
                 string file = Path.Combine(dir, "session.json");
-                if (!File.Exists(file)) return (new List<LyricSegment>(), new List<ChordEvent>());
+                if (!File.Exists(file))
+                    return (new List<LyricSegment>(), new List<ChordEvent>(), new List<SongSection>());
 
                 using var doc = JsonDocument.Parse(File.ReadAllText(file));
                 var lyrics = JsonSerializer.Deserialize<List<LyricSegment>>(
@@ -302,10 +303,16 @@ namespace AiMusicWorkstation.Desktop
                 var chords = JsonSerializer.Deserialize<List<ChordEvent>>(
                     doc.RootElement.GetProperty("chords").GetRawText()) ?? new List<ChordEvent>();
 
-                return (lyrics, chords);
+                List<SongSection> sections = new List<SongSection>();
+                if (doc.RootElement.TryGetProperty("sections", out var sectionsEl))
+                    sections = JsonSerializer.Deserialize<List<SongSection>>(sectionsEl.GetRawText())
+                               ?? new List<SongSection>();
+
+                return (lyrics, chords, sections);
             }
-            catch { return (new List<LyricSegment>(), new List<ChordEvent>()); }
+            catch { return (new List<LyricSegment>(), new List<ChordEvent>(), new List<SongSection>()); }
         }
+
 
         private void UpdateMixerUIState()
         {
@@ -705,7 +712,15 @@ namespace AiMusicWorkstation.Desktop
             TimelineSlider.Value = 0;
             _isTimerUpdate = false;
             UpdateTimerText();
+
+            // Återställ lyrics till toppen
+            if (_currentLyrics != null && _currentLyrics.Any())
+            {
+                foreach (var line in _currentLyrics) line.IsActive = false;
+                LyricsScroller.ScrollToTop();
+            }
         }
+
 
         private void Loop_Click(object sender, RoutedEventArgs e)
         {
@@ -868,6 +883,8 @@ namespace AiMusicWorkstation.Desktop
 
         private async void ProjectList_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
+            // Ignorera om det inte är ett faktiskt val (t.ex. högerklick)
+            if (e.AddedItems.Count == 0) return;
             if (ProjectList.SelectedItem is SongProject p)
             {
                 if (Directory.Exists(p.StemsPath) || File.Exists(p.StemsPath))
@@ -895,9 +912,11 @@ namespace AiMusicWorkstation.Desktop
                     }
 
                     ClearSections();
-                    var (lyrics, chords) = LoadLyricsAndChords(p.StemsPath);
+                    var (lyrics, chords, sections) = LoadLyricsAndChords(p.StemsPath);
                     _currentLyrics = new ObservableCollection<LyricSegment>(lyrics);
                     _currentChords = chords;
+                    _currentSections = sections;  // ← sätt listan INNAN
+                    RefreshSectionsList();         // ← sedan refresh
                     LyricsList.ItemsSource = _currentLyrics.Any() ? _currentLyrics : null;
 
                     if (_currentChords.Any())
@@ -930,6 +949,19 @@ namespace AiMusicWorkstation.Desktop
                 }
             }
         }
+
+        private void ProjectList_PreviewRightClick(object sender, MouseButtonEventArgs e)
+        {
+            // Markera item under musen utan att trigga SelectionChanged
+            var item = ItemsControl.ContainerFromElement(
+                ProjectList, e.OriginalSource as DependencyObject) as ListBoxItem;
+            if (item != null)
+            {
+                item.IsSelected = true;
+                e.Handled = true; // Stoppar SelectionChanged från att triggas
+            }
+        }
+
 
         private void SearchBox_TextChanged(object sender, TextChangedEventArgs e) => RefreshLibrary();
         private void Filter_Changed(object sender, SelectionChangedEventArgs e)
