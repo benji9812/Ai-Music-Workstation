@@ -1,20 +1,26 @@
 ﻿# Visual Studio
 .vs/
 *.user
+*.suo
 
 # Build output
-**/obj/
-**/bin/
+obj/
+bin/
+out/
 
 # Secrets & config
 appsettings.Development.json
 secrets.json
 
 # Python
-PythonEngine/venv/
-PythonEngine/__pycache__/
-PythonEngine/temp_uploads/
+__pycache__/
 *.pyc
+.venv/
+venv/
+env/
+temp_uploads/
+
+
 
 # Downloads (genererade filer)
 **/Downloads/
