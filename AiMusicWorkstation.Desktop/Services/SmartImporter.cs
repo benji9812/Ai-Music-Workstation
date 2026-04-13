@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Configuration;
 using SpotifyAPI.Web;
+using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
 using System.Text.Json;
@@ -14,14 +15,21 @@ namespace AiMusicWorkstation.Desktop.Services
     {
         private readonly string _spotifyClientId;
         private readonly string _spotifyClientSecret;
-
         private readonly YoutubeClient _youtube;
+
+        // ✅ Bug 1 fix — en statisk HttpClient med User-Agent satt i konstruktorn
+        private static readonly HttpClient _httpClient = new HttpClient();
 
         public SmartImporter(IConfiguration config)
         {
             _youtube = new YoutubeClient();
             _spotifyClientId = config["Spotify:ClientId"];
             _spotifyClientSecret = config["Spotify:ClientSecret"];
+
+            // ✅ Sätt User-Agent en gång — MusicBrainz kräver detta
+            if (!_httpClient.DefaultRequestHeaders.Contains("User-Agent"))
+                _httpClient.DefaultRequestHeaders.Add(
+                    "User-Agent", "AiMusicWorkstation/1.0 (Benjiw98@gmail.com)");
         }
 
         public async Task<SongImportResult> DownloadSongAsync(string url, IProgress<string> statusReporter)
@@ -31,9 +39,6 @@ namespace AiMusicWorkstation.Desktop.Services
             string finalArtist = "Unknown Artist";
             string spotifyId = null;
 
-            // 1. SMARTARE SPOTIFY CHECK (UPPDATERAD)
-            // Nu kollar vi om det är ENHETLIGT en Spotify-länk (oavsett om det är via Google eller direkt)
-            // Kravet är att den innehåller "spotify.com" och "/track/"
             if (url.ToLower().Contains("spotify.com") && url.Contains("/track/"))
             {
                 statusReporter.Report("Reading Spotify Metadata...");
@@ -56,7 +61,6 @@ namespace AiMusicWorkstation.Desktop.Services
                 }
             }
 
-            // 2. YOUTUBE INFO
             var video = await _youtube.Videos.GetAsync(videoUrl);
             if (string.IsNullOrEmpty(finalTitle))
             {
@@ -64,22 +68,18 @@ namespace AiMusicWorkstation.Desktop.Services
                 finalArtist = video.Author.ChannelTitle;
             }
 
-            // 3. HÄMTA LJUDSTRÖM
             var streamManifest = await _youtube.Videos.Streams.GetManifestAsync(video.Id);
             var streamInfo = streamManifest.GetAudioOnlyStreams().GetWithHighestBitrate();
-
             if (streamInfo == null) throw new Exception("No audio stream available.");
 
-            // 4. FILHANTERING
             string downloadFolder = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Downloads");
             Directory.CreateDirectory(downloadFolder);
 
-            // Rensa filnamn
-            string cleanFileName = Regex.Replace($"{finalArtist} - {finalTitle}", @"[^a-zA-Z0-9\s-]", "").Trim();
+            string cleanFileName = Regex.Replace(
+                $"{finalArtist} - {finalTitle}", @"[^a-zA-Z0-9\s-]", "").Trim();
             string ext = streamInfo.Container.Name;
             string filePath = Path.Combine(downloadFolder, $"{cleanFileName}.{ext}");
 
-            // 5. DOWNLOAD
             statusReporter.Report($"Downloading: {finalTitle}...");
             await _youtube.Videos.Streams.DownloadAsync(streamInfo, filePath);
 
@@ -97,14 +97,10 @@ namespace AiMusicWorkstation.Desktop.Services
             if (string.IsNullOrEmpty(url)) return null;
             try
             {
-                // Regex som hittar 22 tecken (standard Spotify ID) efter /track/
                 var match = Regex.Match(url, @"track/([a-zA-Z0-9]{22})");
                 if (match.Success) return match.Groups[1].Value;
-
-                // Fallback: Försök hitta sista delen av URL:en om regex missar
-                var cleanUrl = url.Split('?')[0]; // Ta bort query params
-                var parts = cleanUrl.Split('/');
-                return parts.Last();
+                var cleanUrl = url.Split('?')[0];
+                return cleanUrl.Split('/').Last();
             }
             catch { return null; }
         }
@@ -115,7 +111,6 @@ namespace AiMusicWorkstation.Desktop.Services
             {
                 string id = ExtractSpotifyId(url);
                 if (string.IsNullOrEmpty(id)) return null;
-
                 var spotify = await GetSpotifyClient();
                 var track = await spotify.Tracks.Get(id);
                 return (track.Artists[0].Name, track.Name);
@@ -123,41 +118,33 @@ namespace AiMusicWorkstation.Desktop.Services
             catch { return null; }
         }
 
-        private static readonly HttpClient _httpClient = new HttpClient();
-
         public async Task<OfficialMetadata> GetOfficialMetadata(string trackId)
         {
             if (string.IsNullOrEmpty(trackId)) return new OfficialMetadata();
-
             try
             {
-                // 1. Hämta artistnamn från Spotify
                 var spotify = await GetSpotifyClient();
                 var track = await spotify.Tracks.Get(trackId);
-                string artistName = track.Artists?[0]?.Name ?? "";
-
-                // 2. Hämta genre från MusicBrainz
-                string genre = await GetGenreFromMusicBrainz(artistName);
-
+                string artist = track.Artists?[0]?.Name ?? "";
+                string title = track.Name ?? "";
+                // ✅ Skicka med title för bättre MusicBrainz-träff
+                string genre = await GetGenreFromMusicBrainz(artist, title);
                 return new OfficialMetadata { Genre = genre };
             }
-            catch
-            {
-                return new OfficialMetadata();
-            }
+            catch { return new OfficialMetadata(); }
         }
 
-        private async Task<string> GetGenreFromMusicBrainz(string artistName)
+        // ✅ Bug 2 fix — title-parameter tillagd
+        public async Task<string> GetGenreFromMusicBrainz(string artistName, string title = "")
         {
+            if (string.IsNullOrWhiteSpace(artistName)) return "Uncategorized";
             try
             {
-                _httpClient.DefaultRequestHeaders.Clear();
-                // MusicBrainz kräver en User-Agent
-                _httpClient.DefaultRequestHeaders.Add("User-Agent", "MusicManagerApp/1.0 (Benjiw98@gmail.com)");
-
-                string searchUrl = $"https://musicbrainz.org/ws/2/artist/?query=artist:{Uri.EscapeDataString(artistName)}&fmt=json&limit=1";
-                var searchResponse = await _httpClient.GetStringAsync(searchUrl);
-                var searchJson = JsonDocument.Parse(searchResponse);
+                // Sök artist
+                string query = Uri.EscapeDataString(artistName);
+                string searchUrl = $"https://musicbrainz.org/ws/2/artist/?query=artist:{query}&fmt=json&limit=1";
+                var searchResp = await _httpClient.GetStringAsync(searchUrl);
+                var searchJson = JsonDocument.Parse(searchResp);
 
                 var artists = searchJson.RootElement.GetProperty("artists");
                 if (artists.GetArrayLength() == 0) return "Uncategorized";
@@ -165,44 +152,28 @@ namespace AiMusicWorkstation.Desktop.Services
                 string mbid = artists[0].GetProperty("id").GetString() ?? "";
                 if (string.IsNullOrEmpty(mbid)) return "Uncategorized";
 
-                // 3. Hämta genres via artist MBID
+                // ✅ Bug 3 fix — rate limit: vänta 1.1 sekunder mellan requests
+                await Task.Delay(1100);
+
+                // Hämta genres via MBID
                 string genreUrl = $"https://musicbrainz.org/ws/2/artist/{mbid}?inc=genres&fmt=json";
-                var genreResponse = await _httpClient.GetStringAsync(genreUrl);
-                var genreJson = JsonDocument.Parse(genreResponse);
+                var genreResp = await _httpClient.GetStringAsync(genreUrl);
+                var genreJson = JsonDocument.Parse(genreResp);
 
                 var genres = genreJson.RootElement.GetProperty("genres");
                 if (genres.GetArrayLength() == 0) return "Uncategorized";
 
-                // Välj genre med högst count (mest röstade)
-                string bestGenre = genres
+                string best = genres
                     .EnumerateArray()
                     .OrderByDescending(g => g.GetProperty("count").GetInt32())
                     .First()
                     .GetProperty("name")
                     .GetString() ?? "Uncategorized";
 
-                return char.ToUpper(bestGenre[0]) + bestGenre.Substring(1);
+                return char.ToUpper(best[0]) + best[1..];
             }
-            catch
-            {
-                return "Uncategorized";
-            }
+            catch { return "Uncategorized"; }
         }
-
-        public async Task<string> SearchSpotifyTrackId(string title, string artist)
-        {
-            try
-            {
-                var spotify = await GetSpotifyClient();
-                var results = await spotify.Search.Item(new SearchRequest(
-                    SearchRequest.Types.Track, $"{title} {artist}"));
-
-                var track = results.Tracks?.Items?.FirstOrDefault();
-                return track?.Id;
-            }
-            catch { return null; }
-        }
-
 
         private SpotifyClient _spotifyClient;
         private DateTime _tokenExpiry = DateTime.MinValue;
@@ -231,8 +202,6 @@ namespace AiMusicWorkstation.Desktop.Services
 
     public class OfficialMetadata
     {
-        public double? Bpm { get; set; }
-        public string Key { get; set; }
-        public string Genre { get; set; } = "Uncategorized"; // NY RAD
+        public string Genre { get; set; } = "Uncategorized";
     }
 }

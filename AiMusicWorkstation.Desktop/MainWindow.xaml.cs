@@ -5,6 +5,7 @@ using Microsoft.Win32;
 using NAudio.Wave;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
 using System.Text.Json;
 using System.Windows;
@@ -13,13 +14,14 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Threading;
-using System.Windows.Media.Animation;
-using System.Linq;
 
 namespace AiMusicWorkstation.Desktop
 {
     public partial class MainWindow : Window
     {
+        private System.Windows.Media.SolidColorBrush _chordFlashBrush =
+        new System.Windows.Media.SolidColorBrush(System.Windows.Media.Colors.Gold);
+
         private PythonBridge _pythonBridge = new PythonBridge();
         private StemPlayer _player = new StemPlayer();
         private LibraryManager _library = new LibraryManager();
@@ -56,13 +58,13 @@ namespace AiMusicWorkstation.Desktop
 
             Closing += (s, e) => { _player.Dispose(); _metronome.Dispose(); };
 
-            _player.PlaybackStopped += (s, e) =>
+            _player.PlaybackStopped += async (s, e) =>
             {
+                await Task.Delay(50); // Vänta 50ms — låt alla stems hinna stanna
                 Dispatcher.Invoke(() =>
                 {
-                    if (_isTransposing) return;
-                    if (_isHandlingPlaybackStopped) return;
-                    if (_player.IsPlaying) return; // ← lägg till denna rad
+                    if (_isTransposing || _isHandlingPlaybackStopped || _player.IsPlaying) return;
+                    _isHandlingPlaybackStopped = true;
 
                     _metronome.Stop();
                     _metronome.ResetEvents();
@@ -77,6 +79,7 @@ namespace AiMusicWorkstation.Desktop
                     TimelineSlider.Value = 0;
                     _isTimerUpdate = false;
                     UpdateTimerText();
+                    _isHandlingPlaybackStopped = false;
                 });
             };
 
@@ -141,6 +144,7 @@ namespace AiMusicWorkstation.Desktop
                 string pathForPlayer = inputPath;
 
                 string jsonResponse = await _pythonBridge.RunAnalysisAsync(fileForPython, useCloud: true);
+                Debug.WriteLine($"[Analyze] RunAnalysisAsync svar: {jsonResponse[..Math.Min(200, jsonResponse.Length)]}");
 
                 int jsonStartIndex = jsonResponse.IndexOf('{');
                 if (jsonStartIndex == -1)
@@ -173,7 +177,7 @@ namespace AiMusicWorkstation.Desktop
                 }
 
                 _currentLyrics = new ObservableCollection<LyricSegment>(
-                 analysisData.Lyrics ?? new List<LyricSegment>());
+                    analysisData.Lyrics ?? new List<LyricSegment>());
                 _currentChords = analysisData.Chords ?? new List<ChordEvent>();
                 ClearSections();
                 LyricsList.ItemsSource = _currentLyrics;
@@ -200,8 +204,30 @@ namespace AiMusicWorkstation.Desktop
                 KeyText.Text = detectedKey;
                 _originalKey = detectedKey;
 
+                // ✅ Hämta Spotify-metadata EN gång och casha resultatet
                 bool isSpotify = !string.IsNullOrEmpty(spotifyUrl);
-                var keySource = isSpotify ? KeySource.Metadata : KeySource.Generated;
+                string genre = "Uncategorized";
+                var keySource = KeySource.Generated;
+
+                if (isSpotify)
+                {
+                    StatusLabel.Text = "Fetching metadata from Spotify...";
+                    string trackId = _importer.ExtractSpotifyId(spotifyUrl);
+                    var meta = await _importer.GetOfficialMetadata(trackId);
+
+                    if (!string.IsNullOrEmpty(meta.Genre) && meta.Genre != "Uncategorized")
+                    {
+                        genre = meta.Genre;
+                        keySource = KeySource.Metadata; // Badge visas bara om genre faktiskt hämtades
+                    }
+                }
+
+                if (genre == "Uncategorized" && !string.IsNullOrEmpty(artistName))
+                {
+                    string mbGenre = await _importer.GetGenreFromMusicBrainz(artistName, customTitle ?? "");
+                    if (!string.IsNullOrEmpty(mbGenre)) genre = mbGenre;
+                }
+
                 UpdateKeyBadge(keySource);
 
                 if (!string.IsNullOrEmpty(analysisData.StemsPath) && Directory.Exists(analysisData.StemsPath))
@@ -212,6 +238,17 @@ namespace AiMusicWorkstation.Desktop
                 TotalTimeText.Text = _player.TotalTime.ToString(@"mm\:ss");
 
                 SaveLyricsAndChords(pathForPlayer, _currentLyrics.ToList(), _currentChords);
+
+                if (_currentChords.Any())
+                {
+                    string firstChord = TransposeChord(_currentChords[0].Chord, 0);
+                    CurrentChordText.Text = firstChord;
+                    ChordDiagramHost.Child = RenderChordDiagram(firstChord);
+                    var upcoming = _currentChords.Skip(1).Take(3)
+                        .Select(c => TransposeChord(c.Chord, 0));
+                    NextChordsText.Text = string.Join(" → ", upcoming);
+                }
+                UpdateScaleDiagram();
 
                 bool alreadyExists = _library.Projects.Any(p => p.StemsPath == pathForPlayer);
                 if (!alreadyExists)
@@ -226,16 +263,6 @@ namespace AiMusicWorkstation.Desktop
                         title = parts[1].Trim();
                     }
 
-                    string genre = "Uncategorized";
-                    if (isSpotify && !string.IsNullOrEmpty(spotifyUrl))
-                    {
-                        StatusLabel.Text = "Fetching genre from Spotify...";
-                        string trackId = _importer.ExtractSpotifyId(spotifyUrl);
-                        var meta = await _importer.GetOfficialMetadata(trackId);
-                        if (!string.IsNullOrEmpty(meta.Genre) && meta.Genre != "Uncategorized")
-                            genre = meta.Genre;
-                    }
-
                     _library.AddProject(new SongProject
                     {
                         Title = title,
@@ -243,7 +270,7 @@ namespace AiMusicWorkstation.Desktop
                         Bpm = _currentPrimaryBpm,
                         Key = detectedKey,
                         StemsPath = pathForPlayer,
-                        OriginalPath = inputPath, // NY
+                        OriginalPath = inputPath,
                         Duration = _player.TotalTime,
                         GroupName = "General",
                         DateAdded = DateTime.Now,
@@ -253,11 +280,20 @@ namespace AiMusicWorkstation.Desktop
                         SpotifyId = isSpotify ? _importer.ExtractSpotifyId(spotifyUrl) : null,
                         TimeSignature = ts
                     });
+
                     RefreshLibrary();
                 }
 
+                // ✅ Alltid utanför !alreadyExists — körs oavsett om låten är ny eller inte
+                var loadedProject = _library.Projects.FirstOrDefault(p => p.StemsPath == pathForPlayer);
+                if (loadedProject != null)
+                    ProjectList.SelectedItem = loadedProject;
+
                 HideImportSection();
-                StatusLabel.Text = "Ready to Mix! 🎚️";
+                StatusLabel.Text = "Detecting song structure...";
+
+                AutoDetectStructure_Click(null, null); // Körs asynkront i bakgrunden
+                StatusLabel.Text = "Ready to Mix! 🎚️"; // Visas direkt
             }
             catch (Exception ex)
             {
@@ -294,8 +330,6 @@ namespace AiMusicWorkstation.Desktop
             catch { }
         }
 
-
-
         private (List<LyricSegment> lyrics, List<ChordEvent> chords, List<SongSection> sections) LoadLyricsAndChords(string stemsPath)
         {
             try
@@ -320,7 +354,6 @@ namespace AiMusicWorkstation.Desktop
             }
             catch { return (new List<LyricSegment>(), new List<ChordEvent>(), new List<SongSection>()); }
         }
-
 
         private void UpdateMixerUIState()
         {
@@ -423,8 +456,8 @@ namespace AiMusicWorkstation.Desktop
                     if (CurrentChordText.Text != displayChord)
                     {
                         CurrentChordText.Text = displayChord;
-                        ChordDiagramHost.Child = (UIElement)ChordDiagramRenderer.Render(displayChord, 100);
-                        FlashChordColor(); // NY
+                        ChordDiagramHost.Child = RenderChordDiagram(displayChord);
+                        FlashChordColor();
 
                         var upcoming = _currentChords
                             .Where(c => c.Time > t)
@@ -434,6 +467,8 @@ namespace AiMusicWorkstation.Desktop
                     }
                 }
             }
+
+            HighlightActiveSection(t);
         }
 
         private void UpdateTimerText()
@@ -525,7 +560,7 @@ namespace AiMusicWorkstation.Desktop
                                       ?? _currentChords[0];
                     string displayChord = TransposeChord(activeChord.Chord, _currentSemitones);
                     CurrentChordText.Text = displayChord;
-                    ChordDiagramHost.Child = (UIElement)ChordDiagramRenderer.Render(displayChord, 100);
+                    ChordDiagramHost.Child = RenderChordDiagram(displayChord);
                     FlashChordColor(); // NY
 
                     var upcoming = _currentChords
@@ -554,14 +589,32 @@ namespace AiMusicWorkstation.Desktop
         {
             if (semitones == 0 || string.IsNullOrEmpty(chord)) return chord;
 
-            bool isMinor = chord.EndsWith("m");
-            string root = isMinor ? chord[..^1] : chord;
+            // Extrahera rot och suffix robust — hanterar maj7, m7, sus2, sus4, 7 etc.
+            string root = "";
+            string suffix = "";
+
+            // Kolla om roten är 2 tecken (C#, Bb etc.) eller 1 tecken
+            if (chord.Length >= 2 && (chord[1] == '#' || chord[1] == 'b'))
+            {
+                root = chord[..2];
+                suffix = chord[2..];
+            }
+            else
+            {
+                root = chord[..1];
+                suffix = chord[1..];
+            }
 
             int idx = Array.IndexOf(NoteNames, root);
             if (idx == -1) return chord;
-
             int newIdx = ((idx + semitones) % 12 + 12) % 12;
-            return NoteNames[newIdx] + (isMinor ? "m" : "");
+            return NoteNames[newIdx] + suffix;
+        }
+
+        private UIElement RenderChordDiagram(string chord)
+        {
+            // Render hanterar nu all suffix-strippning internt
+            return ChordDiagramRenderer.Render(chord, 100) ?? new Canvas();
         }
 
         // --- MASTER & STEM VOLYM ---
@@ -713,24 +766,23 @@ namespace AiMusicWorkstation.Desktop
 
         private void Stop_Click(object sender, RoutedEventArgs e)
         {
+            _player.Stop();
+            _timelineTimer.Stop();
+
             _isTimerUpdate = true;
             TimelineSlider.Value = 0;
             _isTimerUpdate = false;
 
+            PlayPauseBtn.Content = "▶";
+
             if (_currentLyrics != null && _currentLyrics.Any())
             {
                 foreach (var line in _currentLyrics) line.IsActive = false;
-                LyricsScroller.ScrollToTop();
+                LyricsScroller?.ScrollToTop();
             }
 
-            _player.RestartAndPlay();
-
-            PlayPauseBtn.Content = "⏸";
-            _timelineTimer.Start();
+            UpdateTimerText();
         }
-
-
-
 
         private void Loop_Click(object sender, RoutedEventArgs e)
         {
@@ -829,58 +881,52 @@ namespace AiMusicWorkstation.Desktop
             foreach (var project in projects)
             {
                 StatusLabel.Text = $"[{updated + 1}/{total}] Refreshing: {project.Title}...";
-
                 try
                 {
-                    // 1. Genre via Spotify/MusicBrainz (bara för Spotify-låtar)
+                    // Genre via Spotify/MusicBrainz
                     if (project.IsOfficialData && !string.IsNullOrEmpty(project.SpotifyId))
                     {
                         var meta = await _importer.GetOfficialMetadata(project.SpotifyId);
                         if (!string.IsNullOrEmpty(meta.Genre) && meta.Genre != "Uncategorized")
                             project.Genre = meta.Genre;
-
                         await Task.Delay(300);
                     }
 
-                    // 2. Re-analysera BPM, taktart och tonart
-                    string analysisSource;
-                    if (!string.IsNullOrEmpty(project.OriginalPath) && File.Exists(project.OriginalPath))
+                    // drums.mp3 alltid prioriterat
+                    string? analysisSource = null;
+                    if (!string.IsNullOrEmpty(project.StemsPath) && Directory.Exists(project.StemsPath))
                     {
-                        // Bäst — skicka original till Python (kör full analys inkl. ny stems)
-                        analysisSource = project.OriginalPath;
-                    }
-                    else if (!string.IsNullOrEmpty(project.StemsPath) && Directory.Exists(project.StemsPath))
-                    {
-                        // Fallback för gamla låtar — använd drums.mp3 om den finns
                         string drumsPath = Path.Combine(project.StemsPath, "drums.mp3");
                         analysisSource = File.Exists(drumsPath)
                             ? drumsPath
-                            : Directory.GetFiles(project.StemsPath, "*.mp3").FirstOrDefault()
-                              ?? project.StemsPath;
+                            : Directory.GetFiles(project.StemsPath, "*.mp3").FirstOrDefault();
                     }
-                    else continue;
+                    if (analysisSource == null && File.Exists(project.OriginalPath))
+                        analysisSource = project.OriginalPath;
+                    if (analysisSource == null) continue;
 
+                    Debug.WriteLine($"[RefreshMetadata] Analyserar med fil: {analysisSource}");
                     string jsonResponse = await _pythonBridge.ReAnalyzeAsync(analysisSource);
+                    Debug.WriteLine($"[RefreshMetadata] {project.Title} → svar: {jsonResponse[..Math.Min(200, jsonResponse.Length)]}");
 
                     int jsonStart = jsonResponse.IndexOf('{');
                     if (jsonStart >= 0)
                     {
-                        string cleanJson = jsonResponse.Substring(jsonStart);
-                        var result = JsonSerializer.Deserialize<AnalysisResult>(cleanJson);
-
+                        var result = JsonSerializer.Deserialize<AnalysisResult>(jsonResponse.Substring(jsonStart));
                         if (result != null && result.Status == "success")
                         {
                             if (result.Bpm > 0) project.Bpm = result.Bpm;
                             if (result.TimeSignature > 0) project.TimeSignature = result.TimeSignature;
                             if (!string.IsNullOrEmpty(result.Key)) project.Key = result.Key;
 
-                            if (result.Lyrics?.Any() == true || result.Chords?.Any() == true)
-                                SaveLyricsAndChords(project.StemsPath,
-                                    result.Lyrics ?? new List<LyricSegment>(),
-                                    result.Chords ?? new List<ChordEvent>());
+                            // Bevara gamla lyrics
+                            var existingData = LoadLyricsAndChords(project.StemsPath);
+                            var lyricsToSave = result.Lyrics?.Any() == true ? result.Lyrics : existingData.lyrics;
+                            var chordsToSave = result.Chords?.Any() == true ? result.Chords : existingData.chords;
+                            if (lyricsToSave.Any() || chordsToSave.Any())
+                                SaveLyricsAndChords(project.StemsPath, lyricsToSave, chordsToSave);
                         }
                     }
-
                     updated++;
                 }
                 catch { }
@@ -890,6 +936,7 @@ namespace AiMusicWorkstation.Desktop
             RefreshLibrary();
             StatusLabel.Text = $"✅ Refreshed {updated}/{total} tracks.";
         }
+
 
         private async void ProjectList_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
@@ -928,15 +975,21 @@ namespace AiMusicWorkstation.Desktop
                     foreach (var line in _currentLyrics) line.IsActive = false;
                     LyricsScroller?.ScrollToTop();
                     _currentChords = chords;
+                    
                     _currentSections = sections;  // ← sätt listan INNAN
                     RefreshSectionsList();         // ← sedan refresh
+                    StatusLabel.Text = $"Loaded: {p.Artist} – {p.Title}";
+                    // ✅ Om inga sektioner sparats — kör AI-detection automatiskt
+                    if (!_currentSections.Any() && _player.TotalTime.TotalSeconds > 0)
+                        AutoDetectStructure_Click(null, null);
+
                     LyricsList.ItemsSource = _currentLyrics.Any() ? _currentLyrics : null;
 
                     if (_currentChords.Any())
                     {
                         string firstChord = TransposeChord(_currentChords[0].Chord, _currentSemitones);
                         CurrentChordText.Text = firstChord;
-                        ChordDiagramHost.Child = (UIElement)ChordDiagramRenderer.Render(firstChord, 100);
+                        ChordDiagramHost.Child = RenderChordDiagram(firstChord);
                         var upcoming = _currentChords.Skip(1).Take(3)
                             .Select(c => TransposeChord(c.Chord, _currentSemitones));
                         NextChordsText.Text = string.Join("  →  ", upcoming);
@@ -949,7 +1002,6 @@ namespace AiMusicWorkstation.Desktop
                     }
 
                     HideImportSection();
-                    StatusLabel.Text = $"Loaded: {p.Artist} – {p.Title}";
 
                     UpdateKeyBadge(p.KeySource);
                     UpdateScaleDiagram();
@@ -977,7 +1029,6 @@ namespace AiMusicWorkstation.Desktop
                 e.Handled = true;
             }
         }
-
 
         private void SearchBox_TextChanged(object sender, TextChangedEventArgs e) => RefreshLibrary();
         private void Filter_Changed(object sender, SelectionChangedEventArgs e)
@@ -1023,8 +1074,8 @@ namespace AiMusicWorkstation.Desktop
             try
             {
                 var result = await _importer.DownloadSongAsync(url, new Progress<string>(s => StatusLabel.Text = s));
-                string spotifyUrlOrId = !string.IsNullOrEmpty(result.SpotifyId) ? result.SpotifyId : url;
-                await AnalyzeAndLoadSong(result.FilePath, result.Title, spotifyUrlOrId, result.Artist);
+                string spotifyUrl = url.ToLower().Contains("spotify.com") ? url : null;
+                await AnalyzeAndLoadSong(result.FilePath, result.Title, spotifyUrl, result.Artist);
             }
             catch (Exception ex) { MessageBox.Show(ex.Message); }
         }
@@ -1159,8 +1210,6 @@ namespace AiMusicWorkstation.Desktop
 
         private void FlashChordColor()
         {
-            if (_currentSemitones == 0) return;
-
             var animation = new System.Windows.Media.Animation.ColorAnimation
             {
                 From = System.Windows.Media.Colors.DodgerBlue,
@@ -1172,9 +1221,9 @@ namespace AiMusicWorkstation.Desktop
                 }
             };
 
-            var brush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Colors.DodgerBlue);
-            CurrentChordText.Foreground = brush;
-            brush.BeginAnimation(System.Windows.Media.SolidColorBrush.ColorProperty, animation);
+            CurrentChordText.Foreground = _chordFlashBrush;
+            _chordFlashBrush.BeginAnimation(
+                System.Windows.Media.SolidColorBrush.ColorProperty, animation);
         }
 
         private void ToggleSections_Click(object sender, RoutedEventArgs e)

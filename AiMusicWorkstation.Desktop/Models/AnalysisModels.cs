@@ -60,7 +60,6 @@ namespace AiMusicWorkstation.Desktop.Models
         public event PropertyChangedEventHandler PropertyChanged;
     }
 
-
     public class ChordEvent
     {
         [JsonPropertyName("time")]

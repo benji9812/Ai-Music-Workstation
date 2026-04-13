@@ -2,415 +2,591 @@
   "lyrics": [
     {
       "start": 0,
-      "end": 25,
-      "text": "I took a walk around the world to ease my troubled mind"
+      "end": 24.88,
+      "text": "Well, I took a walk around the world to ease my troubled mind",
+      "IsActive": true
     },
     {
-      "start": 25,
-      "end": 29,
-      "text": "I left my body lying somewhere in the sands of time"
+      "start": 24.88,
+      "end": 29.68,
+      "text": "I left my body lying somewhere in the sands of time",
+      "IsActive": false
     },
     {
-      "start": 29,
-      "end": 34,
-      "text": "But I watched the world float to the dark side of the moon"
+      "start": 29.68,
+      "end": 34.56,
+      "text": "Well, I watched the world float to the dark side of the moon",
+      "IsActive": false
     },
     {
-      "start": 34,
-      "end": 40,
-      "text": "I feel there\u0027s nothing I can do, yeah"
+      "start": 34.56,
+      "end": 49.2,
+      "text": "Well, I feel there\u0027s nothing I can do, yeah",
+      "IsActive": false
     },
     {
-      "start": 49,
-      "end": 54,
-      "text": "I watched the world float to the dark side of the moon"
+      "start": 49.2,
+      "end": 54.239999999999995,
+      "text": "I watched the world float to the dark side of the moon",
+      "IsActive": false
     },
     {
-      "start": 54,
-      "end": 58,
-      "text": "After all I knew it had to be something to do with you"
+      "start": 54.24,
+      "end": 58.88,
+      "text": "After all, I knew it had to be something to do with you",
+      "IsActive": false
     },
     {
-      "start": 58,
-      "end": 63,
-      "text": "I really don\u0027t mind what happens now and then"
+      "start": 58.88,
+      "end": 63.28,
+      "text": "I really don\u0027t mind what happens now and then",
+      "IsActive": false
     },
     {
-      "start": 63,
-      "end": 68,
-      "text": "As long as you\u0027ll be my friend at the end"
+      "start": 63.28,
+      "end": 68.48,
+      "text": "As long as you\u0027ll be my friend at the end",
+      "IsActive": false
     },
     {
-      "start": 68,
-      "end": 73,
-      "text": "If I go crazy then will you still call me Superman?"
+      "start": 68.48,
+      "end": 73.36,
+      "text": "If I go crazy, then will you still call me Superman?",
+      "IsActive": false
     },
     {
-      "start": 73,
-      "end": 78,
-      "text": "If I\u0027m lovin\u0027, well will you be there holding my hand?"
+      "start": 73.36,
+      "end": 78.24000000000001,
+      "text": "If I\u0027m alive, then will you be there holding my hand?",
+      "IsActive": false
     },
     {
-      "start": 78,
-      "end": 85,
-      "text": "I\u0027ll keep you by my side with my superhuman mind, kryptonite"
+      "start": 78.24000000000001,
+      "end": 82.48,
+      "text": "I\u0027ll keep you by my side with my superhuman",
+      "IsActive": false
     },
     {
-      "start": 88,
-      "end": 97,
-      "text": "I\u0027ll keep you by my side with my superhuman mind, kryptonite"
+      "start": 82.56,
+      "end": 97.60000000000001,
+      "text": "My kryptonite",
+      "IsActive": false
     },
     {
-      "start": 97,
-      "end": 100,
-      "text": "You call me strong, you call me weak"
+      "start": 97.60000000000001,
+      "end": 102.56,
+      "text": "You called me strong, you called me weak But still your secrets I will keep",
+      "IsActive": false
     },
     {
-      "start": 100,
-      "end": 103,
-      "text": "But still your secrets I will keep"
+      "start": 102.56,
+      "end": 107.28,
+      "text": "You took for granted all the times I never let you down",
+      "IsActive": false
     },
     {
-      "start": 103,
-      "end": 107,
-      "text": "You took for granted all the times I never let you down"
+      "start": 107.28,
+      "end": 112.24000000000001,
+      "text": "You stumbled in and bumped your head If not for me, then you\u0027d be dead",
+      "IsActive": false
     },
     {
-      "start": 107,
-      "end": 110,
-      "text": "You stumbled in and bumped your head"
+      "start": 112.24,
+      "end": 115.83999999999999,
+      "text": "I picked you up and put you back on solid ground",
+      "IsActive": false
     },
     {
-      "start": 110,
-      "end": 112,
-      "text": "If not for me then you\u0027d be dead"
+      "start": 117.11999999999999,
+      "end": 121.28,
+      "text": "If I go crazy, then will you still call me Superman?",
+      "IsActive": false
     },
     {
-      "start": 112,
-      "end": 116,
-      "text": "I picked you up and put you back on the solid ground"
+      "start": 121.91999999999999,
+      "end": 126.8,
+      "text": "If I\u0027m alive, then will you be there holding my hand?",
+      "IsActive": false
     },
     {
-      "start": 116,
-      "end": 121,
-      "text": "If I go crazy then will you still call me Superman?"
+      "start": 126.8,
+      "end": 131.04,
+      "text": "I\u0027ll keep you by my side with my superhuman",
+      "IsActive": false
     },
     {
-      "start": 121,
-      "end": 126,
-      "text": "If I\u0027m lovin\u0027, well will you be there holding my hand?"
+      "start": 131.04,
+      "end": 135.84,
+      "text": "My kryptonite",
+      "IsActive": false
     },
     {
-      "start": 126,
-      "end": 133,
-      "text": "I\u0027ll keep you by my side with my superhuman mind, kryptonite"
+      "start": 161.04,
+      "end": 170.39999999999998,
+      "text": "If I go crazy, then will you still call me Superman?",
+      "IsActive": false
     },
     {
-      "start": 146,
-      "end": 148,
-      "text": "Move"
+      "start": 170.39999999999998,
+      "end": 175.28,
+      "text": "If I\u0027m alive, then will you be there holding my hand?",
+      "IsActive": false
     },
     {
-      "start": 165,
-      "end": 170,
-      "text": "But if I go crazy then will you still call me Superman?"
+      "start": 175.28,
+      "end": 179.51999999999998,
+      "text": "I\u0027ll keep you by my side with my superhuman",
+      "IsActive": false
     },
     {
-      "start": 170,
-      "end": 175,
-      "text": "If I\u0027m lovin\u0027, well will you be there holding my hand?"
+      "start": 179.51999999999998,
+      "end": 182.23999999999998,
+      "text": "My kryptonite",
+      "IsActive": false
     },
     {
-      "start": 175,
-      "end": 182,
-      "text": "I\u0027ll keep you by my side with my superhuman mind, kryptonite"
+      "start": 182.23999999999998,
+      "end": 184.95999999999998,
+      "text": "Yeah",
+      "IsActive": false
     },
     {
-      "start": 182,
-      "end": 184,
-      "text": "Yeah!"
+      "start": 184.95999999999998,
+      "end": 189.84,
+      "text": "If I go crazy, then will you still call me Superman?",
+      "IsActive": false
     },
     {
-      "start": 184,
-      "end": 189,
-      "text": "If I go crazy then will you still call me Superman?"
+      "start": 189.84,
+      "end": 194.72,
+      "text": "If I\u0027m alive, then will you be there holding my hand?",
+      "IsActive": false
     },
     {
-      "start": 189,
-      "end": 194,
-      "text": "If I\u0027m lovin\u0027, well will you be there holding my hand?"
+      "start": 194.72,
+      "end": 198.96,
+      "text": "I\u0027ll keep you by my side with my superhuman",
+      "IsActive": false
     },
     {
-      "start": 194,
-      "end": 201,
-      "text": "I\u0027ll keep you by my side with my superhuman mind, kryptonite"
+      "start": 198.96,
+      "end": 200.96,
+      "text": "My kryptonite",
+      "IsActive": false
     },
     {
-      "start": 206,
-      "end": 212,
-      "text": "Oooooh"
-    },
-    {
-      "start": 212,
-      "end": 217,
-      "text": "Oooooh"
-    },
-    {
-      "start": 217,
-      "end": 222,
-      "text": "Oooooh"
-    },
-    {
-      "start": 222,
-      "end": 226,
-      "text": "Oooooh"
-    },
-    {
-      "start": 235,
-      "end": 237.06,
-      "text": "you"
+      "start": 219.84,
+      "end": 225.92000000000002,
+      "text": "My kryptonite",
+      "IsActive": false
     }
   ],
   "chords": [
     {
       "time": 0,
-      "chord": "Bbm"
+      "chord": "Bbmaj7"
     },
     {
       "time": 1.9969160997732427,
-      "chord": "Bm"
+      "chord": "Bm7"
     },
     {
       "time": 3.9938321995464854,
-      "chord": "G"
+      "chord": "Dsus4"
     },
     {
       "time": 5.990748299319728,
-      "chord": "B"
+      "chord": "Bmaj7"
     },
     {
       "time": 7.987664399092971,
-      "chord": "G"
+      "chord": "Gmaj7"
     },
     {
       "time": 9.984580498866213,
-      "chord": "A"
+      "chord": "Esus4"
     },
     {
       "time": 11.981496598639456,
-      "chord": "Bm"
+      "chord": "Bm7"
     },
     {
       "time": 13.978412698412699,
-      "chord": "A"
+      "chord": "Amaj7"
     },
     {
       "time": 15.975328798185942,
-      "chord": "Bm"
+      "chord": "Bm7"
     },
     {
       "time": 17.972244897959182,
-      "chord": "G"
+      "chord": "Gmaj7"
     },
     {
       "time": 19.969160997732427,
-      "chord": "Bm"
+      "chord": "Bmaj7"
     },
     {
       "time": 23.962993197278912,
-      "chord": "E"
+      "chord": "Esus4"
     },
     {
       "time": 25.959909297052153,
-      "chord": "Bm"
+      "chord": "Bm7"
     },
     {
       "time": 27.956825396825398,
-      "chord": "G"
+      "chord": "Gmaj7"
     },
     {
       "time": 29.95374149659864,
-      "chord": "Bm"
+      "chord": "Bmaj7"
     },
     {
       "time": 31.950657596371883,
-      "chord": "G"
+      "chord": "Gmaj7"
     },
     {
       "time": 33.94757369614513,
-      "chord": "Am"
+      "chord": "Esus4"
     },
     {
       "time": 35.944489795918365,
-      "chord": "Bm"
+      "chord": "Bm7"
     },
     {
       "time": 37.94140589569161,
-      "chord": "D"
+      "chord": "Gmaj7"
     },
     {
       "time": 39.938321995464854,
-      "chord": "Bm"
+      "chord": "Bm7"
     },
     {
       "time": 41.9352380952381,
-      "chord": "G"
+      "chord": "Gmaj7"
     },
     {
       "time": 43.932154195011336,
-      "chord": "B"
+      "chord": "Bmaj7"
     },
     {
       "time": 45.92907029478458,
-      "chord": "Bm"
+      "chord": "Bm7"
     },
     {
       "time": 47.925986394557825,
-      "chord": "A"
+      "chord": "Esus4"
     },
     {
       "time": 49.92290249433107,
-      "chord": "Bm"
+      "chord": "Bmaj7"
     },
     {
       "time": 51.919818594104306,
-      "chord": "G"
+      "chord": "Gmaj7"
     },
     {
       "time": 53.91673469387755,
-      "chord": "B"
+      "chord": "Bmaj7"
     },
     {
       "time": 55.913650793650795,
-      "chord": "Bm"
+      "chord": "Bm7"
     },
     {
       "time": 57.91056689342403,
-      "chord": "F#m"
+      "chord": "F#m7"
     },
     {
       "time": 59.90748299319728,
-      "chord": "Bm"
+      "chord": "Bm7"
     },
     {
       "time": 61.90439909297052,
-      "chord": "G"
+      "chord": "Gmaj7"
     },
     {
       "time": 63.901315192743766,
-      "chord": "B"
+      "chord": "Bmaj7"
     },
     {
       "time": 65.89823129251701,
-      "chord": "G"
+      "chord": "C#sus4"
     },
     {
       "time": 67.89514739229026,
-      "chord": "E"
+      "chord": "Esus4"
     },
     {
       "time": 69.89206349206349,
-      "chord": "B"
+      "chord": "Bmaj7"
     },
     {
       "time": 71.88897959183673,
-      "chord": "A"
+      "chord": "Amaj7"
     },
     {
       "time": 73.88589569160997,
-      "chord": "B"
+      "chord": "Bmaj7"
     },
     {
       "time": 75.88281179138322,
-      "chord": "E"
+      "chord": "Emaj7"
     },
     {
       "time": 77.87972789115646,
-      "chord": "A"
+      "chord": "Amaj7"
     },
     {
       "time": 79.87664399092971,
-      "chord": "B"
+      "chord": "Bmaj7"
     },
     {
       "time": 81.87356009070295,
-      "chord": "A"
+      "chord": "Amaj7"
     },
     {
       "time": 83.8704761904762,
-      "chord": "B"
+      "chord": "Bmaj7"
     },
     {
       "time": 85.86739229024943,
-      "chord": "E"
+      "chord": "Emaj7"
     },
     {
       "time": 87.86430839002267,
-      "chord": "B"
+      "chord": "B7"
     },
     {
       "time": 89.86122448979592,
-      "chord": "Bm"
+      "chord": "Bmaj7"
     },
     {
       "time": 91.85814058956916,
-      "chord": "E"
+      "chord": "B7"
     },
     {
       "time": 93.8550566893424,
-      "chord": "Bm"
+      "chord": "Bmaj7"
     },
     {
       "time": 95.85197278911565,
-      "chord": "G"
+      "chord": "Gmaj7"
     },
     {
       "time": 97.8488888888889,
-      "chord": "B"
+      "chord": "F#maj7"
     },
     {
       "time": 99.84580498866214,
-      "chord": "G"
+      "chord": "Dmaj7"
     },
     {
       "time": 101.84272108843537,
-      "chord": "A"
+      "chord": "F#m7"
     },
     {
       "time": 103.83963718820861,
-      "chord": "Bm"
+      "chord": "Bsus2"
     },
     {
       "time": 105.83655328798186,
-      "chord": "D"
+      "chord": "Dmaj7"
     },
     {
       "time": 107.8334693877551,
-      "chord": "B"
+      "chord": "Bmaj7"
     },
     {
       "time": 109.83038548752835,
-      "chord": "G"
+      "chord": "Gmaj7"
     },
     {
       "time": 111.82730158730159,
-      "chord": "E"
+      "chord": "Esus4"
     },
     {
       "time": 113.82421768707484,
-      "chord": "Bm"
+      "chord": "G#m7"
     },
     {
       "time": 115.82113378684807,
-      "chord": "Em"
+      "chord": "Esus2"
     },
     {
       "time": 117.81804988662131,
-      "chord": "B"
+      "chord": "Bmaj7"
     },
     {
       "time": 119.81496598639455,
-      "chord": "G"
+      "chord": "Gmaj7"
+    },
+    {
+      "time": 121.8118820861678,
+      "chord": "B7"
+    },
+    {
+      "time": 123.80879818594104,
+      "chord": "Bmaj7"
+    },
+    {
+      "time": 125.80571428571429,
+      "chord": "Dmaj7"
+    },
+    {
+      "time": 127.80263038548753,
+      "chord": "Bmaj7"
+    },
+    {
+      "time": 129.79954648526078,
+      "chord": "G7"
+    },
+    {
+      "time": 131.79646258503402,
+      "chord": "Bmaj7"
+    },
+    {
+      "time": 133.79337868480727,
+      "chord": "E7"
+    },
+    {
+      "time": 135.7902947845805,
+      "chord": "F#7"
+    },
+    {
+      "time": 137.78721088435375,
+      "chord": "Bm7"
+    },
+    {
+      "time": 139.78412698412697,
+      "chord": "C#maj7"
+    },
+    {
+      "time": 141.78104308390022,
+      "chord": "B7"
+    },
+    {
+      "time": 143.77795918367346,
+      "chord": "Emaj7"
+    },
+    {
+      "time": 145.7748752834467,
+      "chord": "Dmaj7"
+    },
+    {
+      "time": 147.77179138321995,
+      "chord": "Bm7"
+    },
+    {
+      "time": 149.7687074829932,
+      "chord": "Am7"
+    },
+    {
+      "time": 151.76562358276644,
+      "chord": "Bmaj7"
+    },
+    {
+      "time": 153.76253968253968,
+      "chord": "Emaj7"
+    },
+    {
+      "time": 155.75945578231293,
+      "chord": "Bmaj7"
+    },
+    {
+      "time": 159.75328798185942,
+      "chord": "Gmaj7"
+    },
+    {
+      "time": 161.75020408163266,
+      "chord": "Bmaj7"
+    },
+    {
+      "time": 163.7471201814059,
+      "chord": "B7"
+    },
+    {
+      "time": 165.74403628117915,
+      "chord": "Bm7"
+    },
+    {
+      "time": 167.7409523809524,
+      "chord": "F#maj7"
+    },
+    {
+      "time": 169.73786848072564,
+      "chord": "Gmaj7"
+    },
+    {
+      "time": 171.73478458049885,
+      "chord": "F#sus4"
+    },
+    {
+      "time": 173.7317006802721,
+      "chord": "C#sus4"
+    },
+    {
+      "time": 175.72861678004534,
+      "chord": "Bmaj7"
+    },
+    {
+      "time": 177.7255328798186,
+      "chord": "F#7"
+    },
+    {
+      "time": 179.72244897959183,
+      "chord": "Bm7"
+    }
+  ],
+  "sections": [
+    {
+      "label": "Intro",
+      "start": 0,
+      "end": 13,
+      "color": "#4A4A8A"
+    },
+    {
+      "label": "Verse",
+      "start": 13,
+      "end": 42,
+      "color": "#1A6B3A"
+    },
+    {
+      "label": "Pre",
+      "start": 42,
+      "end": 57,
+      "color": "#6B4A1A"
+    },
+    {
+      "label": "Chorus",
+      "start": 57,
+      "end": 119,
+      "color": "#8B1A1A"
+    },
+    {
+      "label": "Verse",
+      "start": 119,
+      "end": 146,
+      "color": "#1A6B3A"
+    },
+    {
+      "label": "Pre",
+      "start": 146,
+      "end": 201,
+      "color": "#6B4A1A"
+    },
+    {
+      "label": "Chorus",
+      "start": 201,
+      "end": 223,
+      "color": "#8B1A1A"
+    },
+    {
+      "label": "Solo",
+      "start": 223,
+      "end": 242.7036734,
+      "color": "#8B6B00"
     }
   ]
 }

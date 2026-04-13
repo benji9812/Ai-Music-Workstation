@@ -1,10 +1,10 @@
 import uvicorn
+from dotenv import load_dotenv
+from pathlib import Path
+import os
 from fastapi import FastAPI, UploadFile, File
 from google import genai as google_genai
 from pydantic import BaseModel
-from dotenv import load_dotenv
-load_dotenv()
-import os
 import shutil
 import warnings
 import whisper
@@ -18,28 +18,45 @@ import soundfile as sf
 
 warnings.filterwarnings("ignore")
 
-app = FastAPI(title="AI Music Engine")
-gemini_client = google_genai.Client(api_key=os.environ["GOOGLE_API_KEY"])
+# ✅ BASE_DIR och load_dotenv() FÖRE allt som behöver env-variabler
+BASE_DIR = Path(__file__).resolve().parent
+load_dotenv(dotenv_path=BASE_DIR.parent / ".env")
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 UPLOAD_DIR = os.path.join(BASE_DIR, "temp_uploads")
-OUT_DIR = os.path.join(BASE_DIR, "separated")
-os.environ["PATH"] += os.pathsep + BASE_DIR
+OUT_DIR    = os.path.join(BASE_DIR, "separated")
+os.environ["PATH"] += os.pathsep + str(BASE_DIR)  # ✅ str() på Path-objekt, ✅ environ inte getenv
+
+app = FastAPI(title="AI Music Engine")
+
+# ✅ Tydligt felmeddelande om nyckeln saknas
+_api_key = os.getenv("GOOGLE_API_KEY")
+if not _api_key:
+    raise RuntimeError("GOOGLE_API_KEY saknas — kontrollera att .env finns i AiMusicWorkstation/ och innehåller nyckeln.")
+gemini_client = google_genai.Client(api_key=_api_key)
 
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 os.makedirs(OUT_DIR, exist_ok=True)
 
-print("⏳ Laddar Whisper Medium (bättre precision)...")
+print("⏳ Laddar Whisper Medium...")
 whisper_model = whisper.load_model("medium")
 
+NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'Bb', 'B']
+
 # -------------------------------------------------------
-# HJÄLPFUNKTION: Välj bästa stem för analys
+# HJÄLPFUNKTION: Hitta stems-mapp via drums.mp3-storlek
+# Används av /analyze-only som bara tar emot drums.mp3
 # -------------------------------------------------------
-def get_best_analysis_source(stems_folder, original_path):
-    drums = os.path.join(stems_folder, "drums.mp3")
-    if os.path.exists(drums):
-        return drums
-    return original_path  # Originalet är bättre än other/vocals
+def find_stems_folder_by_drums(drums_upload_path):
+    uploaded_size = os.path.getsize(drums_upload_path)
+    htdemucs_dir  = os.path.join(OUT_DIR, "htdemucs")
+    if not os.path.exists(htdemucs_dir):
+        return None
+    for song_folder in os.listdir(htdemucs_dir):
+        folder_path    = os.path.join(htdemucs_dir, song_folder)
+        candidate      = os.path.join(folder_path, "drums.mp3")
+        if os.path.exists(candidate) and os.path.getsize(candidate) == uploaded_size:
+            return folder_path
+    return None
 
 # -------------------------------------------------------
 # HJÄLPFUNKTION: Förbered vocals för Whisper
@@ -55,7 +72,7 @@ def prepare_vocals_for_whisper(vocals_path):
         return vocals_path
 
 # -------------------------------------------------------
-# BPM — Robust detektering via median av tre segment
+# BPM — Robust via median av tre segment på drums.mp3
 # -------------------------------------------------------
 def detect_bpm_robust(y, sr):
     duration = librosa.get_duration(y=y, sr=sr)
@@ -64,106 +81,102 @@ def detect_bpm_robust(y, sr):
         y[int(sr * duration * 0.35) : int(sr * duration * 0.65)],
         y[int(sr * duration * 0.65) : int(sr * duration * 0.90)],
     ]
-
     bpms = []
     for seg in segments:
         if len(seg) > sr * 5:
             t, _ = librosa.beat.beat_track(y=seg, sr=sr)
-            bpms.append(float(t))
-
+            bpms.append(float(np.atleast_1d(t)[0]))  
     if not bpms:
         t, _ = librosa.beat.beat_track(y=y, sr=sr)
-        bpm = float(t)
+        bpm = float(np.atleast_1d(t)[0])             
     else:
         bpm = float(np.median(bpms))
-
-    while bpm > 160: bpm /= 2
+    while bpm > 140: bpm /= 2 
     while bpm < 60:  bpm *= 2
-
     return round(bpm, 1)
 
 # -------------------------------------------------------
-# TAKTART — via autocorrelation
+# TAKTART — via autocorrelation på drums.mp3
 # -------------------------------------------------------
 def detect_time_signature(y, sr, bpm):
     try:
-        onset_env = librosa.onset.onset_strength(y=y, sr=sr)
-        ac = librosa.autocorrelate(onset_env, max_size=sr // 2)
+        hop_length  = 512
+        onset_env   = librosa.onset.onset_strength(y=y, sr=sr, hop_length=hop_length)
+        ac          = librosa.autocorrelate(onset_env, max_size=len(onset_env) // 2)
 
-        hop_length = 512
-        beat_frames = int(round(sr * 60.0 / (bpm * hop_length)))
+        beat_frames = int(round(60.0 * sr / (bpm * hop_length)))
 
-        score_3 = ac[beat_frames * 3] if beat_frames * 3 < len(ac) else 0
-        score_4 = ac[beat_frames * 4] if beat_frames * 4 < len(ac) else 0
-        score_6 = ac[beat_frames * 6] if beat_frames * 6 < len(ac) else 0
+        score_3 = float(ac[beat_frames * 3]) if beat_frames * 3 < len(ac) else 0
+        score_4 = float(ac[beat_frames * 4]) if beat_frames * 4 < len(ac) else 0
+        score_6 = float(ac[beat_frames * 6]) if beat_frames * 6 < len(ac) else 0
 
+        # Kräv att vinnaren är tydligt bättre — annars defaulta till 4
         best = max(score_3, score_4, score_6)
-        if best == score_6: return 6
-        if best == score_3: return 3
-        return 4
+        margin = 0.15  # 15% marginal krävs för att välja bort 4/4
+
+        if best == score_3 and score_3 > score_4 * (1 + margin): return 3
+        if best == score_6 and score_6 > score_4 * (1 + margin): return 6
+        return 4  # Default — 95% av pop/rock är 4/4
     except:
         return 4
 
 # -------------------------------------------------------
-# TONART — Krumhansl-Schmuckler
+# TONART — Krumhansl-Schmuckler på bass.mp3
 # -------------------------------------------------------
 def detect_key(y, sr):
-    chroma = librosa.feature.chroma_cqt(y=y, sr=sr)
+    # Harmonic isolation sker här — anroparen skickar rå signal
+    y_harmonic = librosa.effects.harmonic(y, margin=4)
+    chroma = librosa.feature.chroma_cqt(y=y_harmonic, sr=sr)
     chroma_avg = np.mean(chroma, axis=1)
-
     major_profile = [6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88]
     minor_profile = [6.33, 2.68, 3.52, 5.38, 2.60, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17]
-    notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'Bb', 'B']
 
     def correlations(profile):
         return [np.corrcoef(chroma_avg, np.roll(profile, i))[0, 1] for i in range(12)]
 
     major_corrs = correlations(major_profile)
     minor_corrs = correlations(minor_profile)
-
     if max(major_corrs) > max(minor_corrs):
-        return notes[np.argmax(major_corrs)]
+        return NOTES[np.argmax(major_corrs)]
     else:
-        return notes[np.argmax(minor_corrs)] + "m"
+        return NOTES[np.argmax(minor_corrs)] + "m"
 
 # -------------------------------------------------------
-# ACKORD — Förbättrad Librosa med harmonisk isolering
+# ACKORD — på other.mp3 (gitarr/piano/synth)
+# Utökat med maj7, m7, sus2, sus4 för bättre träff
 # -------------------------------------------------------
 def get_chords(file_path):
-    y, sr = librosa.load(file_path, duration=180)
-
-    # Isolera harmoniska frekvenser — filtrerar bort trummor/perkussion
-    y_harmonic = librosa.effects.harmonic(y, margin=4)
-    chroma = librosa.feature.chroma_cqt(
+    y, sr       = librosa.load(file_path, duration=180)
+    y_harmonic  = librosa.effects.harmonic(y, margin=4)
+    chroma      = librosa.feature.chroma_cqt(
         y=y_harmonic, sr=sr, hop_length=512, bins_per_octave=36)
-
-    notes = ['C','C#','D','D#','E','F','F#','G','G#','A','Bb','B']
 
     def classify_chord(c):
         best_score = -1
         best_chord = "C"
         for root in range(12):
-            major = c[root%12] + c[(root+4)%12] + c[(root+7)%12]
-            minor = c[root%12] + c[(root+3)%12] + c[(root+7)%12]
-            dom7  = c[root%12] + c[(root+4)%12] + c[(root+7)%12] + c[(root+10)%12] * 0.5
-            if major > best_score:
-                best_score = major
-                best_chord = notes[root]
-            if minor > best_score:
-                best_score = minor
-                best_chord = notes[root] + "m"
-            if dom7 > best_score:
-                best_score = dom7
-                best_chord = notes[root] + "7"
+            candidates = {
+                NOTES[root]:            c[root%12] + c[(root+4)%12] + c[(root+7)%12],
+                NOTES[root] + "m":      c[root%12] + c[(root+3)%12] + c[(root+7)%12],
+                NOTES[root] + "7":      c[root%12] + c[(root+4)%12] + c[(root+7)%12] + c[(root+10)%12] * 0.8,
+                NOTES[root] + "maj7":   c[root%12] + c[(root+4)%12] + c[(root+7)%12] + c[(root+11)%12] * 0.8,
+                NOTES[root] + "m7":     c[root%12] + c[(root+3)%12] + c[(root+7)%12] + c[(root+10)%12] * 0.8,
+                NOTES[root] + "sus2":   c[root%12] + c[(root+2)%12] + c[(root+7)%12],
+                NOTES[root] + "sus4":   c[root%12] + c[(root+5)%12] + c[(root+7)%12],
+            }
+            for chord_name, score in candidates.items():
+                if score > best_score:
+                    best_score = score
+                    best_chord = chord_name
         return best_chord
 
-    chords = []
-    step = max(1, int(2.0 * sr / 512))
+    chords    = []
+    step      = max(1, int(2.0 * sr / 512))
     prev_chord = None
 
     for i in range(0, chroma.shape[1], step):
         chord = classify_chord(chroma[:, i])
-        time = float(i * 512 / sr)
+        time  = float(i * 512 / sr)
         if chord != prev_chord:
             chords.append({"time": time, "chord": chord})
             prev_chord = chord
@@ -171,8 +184,13 @@ def get_chords(file_path):
     return chords
 
 # -------------------------------------------------------
-# FASTAPI ENDPOINT
+# ENDPOINT: /analyze-only — Refresh utan Whisper/Demucs
+# Tar emot drums.mp3, hittar bass/other för key+ackord
 # -------------------------------------------------------
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
+
 @app.post("/analyze-only")
 async def analyze_only(file: UploadFile = File(...)):
     try:
@@ -182,26 +200,55 @@ async def analyze_only(file: UploadFile = File(...)):
         with open(file_path, "wb") as f:
             shutil.copyfileobj(file.file, f)
 
-        y, sr = librosa.load(file_path, sr=None)
-        bpm = detect_bpm_robust(y, sr)
-        time_signature = detect_time_signature(y, sr, bpm)
-        y_harmonic = librosa.effects.harmonic(y, margin=4)
-        key = detect_key(y_harmonic, sr)
-        chords = get_chords(file_path)
+        # BPM + taktart → drums.mp3 ✅
+        y_drums, sr = librosa.load(file_path, sr=None)
+        bpm             = detect_bpm_robust(y_drums, sr)
+        time_signature  = detect_time_signature(y_drums, sr, bpm)
+        print(f"🥁 BPM: {bpm}, Taktart: {time_signature}/4")
+
+        # Hitta stems-mapp för bass/other via filstorlek
+        stems_folder = find_stems_folder_by_drums(file_path)
+
+        # Tonart → bass.mp3 (harmonisk kontext) ✅
+        bass_path  = os.path.join(stems_folder, "bass.mp3")  if stems_folder else None
+        other_path = os.path.join(stems_folder, "other.mp3") if stems_folder else None
+
+        if bass_path and os.path.exists(bass_path):
+            y_harm, sr_harm = librosa.load(bass_path, sr=None)
+            y_harmonic      = librosa.effects.harmonic(y_harm, margin=4)
+            key = detect_key(y_harm, sr_harm)
+        else:
+            # Fallback: harmonisk isolering på drums (sämre men bättre än ingenting)
+            y_harmonic = librosa.effects.harmonic(y_drums, margin=4)
+            key = detect_key(y_harm, sr_harm)
+        print(f"🎹 Tonart: {key}")
+
+        # Ackord → other.mp3 (gitarr/piano/synth) ✅
+        if other_path and os.path.exists(other_path):
+            chords = get_chords(other_path)
+        elif bass_path and os.path.exists(bass_path):
+            chords = get_chords(bass_path)
+        else:
+            chords = get_chords(file_path)  # Fallback
+        print(f"🎸 Ackord: {len(chords)} detekterade")
 
         return {
-            "status": "success",
-            "bpm": bpm,
-            "key": key,
+            "status":         "success",
+            "bpm":            bpm,
+            "key":            key,
             "time_signature": time_signature,
-            "chords": chords,
-            "lyrics": [],        # Hoppar över Whisper vid refresh
-            "stems_path": "",
-            "original_path": file_path
+            "chords":         chords,
+            "lyrics":         [],
+            "stems_path":     stems_folder or "",
+            "original_path":  file_path
         }
     except Exception as e:
+        traceback.print_exc()
         return {"status": "error", "message": str(e)}
 
+# -------------------------------------------------------
+# ENDPOINT: /analyze — Full analys med Demucs + Whisper
+# -------------------------------------------------------
 @app.post("/analyze")
 async def analyze_audio(file: UploadFile = File(...)):
     try:
@@ -211,45 +258,40 @@ async def analyze_audio(file: UploadFile = File(...)):
         with open(file_path, "wb") as f:
             shutil.copyfileobj(file.file, f)
 
-        # 1. Separera stems
+        # 1. Stem-separation med Demucs
         cmd = [sys.executable, "-m", "demucs", "-n", "htdemucs", "--mp3", "-o", OUT_DIR, file_path]
         subprocess.run(cmd, text=True)
 
-        folder_name = os.path.splitext(safe_filename)[0]
+        folder_name  = os.path.splitext(safe_filename)[0]
         stems_folder = os.path.join(OUT_DIR, "htdemucs", folder_name)
 
-        # 2. Välj bästa källa för musikanalys
-        analysis_src = get_best_analysis_source(stems_folder, file_path)
-        print(f"🎵 Analyserar med: {os.path.basename(analysis_src)}")
-
-        y, sr = librosa.load(analysis_src, sr=None)
-
-        # 3. BPM
-        bpm = detect_bpm_robust(y, sr)
-        print(f"🥁 BPM: {bpm}")
-
-        # 4. Taktart
-        time_signature = detect_time_signature(y, sr, bpm)
-        print(f"🎼 Taktart: {time_signature}/4")
-
-        # 5. Tonart — kör på harmonic-isolerad version för bättre precision
-        y_harmonic = librosa.effects.harmonic(y, margin=4)
-        key = detect_key(y_harmonic, sr)
-        print(f"🎹 Tonart: {key}")
-
-        # 6. Ackord
-        chords = get_chords(analysis_src)
-        print(f"🎸 Ackord: {len(chords)} detekterade")
-
-        # 7. Lyrics via Whisper
+        drums_path  = os.path.join(stems_folder, "drums.mp3")
+        bass_path   = os.path.join(stems_folder, "bass.mp3")
+        other_path  = os.path.join(stems_folder, "other.mp3")
         vocals_path = os.path.join(stems_folder, "vocals.mp3")
-        if os.path.exists(vocals_path):
-            clean_vocals = prepare_vocals_for_whisper(vocals_path)
-        else:
-            clean_vocals = file_path
 
+        # 2. BPM + Taktart → drums.mp3 ✅
+        y_drums, sr_drums = librosa.load(drums_path, sr=None)
+        bpm            = detect_bpm_robust(y_drums, sr_drums)
+        time_signature = detect_time_signature(y_drums, sr_drums, bpm)
+        print(f"🥁 BPM: {bpm}, Taktart: {time_signature}/4")
+
+        # 3. Tonart → bass.mp3 (harmonisk kontext utan trummor) ✅
+        harm_src = bass_path if os.path.exists(bass_path) else (other_path if os.path.exists(other_path) else file_path)
+        y_harm, sr_harm = librosa.load(harm_src, sr=None)
+        y_harmonic      = librosa.effects.harmonic(y_harm, margin=4)
+        key = detect_key(y_harm, sr_harm)
+        print(f"🎹 Tonart: {key} (källa: {os.path.basename(harm_src)})")
+
+        # 4. Ackord → other.mp3 (gitarr/piano/synth) ✅
+        chord_src = other_path if os.path.exists(other_path) else (bass_path if os.path.exists(bass_path) else file_path)
+        chords = get_chords(chord_src)
+        print(f"🎸 Ackord: {len(chords)} detekterade (källa: {os.path.basename(chord_src)})")
+
+        # 5. Lyrics → vocals.mp3 via Whisper ✅
+        whisper_src = prepare_vocals_for_whisper(vocals_path) if os.path.exists(vocals_path) else file_path
         text_result = whisper_model.transcribe(
-            clean_vocals,
+            whisper_src,
             fp16=False,
             language="en",
             task="transcribe",
@@ -257,11 +299,7 @@ async def analyze_audio(file: UploadFile = File(...)):
             best_of=5
         )
         lyrics = [
-            {
-                "start": s["start"],
-                "end":   s["end"],
-                "text":  s["text"].strip()
-            }
+            {"start": s["start"], "end": s["end"], "text": s["text"].strip()}
             for s in text_result["segments"]
         ]
         print(f"🎤 Lyrics: {len(lyrics)} segment")
@@ -281,6 +319,9 @@ async def analyze_audio(file: UploadFile = File(...)):
         traceback.print_exc()
         return {"status": "error", "message": str(e)}
 
+# -------------------------------------------------------
+# ENDPOINT: /structure — Sektion-detektering via Gemini
+# -------------------------------------------------------
 class StructureRequest(BaseModel):
     artist: str
     title: str
@@ -290,37 +331,39 @@ class StructureRequest(BaseModel):
 async def get_structure(req: StructureRequest):
     try:
         prompt = (
-            f"List the song structure for \"{req.artist} - {req.title}\" "
-            f"(total duration: {int(req.duration)} seconds).\n"
-            "Return ONLY a JSON array, no explanation. Format:\n"
-            "[{\"label\": \"Intro\", \"start\": 0}, {\"label\": \"Verse\", \"start\": 14}, ...]\n"
-            "Use these section names only: Intro, Verse, Pre, Chorus, Bridge, Solo, Instrumental, Outro, Break.\n"
-            "Start times must be in seconds (integers). First section must start at 0."
-        )
+    f"You are a music analyst. List the ACTUAL song structure for '{req.artist} - {req.title}' "
+    f"with total duration {int(req.duration)} seconds.\n\n"
+    "STRICT RULES:\n"
+    "- Only include sections that ACTUALLY EXIST in this specific song\n"
+    "- Do NOT add Bridge, Solo or Instrumental unless they genuinely appear\n"
+    "- Timestamps must be realistic and span the full duration evenly\n"
+    "- Most pop/rock songs follow: Intro → Verse → Pre → Chorus → Verse → Pre → Chorus → Bridge/Solo → Chorus → Outro\n"
+    "- Return ONLY a raw JSON array, no markdown, no explanation\n\n"
+    "Format: [{\"label\": \"Intro\", \"start\": 0}, {\"label\": \"Verse\", \"start\": 14}]\n"
+    "Allowed labels: Intro, Verse, Pre, Chorus, Bridge, Solo, Instrumental, Outro, Break\n"
+    "First section must start at 0. All start times are integers in seconds."
+)
 
         response = gemini_client.models.generate_content(
             model="gemini-2.5-flash",
             contents=prompt
         )
-        raw = response.text.strip()
-
+        raw   = response.text.strip()
         start = raw.find("[")
-        end = raw.rfind("]") + 1
+        end   = raw.rfind("]") + 1
         if start == -1 or end == 0:
             return {"status": "error", "message": "No JSON in response"}
 
         sections = json.loads(raw[start:end])
-
-        result = []
+        result   = []
         for i, sec in enumerate(sections):
             end_time = sections[i + 1]["start"] if i + 1 < len(sections) else req.duration
             result.append({
                 "label": sec["label"],
                 "start": float(sec["start"]),
-                "end": float(end_time),
+                "end":   float(end_time),
                 "color": ""
             })
-
         return {"status": "success", "sections": result}
 
     except Exception as e:

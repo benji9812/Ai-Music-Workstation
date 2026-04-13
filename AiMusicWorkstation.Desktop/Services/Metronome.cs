@@ -85,7 +85,6 @@ namespace AiMusicWorkstation.Desktop.Services
             }
         }
 
-
         private void PlayClick(bool isAccent = false)
         {
             try

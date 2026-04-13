@@ -1,8 +1,5 @@
 ﻿using AiMusicWorkstation.Desktop.Models;
 using AiMusicWorkstation.Desktop.Services;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
@@ -16,6 +13,8 @@ namespace AiMusicWorkstation.Desktop
 
         private void AddSection_Click(object sender, RoutedEventArgs e)
         {
+            if (string.IsNullOrEmpty(_player.CurrentStemsPath)) return;
+            
             double total = _player.TotalTime.TotalSeconds;
             if (total <= 0) { StatusLabel.Text = "Load a song first."; return; }
 
@@ -43,6 +42,8 @@ namespace AiMusicWorkstation.Desktop
 
         private void RemoveSection_Click(object sender, RoutedEventArgs e)
         {
+            if (string.IsNullOrEmpty(_player.CurrentStemsPath)) return;
+
             if (sender is MenuItem mi && mi.Tag is SongSection sec)
             {
                 _currentSections.Remove(sec);
@@ -81,11 +82,19 @@ namespace AiMusicWorkstation.Desktop
 
         private void HighlightActiveSection(double currentTime)
         {
+            bool changed = false;
             foreach (var sec in _currentSections)
             {
                 double end = sec.EndTime > 0 ? sec.EndTime : TimelineSlider.Maximum;
-                sec.IsActive = currentTime >= sec.StartTime && currentTime < end;
+                bool shouldBeActive = currentTime >= sec.StartTime && currentTime < end;
+                if (sec.IsActive != shouldBeActive)
+                {
+                    sec.IsActive = shouldBeActive;
+                    changed = true;
+                }
             }
+            // Undvik onödig refresh varje tick — bara vid faktisk förändring
+            if (changed) RefreshSectionsList();
         }
 
         private void ClearSections()
@@ -165,14 +174,29 @@ namespace AiMusicWorkstation.Desktop
                 foreach (var s in sectionsEl.EnumerateArray())
                 {
                     string label = s.GetProperty("label").GetString() ?? "Section";
+                    double start = s.GetProperty("start").GetDouble();
+                    double end = s.GetProperty("end").GetDouble();
+
+                    // Filtrera bort ogiltiga sektioner
+                    if (start < 0 || start >= duration) continue;
+                    end = Math.Min(end, duration); // Klipp till låtens längd
+
                     newSections.Add(new SongSection
                     {
                         Label = label,
-                        StartTime = s.GetProperty("start").GetDouble(),
-                        EndTime = s.GetProperty("end").GetDouble(),
+                        StartTime = start,
+                        EndTime = end,
                         Color = SectionColors.Get(label)
                     });
                 }
+
+                // Säkerställ korrekt ordning och inga överlapp
+                newSections = newSections.OrderBy(s => s.StartTime).ToList();
+                for (int i = 0; i < newSections.Count - 1; i++)
+                    newSections[i].EndTime = newSections[i + 1].StartTime;
+                if (newSections.Any())
+                    newSections[^1].EndTime = duration;
+
 
                 _currentSections = newSections;
                 RefreshSectionsList();

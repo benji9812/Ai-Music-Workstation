@@ -32,13 +32,13 @@ namespace AiMusicWorkstation.Desktop.Services
         {
             try
             {
-                // Gör en snabb kontroll om servern redan svarar
-                await _client.GetAsync("");
+                var response = await _client.GetAsync("health");
+                if (!response.IsSuccessStatusCode) StartPythonServer();
             }
             catch
             {
-                // Om servern inte svarar, starta den
                 StartPythonServer();
+                await Task.Delay(3000); // Ge Python tid att starta innan första anrop
             }
         }
 
@@ -79,37 +79,6 @@ namespace AiMusicWorkstation.Desktop.Services
         {
             if (!File.Exists(filePath)) return "{\"error\": \"Filen hittades inte.\"}";
 
-            // Försök skicka filen, med inbyggd retry om servern precis håller på att starta
-            for (int i = 0; i < 5; i++)
-            {
-                try
-                {
-                    using (var content = new MultipartFormDataContent())
-                    {
-                        byte[] fileBytes = await File.ReadAllBytesAsync(filePath);
-                        var fileContent = new ByteArrayContent(fileBytes);
-                        content.Add(fileContent, "file", Path.GetFileName(filePath));
-
-                        var response = await _client.PostAsync("analyze", content);
-                        if (response.IsSuccessStatusCode)
-                        {
-                            return await response.Content.ReadAsStringAsync();
-                        }
-                    }
-                }
-                catch
-                {
-                    // Vänta 2 sekunder innan nästa försök om servern inte är redo än
-                    await Task.Delay(2000);
-                }
-            }
-            return "{\"error\": \"Kunde inte nå AI-motorn. Kontrollera Python-miljön.\"}";
-        }
-
-        public async Task<string> ReAnalyzeAsync(string filePath)
-        {
-            if (!File.Exists(filePath)) return "{\"status\":\"error\"}";
-
             for (int i = 0; i < 3; i++)
             {
                 try
@@ -118,13 +87,45 @@ namespace AiMusicWorkstation.Desktop.Services
                     byte[] fileBytes = await File.ReadAllBytesAsync(filePath);
                     content.Add(new ByteArrayContent(fileBytes), "file", Path.GetFileName(filePath));
 
-                    var response = await _client.PostAsync("analyze-only", content);
-                    if (response.IsSuccessStatusCode)
-                        return await response.Content.ReadAsStringAsync();
+                    var response = await _client.PostAsync("analyze", content);
+                    string body = await response.Content.ReadAsStringAsync();
+
+                    if (response.IsSuccessStatusCode) return body;
+
+                    Debug.WriteLine($"[AnalyzeViaApi] Attempt {i + 1} HTTP {(int)response.StatusCode}: {body[..Math.Min(200, body.Length)]}");
                 }
-                catch { await Task.Delay(2000); }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[AnalyzeViaApi] Attempt {i + 1} Exception: {ex.Message}");
+                    await Task.Delay(2000);
+                }
             }
-            return "{\"status\":\"error\"}";
+            return "{\"error\": \"Kunde inte nå AI-motorn. Kontrollera Python-miljön.\"}";
+        }
+
+        public async Task<string> ReAnalyzeAsync(string filePath)
+        {
+            if (!File.Exists(filePath)) return "{\"status\":\"error\", \"message\":\"Fil saknas\"}";
+
+            try
+            {
+                using var content = new MultipartFormDataContent();
+                byte[] fileBytes = await File.ReadAllBytesAsync(filePath);
+                content.Add(new ByteArrayContent(fileBytes), "file", Path.GetFileName(filePath));
+
+                var response = await _client.PostAsync("analyze-only", content);
+                string body = await response.Content.ReadAsStringAsync();
+
+                if (!response.IsSuccessStatusCode)
+                    Debug.WriteLine($"[ReAnalyze] HTTP {(int)response.StatusCode}: {body[..Math.Min(200, body.Length)]}");
+
+                return body;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[ReAnalyze] Exception: {ex.Message}");
+                return "{\"status\":\"error\"}";
+            }
         }
 
         public async Task<string> GetStructureAsync(string artist, string title, double duration)

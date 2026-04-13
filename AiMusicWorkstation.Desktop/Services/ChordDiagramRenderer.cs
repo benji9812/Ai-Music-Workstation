@@ -7,36 +7,94 @@ namespace AiMusicWorkstation.Desktop.Services
 {
     public static class ChordDiagramRenderer
     {
-        // Chord-data: [string 6..1][fret positions], -1 = muted, 0 = open
+        // [string 6..1], -1 = muted, 0 = open
         private static readonly Dictionary<string, int[]> ChordFrets = new()
         {
+            // === MAJOR ===
             { "C",   new[] { -1, 3, 2, 0, 1, 0 } },
-            { "Cm",  new[] { -1, 3, 5, 5, 4, 3 } },
+            { "C#",  new[] { -1, 4, 3, 1, 2, 1 } },
             { "D",   new[] { -1, -1, 0, 2, 3, 2 } },
-            { "Dm",  new[] { -1, -1, 0, 2, 3, 1 } },
+            { "D#",  new[] { -1, -1, 1, 3, 4, 3 } },
             { "E",   new[] { 0, 2, 2, 1, 0, 0 } },
-            { "Em",  new[] { 0, 2, 2, 0, 0, 0 } },
             { "F",   new[] { 1, 1, 2, 3, 3, 1 } },
-            { "Fm",  new[] { 1, 1, 1, 3, 3, 1 } },
+            { "F#",  new[] { 2, 4, 4, 3, 2, 2 } },
             { "G",   new[] { 3, 2, 0, 0, 0, 3 } },
-            { "Gm",  new[] { 3, 1, 0, 0, 3, 3 } },
+            { "G#",  new[] { 4, 6, 6, 5, 4, 4 } },
             { "A",   new[] { -1, 0, 2, 2, 2, 0 } },
-            { "Am",  new[] { -1, 0, 2, 2, 1, 0 } },
+            { "A#",  new[] { -1, 1, 3, 3, 3, 1 } },
             { "Bb",  new[] { -1, 1, 3, 3, 3, 1 } },
             { "B",   new[] { -1, 2, 4, 4, 4, 2 } },
-            { "C#",  new[] { -1, 4, 3, 1, 2, 1 } },
-            { "D#",  new[] { -1, -1, 1, 3, 4, 3 } },
-            { "F#",  new[] { 2, 2, 3, 4, 4, 2 } },
-            { "G#",  new[] { 4, 3, 1, 1, 1, 4 } },
-            { "A#",  new[] { -1, 1, 3, 3, 3, 1 } },
+
+            // === MINOR ===
+            { "Cm",  new[] { -1, 3, 5, 5, 4, 3 } },
+            { "C#m", new[] { -1, 4, 6, 6, 5, 4 } },
+            { "Dm",  new[] { -1, -1, 0, 2, 3, 1 } },
+            { "D#m", new[] { -1, 6, 8, 8, 7, 6 } },
+            { "Em",  new[] { 0, 2, 2, 0, 0, 0 } },
+            { "Fm",  new[] { 1, 3, 3, 1, 1, 1 } },
+            { "F#m", new[] { 2, 4, 4, 2, 2, 2 } },
+            { "Gm",  new[] { 3, 5, 5, 3, 3, 3 } },
+            { "G#m", new[] { 4, 6, 6, 4, 4, 4 } },
+            { "Am",  new[] { -1, 0, 2, 2, 1, 0 } },
+            { "A#m", new[] { -1, 1, 3, 3, 2, 1 } },
+            { "Bbm", new[] { -1, 1, 3, 3, 2, 1 } },
+            { "Bm",  new[] { -1, 2, 4, 4, 3, 2 } },
+
+            // === DOMINANT 7TH ===
+            { "C7",  new[] { -1, 3, 2, 3, 1, 0 } },
+            { "D7",  new[] { -1, -1, 0, 2, 1, 2 } },
+            { "E7",  new[] { 0, 2, 0, 1, 0, 0 } },
+            { "F7",  new[] { 1, 1, 2, 1, 3, 1 } },
+            { "G7",  new[] { 3, 2, 0, 0, 0, 1 } },
+            { "A7",  new[] { -1, 0, 2, 0, 2, 0 } },
+            { "B7",  new[] { -1, 2, 1, 2, 0, 2 } },
+
+            // === MINOR 7TH ===
+            { "Am7", new[] { -1, 0, 2, 0, 1, 0 } },
+            { "Em7", new[] { 0, 2, 2, 0, 3, 0 } },
+            { "Dm7", new[] { -1, -1, 0, 2, 1, 1 } },
+            { "Bm7", new[] { -1, 2, 4, 2, 3, 2 } },
         };
 
-        public static UIElement Render(string chordName, double size = 120)
+        public static UIElement? Render(string chordName, double size = 120)
         {
-            string key = chordName.Replace(" Maj", "").Replace(" maj", "").Trim();
-            if (!ChordFrets.ContainsKey(key)) key = "C";
+            if (string.IsNullOrEmpty(chordName)) return null;
 
-            int[] frets = ChordFrets[key];
+            string chord = chordName.Trim();
+
+            // Extrahera rot (C, C#, Bb etc.)
+            string root;
+            string suffix;
+            if (chord.Length >= 2 && (chord[1] == '#' || chord[1] == 'b'))
+            {
+                root = chord[..2];
+                suffix = chord[2..];
+            }
+            else
+            {
+                root = chord[..1];
+                suffix = chord[1..];
+            }
+
+            // Avgör om minor: "m" direkt efter roten, men INTE "maj"
+            bool isMinor = suffix.Length > 0
+                && suffix[0] == 'm'
+                && !suffix.StartsWith("maj", StringComparison.OrdinalIgnoreCase);
+
+            // Bygg upp lookup-nycklar i prioritetsordning
+            string minorKey = root + (isMinor ? "m" : "");
+            string majorKey = root;
+
+            // Försök: exakt suffix-match (t.ex. "Am7" → finns i dict)
+            if (ChordFrets.ContainsKey(chord)) { }
+            // Försök: rot + minor-flagg (t.ex. "C#m7" → "C#m")
+            else if (ChordFrets.ContainsKey(minorKey)) chord = minorKey;
+            // Försök: bara roten (t.ex. "Cmaj7" → "C")
+            else if (ChordFrets.ContainsKey(majorKey)) chord = majorKey;
+            // Inget hittades — returnera null, låt anroparen hantera
+            else return null;
+
+            int[] frets = ChordFrets[chord];
 
             double cellW = size / 7.0;
             double cellH = size / 6.0;
@@ -46,20 +104,18 @@ namespace AiMusicWorkstation.Desktop.Services
             var canvas = new Canvas
             {
                 Width = size,
-                Height = size,        // <-- var size + 20, nu bara size
+                Height = size,
                 Background = Brushes.Transparent
             };
 
-            // BORTTAGET: Chord name label
-
             double offsetX = cellW * 0.5;
-            double offsetY = 4;       // <-- var 20, lite padding kvar för X/O ovanför
+            double offsetY = 4;
 
-            // Rita strängar (vertikala)
+            // Strängar (vertikala)
             for (int s = 0; s < numStrings; s++)
             {
                 double x = offsetX + s * cellW;
-                var line = new Line
+                canvas.Children.Add(new Line
                 {
                     X1 = x,
                     Y1 = offsetY,
@@ -67,15 +123,14 @@ namespace AiMusicWorkstation.Desktop.Services
                     Y2 = offsetY + numFrets * cellH,
                     Stroke = new SolidColorBrush(Color.FromRgb(80, 80, 80)),
                     StrokeThickness = 1
-                };
-                canvas.Children.Add(line);
+                });
             }
 
-            // Rita bands (horisontella)
+            // Band (horisontella)
             for (int f = 0; f <= numFrets; f++)
             {
                 double y = offsetY + f * cellH;
-                var line = new Line
+                canvas.Children.Add(new Line
                 {
                     X1 = offsetX,
                     Y1 = y,
@@ -85,11 +140,10 @@ namespace AiMusicWorkstation.Desktop.Services
                         ? new SolidColorBrush(Color.FromRgb(180, 180, 180))
                         : new SolidColorBrush(Color.FromRgb(60, 60, 60)),
                     StrokeThickness = f == 0 ? 3 : 1
-                };
-                canvas.Children.Add(line);
+                });
             }
 
-            // Rita fingrar / X / O
+            // Fingrar / X / O
             for (int s = 0; s < numStrings; s++)
             {
                 int fret = frets[s];
