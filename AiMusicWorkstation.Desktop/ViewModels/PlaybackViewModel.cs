@@ -46,17 +46,18 @@ public class PlaybackViewModel : ViewModelBase
         _commandBus = commandBus ?? throw new ArgumentNullException(nameof(commandBus));
         _queryBus = queryBus ?? throw new ArgumentNullException(nameof(queryBus));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        
-        PlayCommand = new AsyncRelayCommand(ExecutePlay);
-        PauseCommand = new AsyncRelayCommand(ExecutePause);
-        StopCommand = new AsyncRelayCommand(ExecuteStop);
+
+        PlayCommand = new RelayCommand(() => ExecutePlaySync());
+        PauseCommand = new RelayCommand(() => ExecutePauseSync());
+        StopCommand = new RelayCommand(() => ExecuteStopSync());
     }
-    
-    private async Task ExecutePlay(object? parameter)
+
+    private void ExecutePlaySync()
     {
         try
         {
-            await _commandBus.Execute(new PlayCommand { StartMetronome = false });
+            // Fire and forget
+            _ = _commandBus.Execute(new PlayCommand { StartMetronome = false });
             IsPlaying = true;
         }
         catch (Exception ex)
@@ -64,12 +65,13 @@ public class PlaybackViewModel : ViewModelBase
             _logger.LogError(ex, "Error executing play command");
         }
     }
-    
-    private async Task ExecutePause(object? parameter)
+
+    private void ExecutePauseSync()
     {
         try
         {
-            await _commandBus.Execute(new PauseCommand());
+            // Fire and forget
+            _ = _commandBus.Execute(new PauseCommand());
             IsPlaying = false;
         }
         catch (Exception ex)
@@ -77,12 +79,13 @@ public class PlaybackViewModel : ViewModelBase
             _logger.LogError(ex, "Error executing pause command");
         }
     }
-    
-    private async Task ExecuteStop(object? parameter)
+
+    private void ExecuteStopSync()
     {
         try
         {
-            await _commandBus.Execute(new StopCommand());
+            // Fire and forget
+            _ = _commandBus.Execute(new StopCommand());
             IsPlaying = false;
         }
         catch (Exception ex)

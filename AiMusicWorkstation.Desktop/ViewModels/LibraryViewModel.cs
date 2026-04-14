@@ -38,7 +38,7 @@ public class LibraryViewModel : ViewModelBase
     
     public ICommand DeleteCommand { get; }
     public ICommand RefreshCommand { get; }
-    
+
     public LibraryViewModel(
         ICommandBus commandBus,
         IQueryBus queryBus,
@@ -47,13 +47,41 @@ public class LibraryViewModel : ViewModelBase
         _commandBus = commandBus ?? throw new ArgumentNullException(nameof(commandBus));
         _queryBus = queryBus ?? throw new ArgumentNullException(nameof(queryBus));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        
-        DeleteCommand = new AsyncRelayCommand<string>(ExecuteDelete);
-        RefreshCommand = new AsyncRelayCommand(ExecuteRefresh);
-        
+
+        DeleteCommand = new RelayCommand<string?>(ExecuteDeleteSync);
+        RefreshCommand = new RelayCommand(() => ExecuteRefreshSync());
+
         _ = LoadProjectsAsync();
     }
-    
+
+    private void ExecuteDeleteSync(string? projectId)
+    {
+        if (string.IsNullOrWhiteSpace(projectId)) return;
+
+        try
+        {
+            _ = _commandBus.Execute(new DeleteProjectCommand { ProjectId = projectId });
+            _ = LoadProjectsAsync();
+            _logger.LogInformation("Project deleted: {ProjectId}", projectId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error deleting project");
+        }
+    }
+
+    private void ExecuteRefreshSync()
+    {
+        try
+        {
+            _ = LoadProjectsAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error refreshing projects");
+        }
+    }
+
     public async Task LoadProjectsAsync()
     {
         try
@@ -65,7 +93,7 @@ public class LibraryViewModel : ViewModelBase
             _logger.LogError(ex, "Error loading projects");
         }
     }
-    
+
     private async Task ApplyFilterAsync()
     {
         try
@@ -74,7 +102,7 @@ public class LibraryViewModel : ViewModelBase
             {
                 SearchTerm = _searchTerm
             };
-            
+
             var results = await _queryBus.Execute(query);
             Projects = new ObservableCollection<SongProjectDto>(results);
             _logger.LogInformation("Loaded {Count} projects", results.Count);
@@ -84,40 +112,12 @@ public class LibraryViewModel : ViewModelBase
             _logger.LogError(ex, "Error filtering projects");
         }
     }
-    
-    private async Task ExecuteDelete(string? projectId)
-    {
-        if (string.IsNullOrWhiteSpace(projectId)) return;
-        
-        try
-        {
-            await _commandBus.Execute(new DeleteProjectCommand { ProjectId = projectId });
-            await LoadProjectsAsync();
-            _logger.LogInformation("Project deleted: {ProjectId}", projectId);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error deleting project");
-        }
-    }
-    
-    private async Task ExecuteRefresh(object? parameter)
-    {
-        try
-        {
-            await LoadProjectsAsync();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error refreshing projects");
-        }
-    }
-    
+
     private bool SetPropertyIfChanged<T>(ref T field, T newValue, [CallerMemberName] string propertyName = "")
     {
         if (EqualityComparer<T>.Default.Equals(field, newValue))
             return false;
-        
+
         field = newValue;
         OnPropertyChanged(propertyName);
         return true;
