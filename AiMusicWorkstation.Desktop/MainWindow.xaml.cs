@@ -1,5 +1,6 @@
 ﻿using AiMusicWorkstation.Desktop.Models;
 using AiMusicWorkstation.Desktop.Services;
+using AiMusicWorkstation.Shared.Helpers;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Win32;
 using NAudio.Wave;
@@ -40,9 +41,6 @@ namespace AiMusicWorkstation.Desktop
         private bool _showingAltBpm = false;
         private string _originalKey = "--";
         private int _currentSemitones = 0;
-
-        private static readonly string[] NoteNames =
-            { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "Bb", "B" };
 
         private ObservableCollection<LyricSegment> _currentLyrics = new ObservableCollection<LyricSegment>();
         private List<ChordEvent> _currentChords = new List<ChordEvent>();
@@ -241,11 +239,11 @@ namespace AiMusicWorkstation.Desktop
 
                 if (_currentChords.Any())
                 {
-                    string firstChord = TransposeChord(_currentChords[0].Chord, 0);
+                    string firstChord = MusicTheoryHelper.TransposeChord(_currentChords[0].Chord, 0);
                     CurrentChordText.Text = firstChord;
                     ChordDiagramHost.Child = RenderChordDiagram(firstChord);
                     var upcoming = _currentChords.Skip(1).Take(3)
-                        .Select(c => TransposeChord(c.Chord, 0));
+                        .Select(c => MusicTheoryHelper.TransposeChord(c.Chord, 0));
                     NextChordsText.Text = string.Join(" → ", upcoming);
                 }
                 UpdateScaleDiagram();
@@ -452,7 +450,7 @@ namespace AiMusicWorkstation.Desktop
                 var activeChord = _currentChords.LastOrDefault(c => c.Time <= t);
                 if (activeChord != null)
                 {
-                    string displayChord = TransposeChord(activeChord.Chord, _currentSemitones);
+                    string displayChord = MusicTheoryHelper.TransposeChord(activeChord.Chord, _currentSemitones);
                     if (CurrentChordText.Text != displayChord)
                     {
                         CurrentChordText.Text = displayChord;
@@ -462,7 +460,7 @@ namespace AiMusicWorkstation.Desktop
                         var upcoming = _currentChords
                             .Where(c => c.Time > t)
                             .Take(3)
-                            .Select(c => TransposeChord(c.Chord, _currentSemitones));
+                            .Select(c => MusicTheoryHelper.TransposeChord(c.Chord, _currentSemitones));
                         NextChordsText.Text = string.Join("  →  ", upcoming);
                     }
                 }
@@ -539,7 +537,7 @@ namespace AiMusicWorkstation.Desktop
 
             if (!string.IsNullOrEmpty(_originalKey) && _originalKey != "--")
             {
-                string transposedKey = TransposeKey(_originalKey, _currentSemitones);
+                string transposedKey = MusicTheoryHelper.TransposeKey(_originalKey, _currentSemitones);
                 KeyText.Text = transposedKey;
 
                 if (ProjectList.SelectedItem is SongProject activeProject)
@@ -558,7 +556,7 @@ namespace AiMusicWorkstation.Desktop
                     double t = _player.CurrentTime.TotalSeconds;
                     var activeChord = _currentChords.LastOrDefault(c => c.Time <= t)
                                       ?? _currentChords[0];
-                    string displayChord = TransposeChord(activeChord.Chord, _currentSemitones);
+                    string displayChord = MusicTheoryHelper.TransposeChord(activeChord.Chord, _currentSemitones);
                     CurrentChordText.Text = displayChord;
                     ChordDiagramHost.Child = RenderChordDiagram(displayChord);
                     FlashChordColor(); // NY
@@ -566,49 +564,13 @@ namespace AiMusicWorkstation.Desktop
                     var upcoming = _currentChords
                         .Where(c => c.Time > t)
                         .Take(3)
-                        .Select(c => TransposeChord(c.Chord, _currentSemitones));
+                        .Select(c => MusicTheoryHelper.TransposeChord(c.Chord, _currentSemitones));
                     NextChordsText.Text = string.Join("  →  ", upcoming);
                 }
 
                 if (ScaleView.Visibility == Visibility.Visible)
                     UpdateScaleDiagram();
             }
-        }
-
-        private string TransposeKey(string key, int semitones)
-        {
-            bool isMinor = key.EndsWith("m");
-            string root = isMinor ? key[..^1] : key;
-            int idx = Array.IndexOf(NoteNames, root);
-            if (idx == -1) return key;
-            int newIdx = ((idx + semitones) % 12 + 12) % 12;
-            return NoteNames[newIdx] + (isMinor ? "m" : "");
-        }
-
-        private string TransposeChord(string chord, int semitones)
-        {
-            if (semitones == 0 || string.IsNullOrEmpty(chord)) return chord;
-
-            // Extrahera rot och suffix robust — hanterar maj7, m7, sus2, sus4, 7 etc.
-            string root = "";
-            string suffix = "";
-
-            // Kolla om roten är 2 tecken (C#, Bb etc.) eller 1 tecken
-            if (chord.Length >= 2 && (chord[1] == '#' || chord[1] == 'b'))
-            {
-                root = chord[..2];
-                suffix = chord[2..];
-            }
-            else
-            {
-                root = chord[..1];
-                suffix = chord[1..];
-            }
-
-            int idx = Array.IndexOf(NoteNames, root);
-            if (idx == -1) return chord;
-            int newIdx = ((idx + semitones) % 12 + 12) % 12;
-            return NoteNames[newIdx] + suffix;
         }
 
         private UIElement RenderChordDiagram(string chord)
@@ -987,11 +949,11 @@ namespace AiMusicWorkstation.Desktop
 
                     if (_currentChords.Any())
                     {
-                        string firstChord = TransposeChord(_currentChords[0].Chord, _currentSemitones);
+                        string firstChord = MusicTheoryHelper.TransposeChord(_currentChords[0].Chord, _currentSemitones);
                         CurrentChordText.Text = firstChord;
                         ChordDiagramHost.Child = RenderChordDiagram(firstChord);
                         var upcoming = _currentChords.Skip(1).Take(3)
-                            .Select(c => TransposeChord(c.Chord, _currentSemitones));
+                            .Select(c => MusicTheoryHelper.TransposeChord(c.Chord, _currentSemitones));
                         NextChordsText.Text = string.Join("  →  ", upcoming);
                     }
                     else
