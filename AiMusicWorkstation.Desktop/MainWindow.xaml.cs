@@ -1,5 +1,6 @@
 ﻿using AiMusicWorkstation.Desktop.Models;
 using AiMusicWorkstation.Desktop.Services;
+using AiMusicWorkstation.Desktop.ViewModels;
 using AiMusicWorkstation.Shared.Helpers;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Win32;
@@ -20,6 +21,8 @@ namespace AiMusicWorkstation.Desktop
 {
     public partial class MainWindow : Window
     {
+        private readonly PlaybackViewModel? _playbackViewModel;
+        private readonly LibraryViewModel? _libraryViewModel;
         private System.Windows.Media.SolidColorBrush _chordFlashBrush =
         new System.Windows.Media.SolidColorBrush(System.Windows.Media.Colors.Gold);
 
@@ -45,9 +48,18 @@ namespace AiMusicWorkstation.Desktop
         private ObservableCollection<LyricSegment> _currentLyrics = new ObservableCollection<LyricSegment>();
         private List<ChordEvent> _currentChords = new List<ChordEvent>();
 
-        public MainWindow()
+        public MainWindow(PlaybackViewModel? playbackViewModel = null, LibraryViewModel? libraryViewModel = null)
         {
             InitializeComponent();
+
+            _playbackViewModel = playbackViewModel;
+            _libraryViewModel = libraryViewModel;
+
+            // If ViewModels are injected via DI, set DataContext
+            if (_playbackViewModel != null && _libraryViewModel != null)
+            {
+                DataContext = new { Playback = _playbackViewModel, Library = _libraryViewModel };
+            }
 
             var config = new ConfigurationBuilder()
                 .AddUserSecrets<MainWindow>()
