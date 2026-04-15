@@ -38,23 +38,28 @@ namespace AiMusicWorkstation.Desktop
                 .Build();
             services.AddSingleton<IConfiguration>(config);
 
-            // Core Services - Existing (wrapped with interfaces)
-            services.AddSingleton(new StemPlayer());
+            // Core Services - register concrete types with DI (avoid manual new instances)
+            services.AddSingleton<StemPlayer>();
             services.AddSingleton<IAudioPlayer>(sp => 
                 new AudioPlayerAdapter(sp.GetRequiredService<StemPlayer>()));
 
-            services.AddSingleton(new PythonBridge());
+            services.AddSingleton<PythonBridge>();
             services.AddSingleton<IPythonAnalysisService>(sp => 
                 new PythonAnalysisAdapter(sp.GetRequiredService<PythonBridge>()));
 
-            services.AddSingleton(new LibraryManager());
-            // Skip ILibraryRepository for now - will wire separately in handlers
+            services.AddSingleton<LibraryManager>();
+            // Register library repository adapter (wraps LibraryManager)
+            services.AddSingleton<LibraryRepositoryAdapter>();
+            // Register infrastructure decorator that adds logging around the adapter
+            services.AddSingleton<ILibraryRepository>(sp => 
+                new LibraryRepository(sp.GetRequiredService<LibraryRepositoryAdapter>(), 
+                    sp.GetRequiredService<ILogger<LibraryRepository>>()));
 
-            services.AddSingleton(new SmartImporter(config));
+            services.AddSingleton<SmartImporter>();
             services.AddSingleton<ISmartImporterService>(sp => 
                 new SmartImporterAdapter(sp.GetRequiredService<SmartImporter>()));
 
-            services.AddSingleton(new Metronome());
+            services.AddSingleton<Metronome>();
             services.AddSingleton<IMetronome>(sp => 
                 new MetronomeAdapter(sp.GetRequiredService<Metronome>()));
 
