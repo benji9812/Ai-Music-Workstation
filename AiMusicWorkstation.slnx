@@ -1,9 +1,9 @@
 <Solution>
   <Project Path="AiMusicWorkstation.Api/AiMusicWorkstation.Api.csproj" />
-  <Project Path="AiMusicWorkstation.Desktop/AiMusicWorkstation.Desktop.csproj" />
-  <Project Path="AiMusicWorkstation.Shared/AiMusicWorkstation.Shared.csproj" />
   <Project Path="AiMusicWorkstation.Application/AiMusicWorkstation.Application.csproj" />
+  <Project Path="AiMusicWorkstation.Desktop/AiMusicWorkstation.Desktop.csproj" />
   <Project Path="AiMusicWorkstation.Domain/AiMusicWorkstation.Domain.csproj" />
   <Project Path="AiMusicWorkstation.Infrastructure/AiMusicWorkstation.Infrastructure.csproj" />
+  <Project Path="AiMusicWorkstation.Shared/AiMusicWorkstation.Shared.csproj" />
   <Project Path="AiMusicWorkstation.Tests/AiMusicWorkstation.Tests.csproj" />
 </Solution>

@@ -48,21 +48,20 @@ public class LibraryViewModel : ViewModelBase
         _queryBus = queryBus ?? throw new ArgumentNullException(nameof(queryBus));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
-        DeleteCommand = new AsyncRelayCommand<string?>(ExecuteDeleteAsync);
-        RefreshCommand = new AsyncRelayCommand(ExecuteRefreshAsync);
+        DeleteCommand = new RelayCommand<string?>(ExecuteDeleteSync);
+        RefreshCommand = new RelayCommand(() => ExecuteRefreshSync());
 
-        // Start initial load without swallowing exceptions (they are logged inside)
         _ = LoadProjectsAsync();
     }
 
-    private async Task ExecuteDeleteAsync(string? projectId)
+    private void ExecuteDeleteSync(string? projectId)
     {
         if (string.IsNullOrWhiteSpace(projectId)) return;
 
         try
         {
-            await _commandBus.Execute(new DeleteProjectCommand { ProjectId = projectId });
-            await LoadProjectsAsync();
+            _ = _commandBus.Execute(new DeleteProjectCommand { ProjectId = projectId });
+            _ = LoadProjectsAsync();
             _logger.LogInformation("Project deleted: {ProjectId}", projectId);
         }
         catch (Exception ex)
@@ -71,11 +70,11 @@ public class LibraryViewModel : ViewModelBase
         }
     }
 
-    private async Task ExecuteRefreshAsync()
+    private void ExecuteRefreshSync()
     {
         try
         {
-            await LoadProjectsAsync();
+            _ = LoadProjectsAsync();
         }
         catch (Exception ex)
         {

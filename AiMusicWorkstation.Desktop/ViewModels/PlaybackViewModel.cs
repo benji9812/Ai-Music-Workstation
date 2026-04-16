@@ -47,16 +47,17 @@ public class PlaybackViewModel : ViewModelBase
         _queryBus = queryBus ?? throw new ArgumentNullException(nameof(queryBus));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
-        PlayCommand = new AsyncRelayCommand(ExecutePlayAsync);
-        PauseCommand = new AsyncRelayCommand(ExecutePauseAsync);
-        StopCommand = new AsyncRelayCommand(ExecuteStopAsync);
+        PlayCommand = new RelayCommand(() => ExecutePlaySync());
+        PauseCommand = new RelayCommand(() => ExecutePauseSync());
+        StopCommand = new RelayCommand(() => ExecuteStopSync());
     }
 
-    private async Task ExecutePlayAsync()
+    private void ExecutePlaySync()
     {
         try
         {
-            await _commandBus.Execute(new PlayCommand { StartMetronome = false });
+            // Fire and forget
+            _ = _commandBus.Execute(new PlayCommand { StartMetronome = false });
             IsPlaying = true;
         }
         catch (Exception ex)
@@ -65,11 +66,12 @@ public class PlaybackViewModel : ViewModelBase
         }
     }
 
-    private async Task ExecutePauseAsync()
+    private void ExecutePauseSync()
     {
         try
         {
-            await _commandBus.Execute(new PauseCommand());
+            // Fire and forget
+            _ = _commandBus.Execute(new PauseCommand());
             IsPlaying = false;
         }
         catch (Exception ex)
@@ -78,11 +80,12 @@ public class PlaybackViewModel : ViewModelBase
         }
     }
 
-    private async Task ExecuteStopAsync()
+    private void ExecuteStopSync()
     {
         try
         {
-            await _commandBus.Execute(new StopCommand());
+            // Fire and forget
+            _ = _commandBus.Execute(new StopCommand());
             IsPlaying = false;
         }
         catch (Exception ex)
