@@ -23,6 +23,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\AiMusicWorkstation.Domain\AiMusicWorkstation.Domain.csproj" />
     <ProjectReference Include="..\AiMusicWorkstation.Shared\AiMusicWorkstation.Shared.csproj" />
     <ProjectReference Include="..\AiMusicWorkstation.Application\AiMusicWorkstation.Application.csproj" />
     <ProjectReference Include="..\AiMusicWorkstation.Infrastructure\AiMusicWorkstation.Infrastructure.csproj" />

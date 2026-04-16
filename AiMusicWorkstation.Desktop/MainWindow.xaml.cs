@@ -1,4 +1,5 @@
 ﻿using AiMusicWorkstation.Desktop.Models;
+using AiMusicWorkstation.Shared.Models;
 using AiMusicWorkstation.Desktop.Services;
 using AiMusicWorkstation.Desktop.ViewModels;
 using AiMusicWorkstation.Shared.Helpers;
@@ -47,6 +48,10 @@ namespace AiMusicWorkstation.Desktop
 
         private ObservableCollection<LyricSegment> _currentLyrics = new ObservableCollection<LyricSegment>();
         private List<ChordEvent> _currentChords = new List<ChordEvent>();
+
+        public MainWindow() : this(null, null)
+        {
+        }
 
         public MainWindow(PlaybackViewModel? playbackViewModel = null, LibraryViewModel? libraryViewModel = null)
         {

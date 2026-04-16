@@ -1,5 +1,5 @@
-﻿using AiMusicWorkstation.Desktop.Models;
-using AiMusicWorkstation.Desktop.Services;
+﻿using AiMusicWorkstation.Shared.Models;
+using AiMusicWorkstation.Desktop.Models;
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
