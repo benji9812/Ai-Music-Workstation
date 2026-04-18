@@ -9,20 +9,19 @@ namespace AiMusicWorkstation.Desktop.Services
         private readonly HttpClient _client;
         private readonly string _localPythonPath;
         private readonly string _serverPath;
+        private readonly PythonConfig _config;
 
-        public PythonBridge()
+        public PythonBridge(PythonConfig config)
         {
-            _client = new HttpClient();
-            _client.BaseAddress = new Uri("http://127.0.0.1:8000/");
+            _config = config ?? throw new ArgumentNullException(nameof(config));
+            _client = new HttpClient
+            {
+                BaseAddress = new Uri(_config.BaseUrl),
+                Timeout = _config.Timeout
+            };
 
-            // Demucs är tungt, så vi tillåter att anropet tar upp till 10 minuter
-            _client.Timeout = TimeSpan.FromMinutes(10);
-
-            string baseDir = AppDomain.CurrentDomain.BaseDirectory;
-            string solutionRoot = Path.GetFullPath(Path.Combine(baseDir, "../../../.."));
-
-            _localPythonPath = Path.Combine(solutionRoot, "PythonEngine", "venv", "Scripts", "python.exe");
-            _serverPath = Path.Combine(solutionRoot, "PythonEngine", "main.py");
+            _localPythonPath = _config.PythonExecutablePath;
+            _serverPath = _config.ServerScriptPath;
 
             // Starta servern asynkront så att UI:t inte låser sig vid uppstart
             Task.Run(() => EnsureServerIsRunning());

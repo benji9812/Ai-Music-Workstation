@@ -30,6 +30,7 @@ namespace AiMusicWorkstation.Desktop
 
             // Configuration
             var config = new ConfigurationBuilder()
+                .AddJsonFile("appsettings.json", optional: true)
                 .AddUserSecrets<App>()
                 .Build();
             services.AddSingleton<IConfiguration>(config);
@@ -39,7 +40,8 @@ namespace AiMusicWorkstation.Desktop
             services.AddSingleton<IAudioPlayer>(sp =>
                 new AudioPlayerAdapter(sp.GetRequiredService<StemPlayer>()));
 
-            services.AddSingleton(new PythonBridge());
+            services.AddSingleton(sp => PythonConfig.FromConfiguration(sp.GetRequiredService<IConfiguration>()));
+            services.AddSingleton<PythonBridge>();
             services.AddSingleton<IPythonAnalysisService>(sp =>
                 new PythonAnalysisAdapter(sp.GetRequiredService<PythonBridge>()));
 
@@ -74,6 +76,8 @@ namespace AiMusicWorkstation.Desktop
             // ViewModels
             services.AddSingleton<PlaybackViewModel>();
             services.AddSingleton<LibraryViewModel>();
+            services.AddSingleton<AnalysisResultParser>();
+            services.AddSingleton<AiAnalysisOrchestrator>();
             services.AddSingleton<MainWindowViewModel>();
             services.AddSingleton<MainWindow>();
 

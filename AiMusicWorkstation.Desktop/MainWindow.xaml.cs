@@ -26,7 +26,6 @@ namespace AiMusicWorkstation.Desktop
         private System.Windows.Media.SolidColorBrush _chordFlashBrush =
         new System.Windows.Media.SolidColorBrush(System.Windows.Media.Colors.Gold);
 
-        private PythonBridge _pythonBridge = new PythonBridge();
         private readonly AiAnalysisOrchestrator _analysisOrchestrator;
         private StemPlayer _player = new StemPlayer();
         private LibraryManager _library = new LibraryManager();
@@ -57,7 +56,8 @@ namespace AiMusicWorkstation.Desktop
         public MainWindow(
             PlaybackViewModel? playbackViewModel = null,
             LibraryViewModel? libraryViewModel = null,
-            MainWindowViewModel? mainWindowViewModel = null)
+            MainWindowViewModel? mainWindowViewModel = null,
+            AiAnalysisOrchestrator? analysisOrchestrator = null)
         {
             InitializeComponent();
 
@@ -78,7 +78,10 @@ namespace AiMusicWorkstation.Desktop
                 .AddUserSecrets<MainWindow>()
                 .Build();
             _importer = new SmartImporter(config);
-            _analysisOrchestrator = new AiAnalysisOrchestrator(_pythonBridge);
+            _analysisOrchestrator = analysisOrchestrator
+                ?? new AiAnalysisOrchestrator(
+                    new PythonBridge(PythonConfig.CreateDefault()),
+                    new AnalysisResultParser());
 
             Closing += (s, e) => { _player.Dispose(); _metronome.Dispose(); };
 
