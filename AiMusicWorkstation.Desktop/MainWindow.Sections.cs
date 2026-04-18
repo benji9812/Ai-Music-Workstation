@@ -36,7 +36,7 @@ namespace AiMusicWorkstation.Desktop
             _currentSections[^1].EndTime = total;
 
             RefreshSectionsList();
-            SaveLyricsAndChords(_player.CurrentStemsPath,
+            _sessionStorage.SaveSession(_player.CurrentStemsPath,
                 _currentLyrics.ToList(), _currentChords, _currentSections);
         }
 
@@ -55,7 +55,7 @@ namespace AiMusicWorkstation.Desktop
                 _currentSections = sorted;
 
                 RefreshSectionsList();
-                SaveLyricsAndChords(_player.CurrentStemsPath,
+                _sessionStorage.SaveSession(_player.CurrentStemsPath,
                     _currentLyrics.ToList(), _currentChords, _currentSections);
             }
         }
@@ -135,7 +135,7 @@ namespace AiMusicWorkstation.Desktop
                     _currentSections[^1].EndTime = total;
 
                     RefreshSectionsList();
-                    SaveLyricsAndChords(_player.CurrentStemsPath,
+                    _sessionStorage.SaveSession(_player.CurrentStemsPath,
                         _currentLyrics.ToList(), _currentChords, _currentSections);
                 }
 
@@ -200,7 +200,7 @@ namespace AiMusicWorkstation.Desktop
 
                 _currentSections = newSections;
                 RefreshSectionsList();
-                SaveLyricsAndChords(_player.CurrentStemsPath,
+                _sessionStorage.SaveSession(_player.CurrentStemsPath,
                     _currentLyrics.ToList(), _currentChords, _currentSections);
 
                 StatusLabel.Text = $"✅ Structure loaded: {_currentSections.Count} sections";
