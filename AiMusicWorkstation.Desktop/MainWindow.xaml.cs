@@ -10,7 +10,6 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
-using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -168,38 +167,17 @@ namespace AiMusicWorkstation.Desktop
                 string fileForPython = inputPath;
                 string pathForPlayer = inputPath;
 
-                string jsonResponse = await _pythonBridge.RunAnalysisAsync(fileForPython, useCloud: true);
-                Debug.WriteLine($"[Analyze] RunAnalysisAsync svar: {jsonResponse[..Math.Min(200, jsonResponse.Length)]}");
+                var analysisParse = await _analysisOrchestrator.RunAnalysisAsync(fileForPython, useCloud: true);
+                Debug.WriteLine($"[Analyze] RunAnalysisAsync svar: {analysisParse.RawResponse[..Math.Min(200, analysisParse.RawResponse.Length)]}");
 
-                int jsonStartIndex = jsonResponse.IndexOf('{');
-                if (jsonStartIndex == -1)
+                if (analysisParse.Error != null || analysisParse.Result == null)
                 {
-                    StatusLabel.Text = "Analysis Error.";
-                    MessageBox.Show($"Python gav inget giltigt svar:\n{jsonResponse}");
+                    StatusLabel.Text = analysisParse.Error?.StatusLabel ?? "Analysis failed.";
+                    MessageBox.Show(analysisParse.Error?.MessageBoxText ?? "AI-motorn rapporterade ett fel.");
                     return;
                 }
 
-                string cleanJson = jsonResponse.Substring(jsonStartIndex);
-                AnalysisResult analysisData = null;
-
-                try
-                {
-                    analysisData = JsonSerializer.Deserialize<AnalysisResult>(cleanJson);
-                }
-                catch (Exception ex)
-                {
-                    StatusLabel.Text = "Data Format Error.";
-                    MessageBox.Show($"Kunde inte läsa datan från Python.\nFel: {ex.Message}");
-                    return;
-                }
-
-                if (analysisData == null || analysisData.Status != "success")
-                {
-                    StatusLabel.Text = "Analysis failed.";
-                    string errorMsg = analysisData?.Message ?? "Okänt fel";
-                    MessageBox.Show($"AI-motorn rapporterade ett fel:\n\n{errorMsg}");
-                    return;
-                }
+                AnalysisResult analysisData = analysisParse.Result;
 
                 _currentLyrics = new ObservableCollection<LyricSegment>(
                     analysisData.Lyrics ?? new List<LyricSegment>());
@@ -848,26 +826,22 @@ namespace AiMusicWorkstation.Desktop
                     if (analysisSource == null) continue;
 
                     Debug.WriteLine($"[RefreshMetadata] Analyserar med fil: {analysisSource}");
-                    string jsonResponse = await _pythonBridge.ReAnalyzeAsync(analysisSource);
-                    Debug.WriteLine($"[RefreshMetadata] {project.Title} → svar: {jsonResponse[..Math.Min(200, jsonResponse.Length)]}");
+                    var parseResult = await _analysisOrchestrator.RunReAnalyzeAsync(analysisSource);
+                    Debug.WriteLine($"[RefreshMetadata] {project.Title} → svar: {parseResult.RawResponse[..Math.Min(200, parseResult.RawResponse.Length)]}");
 
-                    int jsonStart = jsonResponse.IndexOf('{');
-                    if (jsonStart >= 0)
+                    if (parseResult.Error == null && parseResult.Result != null)
                     {
-                        var result = JsonSerializer.Deserialize<AnalysisResult>(jsonResponse.Substring(jsonStart));
-                        if (result != null && result.Status == "success")
-                        {
-                            if (result.Bpm > 0) project.Bpm = result.Bpm;
-                            if (result.TimeSignature > 0) project.TimeSignature = result.TimeSignature;
-                            if (!string.IsNullOrEmpty(result.Key)) project.Key = result.Key;
+                        var result = parseResult.Result;
+                        if (result.Bpm > 0) project.Bpm = result.Bpm;
+                        if (result.TimeSignature > 0) project.TimeSignature = result.TimeSignature;
+                        if (!string.IsNullOrEmpty(result.Key)) project.Key = result.Key;
 
-                            // Bevara gamla lyrics
-                            var existingData = _sessionStorage.LoadSession(project.StemsPath);
-                            var lyricsToSave = result.Lyrics?.Any() == true ? result.Lyrics : existingData.lyrics;
-                            var chordsToSave = result.Chords?.Any() == true ? result.Chords : existingData.chords;
-                            if (lyricsToSave.Any() || chordsToSave.Any())
-                                _sessionStorage.SaveSession(project.StemsPath, lyricsToSave, chordsToSave);
-                        }
+                        // Bevara gamla lyrics
+                        var existingData = _sessionStorage.LoadSession(project.StemsPath);
+                        var lyricsToSave = result.Lyrics?.Any() == true ? result.Lyrics : existingData.lyrics;
+                        var chordsToSave = result.Chords?.Any() == true ? result.Chords : existingData.chords;
+                        if (lyricsToSave.Any() || chordsToSave.Any())
+                            _sessionStorage.SaveSession(project.StemsPath, lyricsToSave, chordsToSave);
                     }
                     updated++;
                 }

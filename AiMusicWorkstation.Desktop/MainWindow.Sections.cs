@@ -1,6 +1,5 @@
 ﻿using AiMusicWorkstation.Shared.Models;
 using AiMusicWorkstation.Desktop.Models;
-using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -157,48 +156,14 @@ namespace AiMusicWorkstation.Desktop
 
             try
             {
-                string json = await _pythonBridge.GetStructureAsync(p.Artist, p.Title, duration);
-                using var doc = JsonDocument.Parse(json);
-
-                if (doc.RootElement.GetProperty("status").GetString() != "success")
+                var parseResult = await _analysisOrchestrator.GetStructureAsync(p.Artist, p.Title, duration);
+                if (!parseResult.IsSuccess)
                 {
-                    string msg = doc.RootElement.TryGetProperty("message", out var m)
-                        ? m.GetString() : "Unknown error";
-                    StatusLabel.Text = $"AI: {msg}";
+                    StatusLabel.Text = $"AI: {parseResult.ErrorMessage}";
                     return;
                 }
 
-                var sectionsEl = doc.RootElement.GetProperty("sections");
-                var newSections = new List<SongSection>();
-
-                foreach (var s in sectionsEl.EnumerateArray())
-                {
-                    string label = s.GetProperty("label").GetString() ?? "Section";
-                    double start = s.GetProperty("start").GetDouble();
-                    double end = s.GetProperty("end").GetDouble();
-
-                    // Filtrera bort ogiltiga sektioner
-                    if (start < 0 || start >= duration) continue;
-                    end = Math.Min(end, duration); // Klipp till låtens längd
-
-                    newSections.Add(new SongSection
-                    {
-                        Label = label,
-                        StartTime = start,
-                        EndTime = end,
-                        Color = SectionColors.Get(label)
-                    });
-                }
-
-                // Säkerställ korrekt ordning och inga överlapp
-                newSections = newSections.OrderBy(s => s.StartTime).ToList();
-                for (int i = 0; i < newSections.Count - 1; i++)
-                    newSections[i].EndTime = newSections[i + 1].StartTime;
-                if (newSections.Any())
-                    newSections[^1].EndTime = duration;
-
-
-                _currentSections = newSections;
+                _currentSections = parseResult.Sections.ToList();
                 RefreshSectionsList();
                 _sessionStorage.SaveSession(_player.CurrentStemsPath,
                     _currentLyrics.ToList(), _currentChords, _currentSections);
