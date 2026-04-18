@@ -10,6 +10,7 @@ namespace AiMusicWorkstation.Desktop.Services
         private readonly string _localPythonPath;
         private readonly string _serverPath;
         private readonly PythonConfig _config;
+        private readonly SemaphoreSlim _serverStartLock = new SemaphoreSlim(1, 1);
 
         public PythonBridge(PythonConfig config)
         {
@@ -24,20 +25,36 @@ namespace AiMusicWorkstation.Desktop.Services
             _serverPath = _config.ServerScriptPath;
 
             // Starta servern asynkront så att UI:t inte låser sig vid uppstart
-            Task.Run(() => EnsureServerIsRunning());
+            Task.Run(() => EnsureServerIsRunningAsync());
         }
 
-        private async Task EnsureServerIsRunning()
+        private async Task EnsureServerIsRunningAsync()
+        {
+            await _serverStartLock.WaitAsync();
+            try
+            {
+                if (await IsServerHealthyAsync())
+                    return;
+
+                StartPythonServer();
+                await Task.Delay(3000); // Ge Python tid att starta innan första anrop
+            }
+            finally
+            {
+                _serverStartLock.Release();
+            }
+        }
+
+        private async Task<bool> IsServerHealthyAsync()
         {
             try
             {
                 var response = await _client.GetAsync("health");
-                if (!response.IsSuccessStatusCode) StartPythonServer();
+                return response.IsSuccessStatusCode;
             }
             catch
             {
-                StartPythonServer();
-                await Task.Delay(3000); // Ge Python tid att starta innan första anrop
+                return false;
             }
         }
 
@@ -82,6 +99,7 @@ namespace AiMusicWorkstation.Desktop.Services
             {
                 try
                 {
+                    await EnsureServerIsRunningAsync();
                     using var content = new MultipartFormDataContent();
                     byte[] fileBytes = await File.ReadAllBytesAsync(filePath);
                     content.Add(new ByteArrayContent(fileBytes), "file", Path.GetFileName(filePath));
@@ -108,6 +126,7 @@ namespace AiMusicWorkstation.Desktop.Services
 
             try
             {
+                await EnsureServerIsRunningAsync();
                 using var content = new MultipartFormDataContent();
                 byte[] fileBytes = await File.ReadAllBytesAsync(filePath);
                 content.Add(new ByteArrayContent(fileBytes), "file", Path.GetFileName(filePath));
@@ -131,6 +150,7 @@ namespace AiMusicWorkstation.Desktop.Services
         {
             try
             {
+                await EnsureServerIsRunningAsync();
                 var payload = new { artist, title, duration };
                 var json = System.Text.Json.JsonSerializer.Serialize(payload);
                 var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");

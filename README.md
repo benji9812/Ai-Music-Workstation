@@ -56,5 +56,5 @@ If not specified, the app defaults to `PythonEngine/venv/Scripts/python.exe` and
 - `PythonEngine`: Local Python analysis service
 
 ## Notes
-- The app auto-starts the Python server when it initializes the `PythonBridge`.
+- The app auto-starts the Python server when it initializes the `PythonBridge` and will retry a health check before analysis requests.
 - `PythonEngine/requirements.txt` reflects the current Python environment.
