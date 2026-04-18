@@ -1,21 +1,18 @@
-using AiMusicWorkstation.Desktop.Models;
-using AiMusicWorkstation.Shared.Models;
 using System.IO;
 using System.Text.Json;
+using AiMusicWorkstation.Desktop.Models;
+using AiMusicWorkstation.Shared.Models;
 
 namespace AiMusicWorkstation.Desktop.Services;
 
 public class SessionStorageService
 {
-    public void SaveSession(
-        string stemsPath,
-        List<LyricSegment> lyrics,
-        List<ChordEvent> chords,
-        List<SongSection>? sections = null)
+    public void SaveSession(string stemsPath, List<LyricSegment> lyrics,
+        List<ChordEvent> chords, List<SongSection>? sections = null)
     {
         try
         {
-            string dir = Directory.Exists(stemsPath) ? stemsPath : Path.GetDirectoryName(stemsPath);
+            string dir = Directory.Exists(stemsPath) ? stemsPath : Path.GetDirectoryName(stemsPath) ?? string.Empty;
             var sectionDtos = (sections ?? new List<SongSection>()).Select(s => new
             {
                 label = s.Label,
@@ -29,14 +26,16 @@ public class SessionStorageService
             string json = JsonSerializer.Serialize(data, opts);
             File.WriteAllText(Path.Combine(dir, "session.json"), json);
         }
-        catch { }
+        catch
+        {
+        }
     }
 
-    public (List<LyricSegment> Lyrics, List<ChordEvent> Chords, List<SongSection> Sections) LoadSession(string stemsPath)
+    public (List<LyricSegment> lyrics, List<ChordEvent> chords, List<SongSection> sections) LoadSession(string stemsPath)
     {
         try
         {
-            string dir = Directory.Exists(stemsPath) ? stemsPath : Path.GetDirectoryName(stemsPath);
+            string dir = Directory.Exists(stemsPath) ? stemsPath : Path.GetDirectoryName(stemsPath) ?? string.Empty;
             string file = Path.Combine(dir, "session.json");
             if (!File.Exists(file))
                 return (new List<LyricSegment>(), new List<ChordEvent>(), new List<SongSection>());
@@ -47,13 +46,16 @@ public class SessionStorageService
             var chords = JsonSerializer.Deserialize<List<ChordEvent>>(
                 doc.RootElement.GetProperty("chords").GetRawText()) ?? new List<ChordEvent>();
 
-            List<SongSection> sections = new List<SongSection>();
+            List<SongSection> sections = new();
             if (doc.RootElement.TryGetProperty("sections", out var sectionsEl))
                 sections = JsonSerializer.Deserialize<List<SongSection>>(sectionsEl.GetRawText())
                            ?? new List<SongSection>();
 
             return (lyrics, chords, sections);
         }
-        catch { return (new List<LyricSegment>(), new List<ChordEvent>(), new List<SongSection>()); }
+        catch
+        {
+            return (new List<LyricSegment>(), new List<ChordEvent>(), new List<SongSection>());
+        }
     }
 }
