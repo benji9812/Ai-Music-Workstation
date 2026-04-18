@@ -1,4 +1,3 @@
-using AiMusicWorkstation.Application.Handlers.Queries;
 using AiMusicWorkstation.Application.Queries.Playback;
 using AiMusicWorkstation.Domain.Services;
 using Microsoft.Extensions.Logging;
@@ -28,7 +27,7 @@ public class GetCurrentChordQueryHandler : IQueryHandler<GetCurrentChordQuery, C
             // Binary search for current chord (O(log n) instead of O(n))
             var chord = BinarySearchChord(currentTime);
             
-            return await Task.FromResult(chord);
+            return chord;
         }
         catch (Exception ex)
         {

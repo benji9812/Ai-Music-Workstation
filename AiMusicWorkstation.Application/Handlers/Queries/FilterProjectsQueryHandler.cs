@@ -1,4 +1,3 @@
-using AiMusicWorkstation.Application.Handlers.Queries;
 using AiMusicWorkstation.Application.Queries.Library;
 using AiMusicWorkstation.Domain.Repositories;
 using Microsoft.Extensions.Logging;
@@ -59,7 +58,7 @@ public class FilterProjectsQueryHandler : IQueryHandler<FilterProjectsQuery, Lis
             };
             
             _logger.LogInformation("Filtered projects: {Count} results", dtos.Count);
-            return await Task.FromResult(dtos);
+            return dtos;
         }
         catch (Exception ex)
         {

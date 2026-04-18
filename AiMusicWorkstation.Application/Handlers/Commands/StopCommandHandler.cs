@@ -15,13 +15,13 @@ public class StopCommandHandler : ICommandHandler<StopCommand>
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
     
-    public async Task Handle(StopCommand command, CancellationToken cancellationToken = default)
+    public Task Handle(StopCommand command, CancellationToken cancellationToken = default)
     {
         try
         {
             _player.Stop();
             _logger.LogInformation("Playback stopped");
-            await Task.CompletedTask;
+            return Task.CompletedTask;
         }
         catch (Exception ex)
         {

@@ -15,19 +15,19 @@ public class PauseCommandHandler : ICommandHandler<PauseCommand>
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
     
-    public async Task Handle(PauseCommand command, CancellationToken cancellationToken = default)
+    public Task Handle(PauseCommand command, CancellationToken cancellationToken = default)
     {
         try
         {
             if (!_player.IsPlaying)
             {
                 _logger.LogWarning("Attempt to pause while not playing");
-                return;
+                return Task.CompletedTask;
             }
             
             _player.Pause();
             _logger.LogInformation("Playback paused");
-            await Task.CompletedTask;
+            return Task.CompletedTask;
         }
         catch (Exception ex)
         {

@@ -1,4 +1,3 @@
-using AiMusicWorkstation.Application.Handlers.Queries;
 using AiMusicWorkstation.Application.Queries.Playback;
 using AiMusicWorkstation.Domain.Services;
 using Microsoft.Extensions.Logging;
@@ -29,7 +28,7 @@ public class GetPlaybackStateQueryHandler : IQueryHandler<GetPlaybackStateQuery,
                 CurrentKey = "--" // TODO: Get from player
             };
             
-            return await Task.FromResult(result);
+            return result;
         }
         catch (Exception ex)
         {
