@@ -63,7 +63,7 @@ namespace AiMusicWorkstation.Desktop
             // If ViewModels are injected via DI, set DataContext
             if (_playbackViewModel != null && _libraryViewModel != null)
             {
-                DataContext = new { Playback = _playbackViewModel, Library = _libraryViewModel };
+                DataContext = new MainWindowViewModel(_playbackViewModel, _libraryViewModel);
             }
 
             var config = new ConfigurationBuilder()
