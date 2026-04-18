@@ -1,5 +1,3 @@
-using System;
-
 namespace AiMusicWorkstation.Desktop.ViewModels;
 
 public class MainWindowViewModel : ViewModelBase

@@ -31,7 +31,6 @@ namespace AiMusicWorkstation.Desktop
         private StemPlayer _player = new StemPlayer();
         private LibraryManager _library = new LibraryManager();
         private SmartImporter _importer;
-        private readonly SessionStorageService _sessionStorage;
         private Metronome _metronome = new Metronome();
 
         private DispatcherTimer _timelineTimer;
@@ -54,16 +53,12 @@ namespace AiMusicWorkstation.Desktop
         {
         }
 
-        public MainWindow(
-            PlaybackViewModel? playbackViewModel = null,
-            LibraryViewModel? libraryViewModel = null,
-            SessionStorageService? sessionStorage = null)
+        public MainWindow(PlaybackViewModel? playbackViewModel = null, LibraryViewModel? libraryViewModel = null)
         {
             InitializeComponent();
 
             _playbackViewModel = playbackViewModel;
             _libraryViewModel = libraryViewModel;
-            _sessionStorage = sessionStorage ?? new SessionStorageService();
 
             // If ViewModels are injected via DI, set DataContext
             if (_playbackViewModel != null && _libraryViewModel != null)
@@ -257,7 +252,7 @@ namespace AiMusicWorkstation.Desktop
                 TimelineSlider.Maximum = _player.TotalTime.TotalSeconds;
                 TotalTimeText.Text = _player.TotalTime.ToString(@"mm\:ss");
 
-                _sessionStorage.SaveSession(pathForPlayer, _currentLyrics.ToList(), _currentChords);
+                SaveLyricsAndChords(pathForPlayer, _currentLyrics.ToList(), _currentChords);
 
                 if (_currentChords.Any())
                 {
@@ -328,6 +323,52 @@ namespace AiMusicWorkstation.Desktop
         }
 
         // --- SESSION: SPARA & LADDA LYRICS/CHORDS ---
+        private void SaveLyricsAndChords(string stemsPath, List<LyricSegment> lyrics,
+        List<ChordEvent> chords, List<SongSection> sections = null)
+        {
+            try
+            {
+                string dir = Directory.Exists(stemsPath) ? stemsPath : Path.GetDirectoryName(stemsPath);
+                var sectionDtos = (sections ?? new List<SongSection>()).Select(s => new
+                {
+                    label = s.Label,
+                    start = s.StartTime,
+                    end = s.EndTime,
+                    color = s.Color
+                }).ToList();
+
+                var data = new { lyrics, chords, sections = sectionDtos };
+                var opts = new JsonSerializerOptions { WriteIndented = true };
+                string json = JsonSerializer.Serialize(data, opts);
+                File.WriteAllText(Path.Combine(dir, "session.json"), json);
+            }
+            catch { }
+        }
+
+        private (List<LyricSegment> lyrics, List<ChordEvent> chords, List<SongSection> sections) LoadLyricsAndChords(string stemsPath)
+        {
+            try
+            {
+                string dir = Directory.Exists(stemsPath) ? stemsPath : Path.GetDirectoryName(stemsPath);
+                string file = Path.Combine(dir, "session.json");
+                if (!File.Exists(file))
+                    return (new List<LyricSegment>(), new List<ChordEvent>(), new List<SongSection>());
+
+                using var doc = JsonDocument.Parse(File.ReadAllText(file));
+                var lyrics = JsonSerializer.Deserialize<List<LyricSegment>>(
+                    doc.RootElement.GetProperty("lyrics").GetRawText()) ?? new List<LyricSegment>();
+                var chords = JsonSerializer.Deserialize<List<ChordEvent>>(
+                    doc.RootElement.GetProperty("chords").GetRawText()) ?? new List<ChordEvent>();
+
+                List<SongSection> sections = new List<SongSection>();
+                if (doc.RootElement.TryGetProperty("sections", out var sectionsEl))
+                    sections = JsonSerializer.Deserialize<List<SongSection>>(sectionsEl.GetRawText())
+                               ?? new List<SongSection>();
+
+                return (lyrics, chords, sections);
+            }
+            catch { return (new List<LyricSegment>(), new List<ChordEvent>(), new List<SongSection>()); }
+        }
 
         private void UpdateMixerUIState()
         {
@@ -858,11 +899,11 @@ namespace AiMusicWorkstation.Desktop
                             if (!string.IsNullOrEmpty(result.Key)) project.Key = result.Key;
 
                             // Bevara gamla lyrics
-                            var existingData = _sessionStorage.LoadSession(project.StemsPath);
-                            var lyricsToSave = result.Lyrics?.Any() == true ? result.Lyrics : existingData.Lyrics;
-                            var chordsToSave = result.Chords?.Any() == true ? result.Chords : existingData.Chords;
+                            var existingData = LoadLyricsAndChords(project.StemsPath);
+                            var lyricsToSave = result.Lyrics?.Any() == true ? result.Lyrics : existingData.lyrics;
+                            var chordsToSave = result.Chords?.Any() == true ? result.Chords : existingData.chords;
                             if (lyricsToSave.Any() || chordsToSave.Any())
-                                _sessionStorage.SaveSession(project.StemsPath, lyricsToSave, chordsToSave);
+                                SaveLyricsAndChords(project.StemsPath, lyricsToSave, chordsToSave);
                         }
                     }
                     updated++;
@@ -908,7 +949,7 @@ namespace AiMusicWorkstation.Desktop
                     }
 
                     ClearSections();
-                    var (lyrics, chords, sections) = _sessionStorage.LoadSession(p.StemsPath);
+                    var (lyrics, chords, sections) = LoadLyricsAndChords(p.StemsPath);
                     _currentLyrics = new ObservableCollection<LyricSegment>(lyrics);
                     foreach (var line in _currentLyrics) line.IsActive = false;
                     LyricsScroller?.ScrollToTop();
