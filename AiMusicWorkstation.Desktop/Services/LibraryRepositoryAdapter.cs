@@ -16,7 +16,7 @@ public class DefaultLibraryRepository : ILibraryRepository
         _libraryManager = libraryManager ?? throw new ArgumentNullException(nameof(libraryManager));
     }
 
-    public async Task<List<SongProject>> GetAllAsync(CancellationToken cancellationToken = default)
+    public Task<List<SongProject>> GetAllAsync(CancellationToken cancellationToken = default)
     {
         // Convert from LibraryManager.SongProject to Shared.Models.SongProject
         var result = _libraryManager.Projects
@@ -38,13 +38,13 @@ public class DefaultLibraryRepository : ILibraryRepository
                 TimeSignature = p.TimeSignature
             })
             .ToList();
-        return await Task.FromResult(result);
+        return Task.FromResult(result);
     }
 
-    public async Task<SongProject?> GetByIdAsync(string id, CancellationToken cancellationToken = default)
+    public Task<SongProject?> GetByIdAsync(string id, CancellationToken cancellationToken = default)
     {
         var project = _libraryManager.Projects.FirstOrDefault(p => p.Id == id);
-        if (project == null) return await Task.FromResult<SongProject?>(null);
+        if (project == null) return Task.FromResult<SongProject?>(null);
 
         var result = new SongProject
         {
@@ -63,17 +63,17 @@ public class DefaultLibraryRepository : ILibraryRepository
             IsOfficialData = project.IsOfficialData,
             TimeSignature = project.TimeSignature
         };
-        return await Task.FromResult<SongProject?>(result);
+        return Task.FromResult<SongProject?>(result);
     }
 
-    public async Task AddAsync(SongProject project, CancellationToken cancellationToken = default)
+    public Task AddAsync(SongProject project, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(project);
         _libraryManager.AddProject(project);
-        await Task.CompletedTask;
+        return Task.CompletedTask;
     }
 
-    public async Task UpdateAsync(SongProject project, CancellationToken cancellationToken = default)
+    public Task UpdateAsync(SongProject project, CancellationToken cancellationToken = default)
     {
         var existing = _libraryManager.Projects.FirstOrDefault(p => p.Id == project.Id);
         if (existing != null)
@@ -82,10 +82,10 @@ public class DefaultLibraryRepository : ILibraryRepository
             _libraryManager.Projects[index] = project;
             _libraryManager.SaveLibrary();
         }
-        await Task.CompletedTask;
+        return Task.CompletedTask;
     }
 
-    public async Task DeleteAsync(string id, CancellationToken cancellationToken = default)
+    public Task DeleteAsync(string id, CancellationToken cancellationToken = default)
     {
         var project = _libraryManager.Projects.FirstOrDefault(p => p.Id == id);
         if (project != null)
@@ -93,12 +93,12 @@ public class DefaultLibraryRepository : ILibraryRepository
             _libraryManager.Projects.Remove(project);
             _libraryManager.SaveLibrary();
         }
-        await Task.CompletedTask;
+        return Task.CompletedTask;
     }
 
-    public async Task SaveAsync(CancellationToken cancellationToken = default)
+    public Task SaveAsync(CancellationToken cancellationToken = default)
     {
         _libraryManager.SaveLibrary();
-        await Task.CompletedTask;
+        return Task.CompletedTask;
     }
 }
