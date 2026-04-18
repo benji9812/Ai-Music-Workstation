@@ -1,18 +1,23 @@
-using System.IO;
-using System.Text.Json;
 using AiMusicWorkstation.Desktop.Models;
 using AiMusicWorkstation.Shared.Models;
+using System.IO;
+using System.Text.Json;
 
 namespace AiMusicWorkstation.Desktop.Services;
 
 public class SessionStorageService
 {
-    public void SaveSession(string stemsPath, List<LyricSegment> lyrics,
-        List<ChordEvent> chords, List<SongSection>? sections = null)
+    public void SaveSession(
+        string stemsPath,
+        List<LyricSegment> lyrics,
+        List<ChordEvent> chords,
+        List<SongSection>? sections = null)
     {
         try
         {
             string dir = Directory.Exists(stemsPath) ? stemsPath : Path.GetDirectoryName(stemsPath) ?? string.Empty;
+            if (string.IsNullOrEmpty(dir)) return;
+
             var sectionDtos = (sections ?? new List<SongSection>()).Select(s => new
             {
                 label = s.Label,
@@ -36,6 +41,8 @@ public class SessionStorageService
         try
         {
             string dir = Directory.Exists(stemsPath) ? stemsPath : Path.GetDirectoryName(stemsPath) ?? string.Empty;
+            if (string.IsNullOrEmpty(dir)) return (new List<LyricSegment>(), new List<ChordEvent>(), new List<SongSection>());
+
             string file = Path.Combine(dir, "session.json");
             if (!File.Exists(file))
                 return (new List<LyricSegment>(), new List<ChordEvent>(), new List<SongSection>());
@@ -46,7 +53,7 @@ public class SessionStorageService
             var chords = JsonSerializer.Deserialize<List<ChordEvent>>(
                 doc.RootElement.GetProperty("chords").GetRawText()) ?? new List<ChordEvent>();
 
-            List<SongSection> sections = new();
+            List<SongSection> sections = new List<SongSection>();
             if (doc.RootElement.TryGetProperty("sections", out var sectionsEl))
                 sections = JsonSerializer.Deserialize<List<SongSection>>(sectionsEl.GetRawText())
                            ?? new List<SongSection>();

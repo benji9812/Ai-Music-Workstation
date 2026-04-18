@@ -28,6 +28,7 @@ namespace AiMusicWorkstation.Desktop
         new System.Windows.Media.SolidColorBrush(System.Windows.Media.Colors.Gold);
 
         private PythonBridge _pythonBridge = new PythonBridge();
+        private readonly AiAnalysisOrchestrator _analysisOrchestrator;
         private StemPlayer _player = new StemPlayer();
         private LibraryManager _library = new LibraryManager();
         private SmartImporter _importer;
@@ -50,11 +51,14 @@ namespace AiMusicWorkstation.Desktop
         private ObservableCollection<LyricSegment> _currentLyrics = new ObservableCollection<LyricSegment>();
         private List<ChordEvent> _currentChords = new List<ChordEvent>();
 
-        public MainWindow() : this(null, null)
+        public MainWindow() : this(null, null, null)
         {
         }
 
-        public MainWindow(PlaybackViewModel? playbackViewModel = null, LibraryViewModel? libraryViewModel = null)
+        public MainWindow(
+            PlaybackViewModel? playbackViewModel = null,
+            LibraryViewModel? libraryViewModel = null,
+            MainWindowViewModel? mainWindowViewModel = null)
         {
             InitializeComponent();
 
@@ -62,7 +66,11 @@ namespace AiMusicWorkstation.Desktop
             _libraryViewModel = libraryViewModel;
 
             // If ViewModels are injected via DI, set DataContext
-            if (_playbackViewModel != null && _libraryViewModel != null)
+            if (mainWindowViewModel != null)
+            {
+                DataContext = mainWindowViewModel;
+            }
+            else if (_playbackViewModel != null && _libraryViewModel != null)
             {
                 DataContext = new MainWindowViewModel(_playbackViewModel, _libraryViewModel);
             }
@@ -71,6 +79,7 @@ namespace AiMusicWorkstation.Desktop
                 .AddUserSecrets<MainWindow>()
                 .Build();
             _importer = new SmartImporter(config);
+            _analysisOrchestrator = new AiAnalysisOrchestrator(_pythonBridge);
 
             Closing += (s, e) => { _player.Dispose(); _metronome.Dispose(); };
 
@@ -323,7 +332,6 @@ namespace AiMusicWorkstation.Desktop
             }
         }
 
-        // --- SESSION: SPARA & LADDA LYRICS/CHORDS ---
 
         private void UpdateMixerUIState()
         {

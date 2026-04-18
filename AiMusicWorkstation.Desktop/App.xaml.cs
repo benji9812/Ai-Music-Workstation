@@ -74,6 +74,7 @@ namespace AiMusicWorkstation.Desktop
             // ViewModels
             services.AddSingleton<PlaybackViewModel>();
             services.AddSingleton<LibraryViewModel>();
+            services.AddSingleton<MainWindowViewModel>();
             services.AddSingleton<MainWindow>();
 
             _serviceProvider = services.BuildServiceProvider();

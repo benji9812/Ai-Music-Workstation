@@ -5,9 +5,9 @@ public class MainWindowViewModel : ViewModelBase
     public PlaybackViewModel Playback { get; }
     public LibraryViewModel Library { get; }
 
-    public MainWindowViewModel(PlaybackViewModel playback, LibraryViewModel library)
+    public MainWindowViewModel(PlaybackViewModel playbackViewModel, LibraryViewModel libraryViewModel)
     {
-        Playback = playback ?? throw new ArgumentNullException(nameof(playback));
-        Library = library ?? throw new ArgumentNullException(nameof(library));
+        Playback = playbackViewModel ?? throw new ArgumentNullException(nameof(playbackViewModel));
+        Library = libraryViewModel ?? throw new ArgumentNullException(nameof(libraryViewModel));
     }
 }
