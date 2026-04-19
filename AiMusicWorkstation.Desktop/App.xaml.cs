@@ -47,7 +47,7 @@ namespace AiMusicWorkstation.Desktop
 
             var libraryManager = new LibraryManager();
             services.AddSingleton(libraryManager);
-            services.AddSingleton<ILibraryRepository, LibraryRepository>();
+            services.AddSingleton<ILibraryRepository>(libraryManager);
 
             services.AddSingleton(new SmartImporter(config));
             services.AddSingleton<ISmartImporterService>(sp =>

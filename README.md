@@ -50,7 +50,7 @@ If not specified, the API defaults to `PythonEngine/venv/Scripts/python.exe` and
 ```json
 {
   "Python": {
-    "BaseUrl": "http://localhost:5082/",
+    "BaseUrl": "https://localhost:7107/",
     "TimeoutMinutes": 10
   }
 }
