@@ -28,10 +28,10 @@ AI Music Workstation is a WPF desktop app backed by a local Python analysis serv
    ```powershell
    dotnet build
    ```
-   Then run `AiMusicWorkstation.Desktop` from Visual Studio or with `dotnet run`.
+   Start both `AiMusicWorkstation.Api` and `AiMusicWorkstation.Desktop` from Visual Studio (multi-startup) or run them separately with `dotnet run`.
 
 ## Python Configuration
-The desktop app uses a local Python server from `PythonEngine/main.py`. Configuration can be overridden via `appsettings.json` or user secrets under the `Python` section:
+The desktop app targets the local API (`AiMusicWorkstation.Api`), which proxies requests to the Python engine (`PythonEngine/main.py`, default port `8000`). Configuration can be overridden via `appsettings.json` or user secrets.
 
 ```json
 {
@@ -44,10 +44,30 @@ The desktop app uses a local Python server from `PythonEngine/main.py`. Configur
 }
 ```
 
-If not specified, the app defaults to `PythonEngine/venv/Scripts/python.exe` and `PythonEngine/main.py` relative to the solution root.
+If not specified, the API defaults to `PythonEngine/venv/Scripts/python.exe` and `PythonEngine/main.py` relative to the solution root.
+
+### Desktop appsettings
+```json
+{
+  "Python": {
+    "BaseUrl": "http://localhost:5082/",
+    "TimeoutMinutes": 10
+  }
+}
+```
+
+### API appsettings
+```json
+{
+  "PythonEngine": {
+    "BaseUrl": "http://127.0.0.1:8000/",
+    "TimeoutMinutes": 10
+  }
+}
+```
 
 ## API Project Status
-`AiMusicWorkstation.Api` is currently a minimal placeholder project with no referenced runtime usage in the desktop app. If it is not intended for future use, consider retiring it from the solution or documenting a concrete purpose.
+`AiMusicWorkstation.Api` now acts as a local proxy to the Python engine during development. Start both the API and Desktop projects to run end-to-end.
 
 ## Repository Layout
 - `AiMusicWorkstation.Desktop`: WPF UI
