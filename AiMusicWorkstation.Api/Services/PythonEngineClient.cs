@@ -16,7 +16,8 @@ public class PythonEngineClient
 
     public async Task<string> AnalyzeAsync(IFormFile file)
     {
-        await _manager.EnsureRunningAsync();
+        if (!await _manager.EnsureRunningAsync())
+            return "{\"status\":\"error\",\"message\":\"Python engine not reachable\"}";
         using var content = await BuildMultipartAsync(file);
         var response = await _client.PostAsync("analyze", content);
         return await response.Content.ReadAsStringAsync();
@@ -24,7 +25,8 @@ public class PythonEngineClient
 
     public async Task<string> ReAnalyzeAsync(IFormFile file)
     {
-        await _manager.EnsureRunningAsync();
+        if (!await _manager.EnsureRunningAsync())
+            return "{\"status\":\"error\",\"message\":\"Python engine not reachable\"}";
         using var content = await BuildMultipartAsync(file);
         var response = await _client.PostAsync("analyze-only", content);
         return await response.Content.ReadAsStringAsync();
@@ -32,7 +34,8 @@ public class PythonEngineClient
 
     public async Task<string> GetStructureAsync(object payload)
     {
-        await _manager.EnsureRunningAsync();
+        if (!await _manager.EnsureRunningAsync())
+            return "{\"status\":\"error\",\"message\":\"Python engine not reachable\"}";
         var response = await _client.PostAsJsonAsync("structure", payload);
         return await response.Content.ReadAsStringAsync();
     }

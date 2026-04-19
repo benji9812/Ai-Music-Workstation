@@ -14,7 +14,8 @@ public class PythonEngineConfig
     public static PythonEngineConfig CreateDefault()
     {
         string baseDir = AppDomain.CurrentDomain.BaseDirectory;
-        string solutionRoot = Path.GetFullPath(Path.Combine(baseDir, "../../../.."));
+        string solutionRoot = ResolveSolutionRoot(baseDir)
+            ?? Path.GetFullPath(Path.Combine(baseDir, "../../../.."));
 
         return new PythonEngineConfig
         {
@@ -22,6 +23,21 @@ public class PythonEngineConfig
             PythonExecutablePath = Path.Combine(solutionRoot, "PythonEngine", "venv", "Scripts", "python.exe"),
             ServerScriptPath = Path.Combine(solutionRoot, "PythonEngine", "main.py")
         };
+    }
+
+    private static string? ResolveSolutionRoot(string baseDir)
+    {
+        var current = new DirectoryInfo(baseDir);
+        for (int i = 0; i < 6 && current != null; i++)
+        {
+            string pythonEnginePath = Path.Combine(current.FullName, "PythonEngine");
+            if (Directory.Exists(pythonEnginePath))
+                return current.FullName;
+
+            current = current.Parent;
+        }
+
+        return null;
     }
 
     public static PythonEngineConfig FromConfiguration(IConfiguration configuration)

@@ -17,16 +17,16 @@ public class PythonEngineManager
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
-    public async Task EnsureRunningAsync()
+    public async Task<bool> EnsureRunningAsync()
     {
         await _serverStartLock.WaitAsync();
         try
         {
             if (await IsHealthyAsync())
-                return;
+                return true;
 
             StartPythonServer();
-            await WaitForHealthyAsync();
+            return await WaitForHealthyAsync();
         }
         finally
         {
@@ -34,20 +34,23 @@ public class PythonEngineManager
         }
     }
 
-    private async Task WaitForHealthyAsync()
+    private async Task<bool> WaitForHealthyAsync()
     {
         const int maxAttempts = 10;
         for (int attempt = 1; attempt <= maxAttempts; attempt++)
         {
             await Task.Delay(1000);
-            if (await IsHealthyAsync())
+            bool healthy = await IsHealthyAsync();
+            _logger.LogDebug("Python engine health check attempt {Attempt}/{MaxAttempts}: {Healthy}", attempt, maxAttempts, healthy);
+            if (healthy)
             {
                 _logger.LogInformation("Python engine healthy after {Attempts} attempts.", attempt);
-                return;
+                return true;
             }
         }
 
         _logger.LogWarning("Python engine did not become healthy after {Attempts} attempts.", maxAttempts);
+        return false;
     }
 
     public async Task<bool> IsHealthyAsync()
@@ -77,10 +80,11 @@ public class PythonEngineManager
         try
         {
             _logger.LogInformation(
-                "Starting Python engine. PythonPath={PythonPath}, ScriptPath={ScriptPath}, WorkingDirectory={WorkingDirectory}",
+                "Starting Python engine. PythonPath={PythonPath}, ScriptPath={ScriptPath}, WorkingDirectory={WorkingDirectory}, BaseUrl={BaseUrl}",
                 pythonPath,
                 _config.ServerScriptPath,
-                Path.GetDirectoryName(_config.ServerScriptPath));
+                Path.GetDirectoryName(_config.ServerScriptPath),
+                _config.BaseUrl);
             ProcessStartInfo start = new ProcessStartInfo
             {
                 FileName = pythonPath,
@@ -90,7 +94,15 @@ public class PythonEngineManager
                 WorkingDirectory = Path.GetDirectoryName(_config.ServerScriptPath)
             };
 
-            Process.Start(start);
+            var process = Process.Start(start);
+            if (process != null)
+            {
+                process.EnableRaisingEvents = true;
+                process.Exited += (_, _) =>
+                {
+                    _logger.LogWarning("Python engine process exited with code {ExitCode}.", process.ExitCode);
+                };
+            }
         }
         catch (Exception ex)
         {
