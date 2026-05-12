@@ -1,16 +1,26 @@
 ﻿using Microsoft.Extensions.Configuration;
 using SpotifyAPI.Web;
-using System.Diagnostics;
-using System.IO;
-using System.Net.Http;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using YoutubeExplode;
 using YoutubeExplode.Common;
 using YoutubeExplode.Videos.Streams;
 
-namespace AiMusicWorkstation.Desktop.Services
+namespace AiMusicWorkstation.Infrastructure.ExternalServices
 {
+    public class SongImportResult
+    {
+        public string FilePath { get; set; }
+        public string Title { get; set; }
+        public string Artist { get; set; }
+        public string SpotifyId { get; set; }
+    }
+
+    public class OfficialMetadata
+    {
+        public string Genre { get; set; } = "Uncategorized";
+    }
+
     public class SmartImporter
     {
         private readonly string _spotifyClientId;
@@ -190,18 +200,5 @@ namespace AiMusicWorkstation.Desktop.Services
             _tokenExpiry = DateTime.Now.AddSeconds(response.ExpiresIn - 30);
             return _spotifyClient;
         }
-    }
-
-    public class SongImportResult
-    {
-        public string FilePath { get; set; }
-        public string Title { get; set; }
-        public string Artist { get; set; }
-        public string SpotifyId { get; set; }
-    }
-
-    public class OfficialMetadata
-    {
-        public string Genre { get; set; } = "Uncategorized";
     }
 }

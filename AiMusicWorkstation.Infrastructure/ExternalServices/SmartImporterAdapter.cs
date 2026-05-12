@@ -1,10 +1,9 @@
 using AiMusicWorkstation.Domain.Services;
 
-namespace AiMusicWorkstation.Desktop.Services;
+namespace AiMusicWorkstation.Infrastructure.ExternalServices;
 
-/// <summary>
 /// Adapter to make SmartImporter compatible with ISmartImporterService
-/// </summary>
+
 public class SmartImporterAdapter : ISmartImporterService
 {
     private readonly SmartImporter _smartImporter;

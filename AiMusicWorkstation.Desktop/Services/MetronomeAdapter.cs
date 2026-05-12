@@ -2,9 +2,8 @@ using AiMusicWorkstation.Domain.Services;
 
 namespace AiMusicWorkstation.Desktop.Services;
 
-/// <summary>
 /// Adapter to make Metronome compatible with IMetronome
-/// </summary>
+
 public class MetronomeAdapter : IMetronome
 {
     private readonly Metronome _metronome;

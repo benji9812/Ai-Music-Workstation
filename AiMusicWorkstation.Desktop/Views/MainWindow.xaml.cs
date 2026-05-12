@@ -1,6 +1,6 @@
-﻿using AiMusicWorkstation.Desktop.Models;
-using AiMusicWorkstation.Shared.Models;
+﻿using AiMusicWorkstation.Shared.Models;
 using AiMusicWorkstation.Desktop.Services;
+using AiMusicWorkstation.Infrastructure.ExternalServices;
 using AiMusicWorkstation.Desktop.ViewModels;
 using AiMusicWorkstation.Shared.Helpers;
 using Microsoft.Extensions.Configuration;

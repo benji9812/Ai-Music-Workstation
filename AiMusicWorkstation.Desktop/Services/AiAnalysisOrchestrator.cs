@@ -1,3 +1,4 @@
+using AiMusicWorkstation.Infrastructure.ExternalServices;
 using AiMusicWorkstation.Shared.Models;
 
 namespace AiMusicWorkstation.Desktop.Services;

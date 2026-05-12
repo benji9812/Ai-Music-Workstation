@@ -1,11 +1,10 @@
 using AiMusicWorkstation.Domain.Services;
 using AiMusicWorkstation.Shared.Models;
 
-namespace AiMusicWorkstation.Desktop.Services;
+namespace AiMusicWorkstation.Infrastructure.ExternalServices;
 
-/// <summary>
 /// Adapter to make PythonBridge compatible with IPythonAnalysisService
-/// </summary>
+
 public class PythonAnalysisAdapter : IPythonAnalysisService
 {
     private readonly PythonBridge _pythonBridge;

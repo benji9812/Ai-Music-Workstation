@@ -2,9 +2,9 @@
 
 namespace AiMusicWorkstation.Desktop.Services
 {
-    /// <summary>
+  
     /// En wrapper runt en ljudström som spolar tillbaka automatiskt när den tar slut.
-    /// </summary>
+ 
     public class LoopStream : WaveStream
     {
         private WaveStream sourceStream;

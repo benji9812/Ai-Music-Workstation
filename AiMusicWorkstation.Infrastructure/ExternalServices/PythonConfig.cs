@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Configuration;
 using System.IO;
 
-namespace AiMusicWorkstation.Desktop.Services;
+namespace AiMusicWorkstation.Infrastructure.ExternalServices;
 
 public class PythonConfig
 {
