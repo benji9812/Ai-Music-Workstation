@@ -1,7 +1,7 @@
 using System.Diagnostics;
 using Microsoft.Extensions.Logging;
 
-namespace AiMusicWorkstation.Api.Services;
+namespace AiMusicWorkstation.Infrastructure.ExternalServices;
 
 public class PythonEngineManager
 {

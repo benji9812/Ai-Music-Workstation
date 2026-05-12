@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Http;
 using System.Net.Http.Json;
 
-namespace AiMusicWorkstation.Api.Services;
+namespace AiMusicWorkstation.Infrastructure.ExternalServices;
 
 public class PythonEngineClient
 {
