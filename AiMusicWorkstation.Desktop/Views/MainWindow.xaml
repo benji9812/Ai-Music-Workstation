@@ -1034,17 +1034,17 @@
                             </Style>
                         </ToggleButton.Style>
                     </ToggleButton>
-                    <Button x:Name="PlayPauseBtn" Content="▶" Width="75" Height="75"
-                            Margin="20,0" Background="#1DB954" Foreground="White"
-                            FontSize="35" Command="{Binding Playback.PlayCommand}" Cursor="Hand"/>
-                    <Button Content="⏮" Width="50" Height="50"
-                            Background="#222" Foreground="IndianRed"
-                            FontSize="20" Command="{Binding Playback.StopCommand}"
-                            Cursor="Hand" ToolTip="Restart &amp; Play"/>
-                    <Button x:Name="ExportBtn" Content="💾 EXPORT MIX"
-                            Command="{Binding Playback.PauseCommand}" Width="140" Height="50"
-                            Margin="30,0,0,0" Background="#007ACC"
-                            Foreground="White" FontWeight="Bold" Cursor="Hand"/>
+                        <Button x:Name="PlayPauseBtn" Content="▶" Width="75" Height="75"
+                                Margin="20,0" Background="#1DB954" Foreground="White"
+                                FontSize="35" Click="PlayPause_Click" Cursor="Hand"/>
+                        <Button Content="⏮" Width="50" Height="50"
+                                Background="#222" Foreground="IndianRed"
+                                FontSize="20" Click="Stop_Click"
+                                Cursor="Hand" ToolTip="Restart &amp; Play"/>
+                        <Button x:Name="ExportBtn" Content="💾 EXPORT MIX"
+                                Click="ExportMix_Click" Width="140" Height="50"
+                                Margin="30,0,0,0" Background="#007ACC"
+                                Foreground="White" FontWeight="Bold" Cursor="Hand"/>
                 </StackPanel>
 
             </StackPanel>
