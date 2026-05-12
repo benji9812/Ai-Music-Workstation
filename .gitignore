@@ -17,6 +17,10 @@ PythonEngine/__pycache__/
 PythonEngine/temp_uploads/
 *.pyc
 
+# Binärer
+*.exe
+PythonEngine/separated/
+
 # Downloads (genererade filer)
 **/Downloads/
 
