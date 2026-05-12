@@ -29,13 +29,4 @@
     <ProjectReference Include="..\AiMusicWorkstation.Infrastructure\AiMusicWorkstation.Infrastructure.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <None Update="advanced_analysis.py">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="appsettings.json">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-  </ItemGroup>
-
 </Project>
