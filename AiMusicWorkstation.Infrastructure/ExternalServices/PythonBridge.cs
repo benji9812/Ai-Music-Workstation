@@ -67,7 +67,7 @@ public class PythonBridge
                 FileName = _localPythonPath,
                 Arguments = $"\"{_serverPath}\"",
                 UseShellExecute = false,
-                CreateNoWindow = true, // Döljer terminalfönstret
+                CreateNoWindow = true,
                 WorkingDirectory = Path.GetDirectoryName(_serverPath)
             };
 

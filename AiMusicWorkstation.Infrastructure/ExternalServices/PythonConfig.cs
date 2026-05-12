@@ -14,7 +14,17 @@ public class PythonConfig
     public static PythonConfig CreateDefault()
     {
         string baseDir = AppDomain.CurrentDomain.BaseDirectory;
-        string solutionRoot = Path.GetFullPath(Path.Combine(baseDir, "../../../.."));
+
+        // Sök uppåt tills vi hittar mappen som innehåller PythonEngine/
+        string? solutionRoot = baseDir;
+        while (solutionRoot != null)
+        {
+            if (Directory.Exists(Path.Combine(solutionRoot, "PythonEngine")))
+                break;
+            solutionRoot = Path.GetDirectoryName(solutionRoot);
+        }
+
+        solutionRoot ??= Path.GetFullPath(Path.Combine(baseDir, "../../../.."));
 
         return new PythonConfig
         {

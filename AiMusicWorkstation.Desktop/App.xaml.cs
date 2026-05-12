@@ -84,6 +84,9 @@ namespace AiMusicWorkstation.Desktop
 
             _serviceProvider = services.BuildServiceProvider();
 
+            // Starta PythonBridge explicit innan MainWindow visas
+            _serviceProvider.GetRequiredService<PythonBridge>();
+
             var mainWindow = _serviceProvider.GetRequiredService<MainWindow>();
             mainWindow.Show();
 
