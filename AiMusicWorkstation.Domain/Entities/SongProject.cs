@@ -1,6 +1,5 @@
-using System.Text.Json.Serialization;
 
-namespace AiMusicWorkstation.Shared.Models
+namespace AiMusicWorkstation.Domain.Entities
 {
     public enum KeySource
     {

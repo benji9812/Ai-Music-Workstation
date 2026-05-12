@@ -11,6 +11,7 @@ using AiMusicWorkstation.Infrastructure.ExternalServices;
 using AiMusicWorkstation.Desktop.ViewModels;
 using AiMusicWorkstation.Domain.Repositories;
 using AiMusicWorkstation.Domain.Services;
+using AiMusicWorkstation.Domain.Entities;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;

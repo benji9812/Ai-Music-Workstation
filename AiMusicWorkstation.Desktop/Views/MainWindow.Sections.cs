@@ -1,4 +1,4 @@
-﻿using AiMusicWorkstation.Shared.Models;
+﻿using AiMusicWorkstation.Domain.Entities;
 using AiMusicWorkstation.Desktop.Models;
 using System.Windows;
 using System.Windows.Controls;

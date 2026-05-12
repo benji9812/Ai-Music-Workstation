@@ -1,5 +1,5 @@
 using AiMusicWorkstation.Domain.Repositories;
-using AiMusicWorkstation.Shared.Models;
+using AiMusicWorkstation.Domain.Entities;
 
 namespace AiMusicWorkstation.Desktop.Services;
 

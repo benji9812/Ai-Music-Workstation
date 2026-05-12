@@ -1,13 +1,13 @@
 using AiMusicWorkstation.Domain.Repositories;
-using AiMusicWorkstation.Shared.Models;
+using AiMusicWorkstation.Domain.Entities;
 using Microsoft.Extensions.Logging;
 
 namespace AiMusicWorkstation.Infrastructure.Persistence;
 
-/// <summary>
+
 /// Repository adapter for ILibraryRepository. The concrete implementation
 /// is injected at runtime.
-/// </summary>
+
 public class LibraryRepository : ILibraryRepository
 {
     private readonly ILibraryRepository _inner;

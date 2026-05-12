@@ -1,4 +1,4 @@
-using AiMusicWorkstation.Shared.Models;
+using AiMusicWorkstation.Domain.Entities;
 
 namespace AiMusicWorkstation.Domain.Repositories;
 

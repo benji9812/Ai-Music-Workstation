@@ -1,7 +1,7 @@
 using AiMusicWorkstation.Application.Commands.Library;
 using AiMusicWorkstation.Domain.Repositories;
 using AiMusicWorkstation.Domain.Services;
-using AiMusicWorkstation.Shared.Models;
+using AiMusicWorkstation.Domain.Entities;
 using Microsoft.Extensions.Logging;
 
 namespace AiMusicWorkstation.Application.Handlers.Commands;

@@ -1,4 +1,5 @@
 ﻿using AiMusicWorkstation.Shared.Models;
+using AiMusicWorkstation.Domain.Entities;
 using AiMusicWorkstation.Desktop.Services;
 using AiMusicWorkstation.Infrastructure.ExternalServices;
 using AiMusicWorkstation.Desktop.ViewModels;
