@@ -2,13 +2,16 @@ using AiMusicWorkstation.Infrastructure.ExternalServices;
 using AiMusicWorkstation.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
+using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Konfiguration
 builder.Configuration.AddJsonFile("appsettings.json", optional: true, reloadOnChange: true);
 builder.Configuration.AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true, reloadOnChange: true);
 builder.Configuration.AddEnvironmentVariables();
 
+// Azure App Service port-binding
 var port = builder.Configuration["PORT"] ?? Environment.GetEnvironmentVariable("PORT");
 bool usesPortBinding = !string.IsNullOrWhiteSpace(port);
 if (usesPortBinding)
@@ -16,10 +19,9 @@ if (usesPortBinding)
     builder.WebHost.UseUrls($"http://*:{port}");
 }
 
-// Add services to the container.
-
+// Services
 builder.Services.AddControllers();
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
+// Generera OpenAPI-dokument (krävs för Scalar)
 builder.Services.AddOpenApi();
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
@@ -52,12 +54,17 @@ builder.Services.AddHttpClient<PythonEngineClient>((sp, client) =>
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    app.MapOpenApi();
-}
+// OpenAPI + Scalar UI (gäller alla miljöer, inte bara Development)
+app.MapOpenApi(); // exponerar /openapi/v1.json
 
+// Scalar UI: nås på /scalar/v1
+app.MapScalarApiReference(endpointPrefix: "/scalar", options =>
+{
+    options.Title = "AI Music Workstation API";
+    // här kan du lägga till WithTheme, WithDownloadButton etc vid behov
+});
+
+// Pipeline
 if (!usesPortBinding)
 {
     app.UseHttpsRedirection();
@@ -66,6 +73,9 @@ if (!usesPortBinding)
 app.UseAuthorization();
 
 app.MapControllers();
+
+// Enkel health‑endpoint för snabb koll att API:t lever
+app.MapGet("/health", () => Results.Ok(new { status = "healthy", timestamp = DateTime.UtcNow }));
 
 app.Run();
 
@@ -87,6 +97,7 @@ static string? NormalizeConnectionString(string? connectionString)
         throw new InvalidOperationException(
             "Invalid Postgres URI format in connection string. Verify DATABASE_URL or SUPABASE_CONNECTION_STRING is a properly formatted absolute URI.");
     }
+
     var userInfo = uri.UserInfo.Split(':', 2);
 
     var builder = new NpgsqlConnectionStringBuilder
