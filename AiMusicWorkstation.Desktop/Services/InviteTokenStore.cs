@@ -35,7 +35,15 @@ public class InviteTokenStore
             TryDeleteStateFile();
             return false;
         }
-        catch
+        catch (IOException)
+        {
+            return false;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+        catch (UnauthorizedAccessException)
         {
             return false;
         }
@@ -76,7 +84,11 @@ public class InviteTokenStore
                 File.Delete(_filePath);
             }
         }
-        catch
+        catch (IOException)
+        {
+            // Ignored intentionally. Validation will simply require a new token.
+        }
+        catch (UnauthorizedAccessException)
         {
             // Ignored intentionally. Validation will simply require a new token.
         }
