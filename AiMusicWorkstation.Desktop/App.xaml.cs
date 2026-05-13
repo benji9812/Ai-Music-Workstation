@@ -22,7 +22,7 @@ namespace AiMusicWorkstation.Desktop
     {
         private IServiceProvider? _serviceProvider;
 
-        protected override void OnStartup(StartupEventArgs e)
+        protected override async void OnStartup(StartupEventArgs e)
         {
             var services = new ServiceCollection();
 
@@ -35,6 +35,12 @@ namespace AiMusicWorkstation.Desktop
                 .AddUserSecrets<App>()
                 .Build();
             services.AddSingleton<IConfiguration>(config);
+
+            if (!await EnsureInviteTokenValidatedAsync(config))
+            {
+                Shutdown();
+                return;
+            }
 
             // Core Services
             services.AddSingleton(new StemPlayer());
@@ -91,6 +97,48 @@ namespace AiMusicWorkstation.Desktop
             mainWindow.Show();
 
             base.OnStartup(e);
+        }
+
+        private static async Task<bool> EnsureInviteTokenValidatedAsync(IConfiguration configuration)
+        {
+            var inviteTokenStore = new InviteTokenStore();
+            if (inviteTokenStore.IsValidated())
+            {
+                return true;
+            }
+
+            var inputWindow = new InputWindow("Enter invite token:");
+            bool? accepted = inputWindow.ShowDialog();
+            if (accepted != true)
+            {
+                return false;
+            }
+
+            string token = inputWindow.Answer?.Trim() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(token))
+            {
+                MessageBox.Show("Invite token is required.");
+                return false;
+            }
+
+            try
+            {
+                using var client = new InviteTokenClient(configuration);
+                bool isValid = await client.ValidateAsync(token);
+                if (!isValid)
+                {
+                    MessageBox.Show("Invalid invite token.");
+                    return false;
+                }
+
+                inviteTokenStore.MarkValidated(token);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Unable to validate invite token: {ex.Message}");
+                return false;
+            }
         }
     }
 }

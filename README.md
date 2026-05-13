@@ -49,6 +49,9 @@ If not specified, the API defaults to `PythonEngine/venv/Scripts/python.exe` and
 ### Desktop appsettings
 ```json
 {
+  "Api": {
+    "BaseUrl": "https://localhost:7107/"
+  },
   "Python": {
     "BaseUrl": "https://localhost:7107/",
     "TimeoutMinutes": 10
@@ -59,6 +62,9 @@ If not specified, the API defaults to `PythonEngine/venv/Scripts/python.exe` and
 ### API appsettings
 ```json
 {
+  "ConnectionStrings": {
+    "DefaultConnection": "Host=localhost;Database=ai_music_workstation;Username=postgres;Password=postgres"
+  },
   "PythonEngine": {
     "BaseUrl": "http://127.0.0.1:8000/",
     "TimeoutMinutes": 10
