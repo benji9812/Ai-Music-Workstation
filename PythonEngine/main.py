@@ -262,7 +262,7 @@ async def analyze_audio(file: UploadFile = File(...)):
         cmd = [sys.executable, "-m", "demucs", "-n", "htdemucs", "--mp3", "-o", OUT_DIR, file_path]
         subprocess.run(cmd, text=True)
 
-        folder_name  = os.path.splitext(safe_filename)[0]
+        folder_name = os.path.splitext(safe_filename)[0]
         stems_folder = os.path.join(OUT_DIR, "htdemucs", folder_name)
 
         drums_path  = os.path.join(stems_folder, "drums.mp3")
