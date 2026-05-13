@@ -5,7 +5,8 @@ using Npgsql;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Configuration.AddJsonFile("appsettings.json", optional: true);
+builder.Configuration.AddJsonFile("appsettings.json", optional: true, reloadOnChange: true);
+builder.Configuration.AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true, reloadOnChange: true);
 builder.Configuration.AddEnvironmentVariables();
 
 var port = builder.Configuration["PORT"] ?? Environment.GetEnvironmentVariable("PORT");
