@@ -9,7 +9,8 @@ builder.Configuration.AddJsonFile("appsettings.json", optional: true);
 builder.Configuration.AddEnvironmentVariables();
 
 var port = builder.Configuration["PORT"] ?? Environment.GetEnvironmentVariable("PORT");
-if (!string.IsNullOrWhiteSpace(port))
+bool usesPortBinding = !string.IsNullOrWhiteSpace(port);
+if (usesPortBinding)
 {
     builder.WebHost.UseUrls($"http://*:{port}");
 }
@@ -56,7 +57,10 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
-app.UseHttpsRedirection();
+if (!usesPortBinding)
+{
+    app.UseHttpsRedirection();
+}
 
 app.UseAuthorization();
 
@@ -77,7 +81,11 @@ static string? NormalizeConnectionString(string? connectionString)
         return connectionString;
     }
 
-    var uri = new Uri(connectionString);
+    if (!Uri.TryCreate(connectionString, UriKind.Absolute, out var uri))
+    {
+        throw new InvalidOperationException(
+            "Invalid Postgres URI format in connection string. Ensure DATABASE_URL or SUPABASE_CONNECTION_STRING is URL-encoded.");
+    }
     var userInfo = uri.UserInfo.Split(':', 2);
 
     var builder = new NpgsqlConnectionStringBuilder

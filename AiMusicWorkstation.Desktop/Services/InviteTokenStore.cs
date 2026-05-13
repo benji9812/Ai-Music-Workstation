@@ -1,4 +1,6 @@
 using System.IO;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 
 namespace AiMusicWorkstation.Desktop.Services;
@@ -23,7 +25,9 @@ public class InviteTokenStore
                 return false;
             }
 
-            var state = JsonSerializer.Deserialize<InviteTokenState>(File.ReadAllText(_filePath));
+            byte[] protectedBytes = File.ReadAllBytes(_filePath);
+            byte[] dataBytes = ProtectedData.Unprotect(protectedBytes, null, DataProtectionScope.CurrentUser);
+            var state = JsonSerializer.Deserialize<InviteTokenState>(Encoding.UTF8.GetString(dataBytes));
             return state?.IsValidated == true;
         }
         catch
@@ -43,18 +47,18 @@ public class InviteTokenStore
         var state = new InviteTokenState
         {
             IsValidated = true,
-            Token = token,
             ValidatedAt = DateTimeOffset.UtcNow
         };
 
-        string json = JsonSerializer.Serialize(state, new JsonSerializerOptions { WriteIndented = true });
-        File.WriteAllText(_filePath, json);
+        string json = JsonSerializer.Serialize(state);
+        byte[] dataBytes = Encoding.UTF8.GetBytes(json);
+        byte[] protectedBytes = ProtectedData.Protect(dataBytes, null, DataProtectionScope.CurrentUser);
+        File.WriteAllBytes(_filePath, protectedBytes);
     }
 
     private sealed class InviteTokenState
     {
         public bool IsValidated { get; set; }
-        public string? Token { get; set; }
         public DateTimeOffset ValidatedAt { get; set; }
     }
 }
