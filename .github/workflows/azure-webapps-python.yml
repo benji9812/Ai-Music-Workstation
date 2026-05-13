@@ -1,0 +1,68 @@
+name: Deploy PythonEngine to Azure Web App
+
+env:
+  AZURE_WEBAPP_NAME: aimusicworkstation-python-engine   # byt till EXAKT ditt Python App Service-namn
+  PYTHON_VERSION: '3.11'                                # matchar din App Service-runtime
+
+on:
+  push:
+    branches: [ "dev" ]
+    paths:
+      - "PythonEngine/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python version
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        working-directory: PythonEngine
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # Optional: Lägg till pytest här om du vill köra tester
+
+      - name: Upload artifact for deployment jobs
+        uses: actions/upload-artifact@v4
+        with:
+          name: pythonengine-app
+          path: |
+            PythonEngine
+            !PythonEngine/venv/
+
+  deploy:
+    permissions:
+      contents: none
+    runs-on: ubuntu-latest
+    needs: build
+    environment:
+      name: 'Development'
+      url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
+
+    steps:
+      - name: Download artifact from build job
+        uses: actions/download-artifact@v4
+        with:
+          name: pythonengine-app
+          path: .
+
+      - name: 'Deploy to Azure Web App'
+        id: deploy-to-webapp
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: ${{ env.AZURE_WEBAPP_NAME }}
+          publish-profile: ${{ secrets.AZURE_PUBLISH_PROFILE_PYTHON }}
+          package: .
