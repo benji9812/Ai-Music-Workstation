@@ -26,6 +26,9 @@ UPLOAD_DIR = os.path.join(BASE_DIR, "temp_uploads")
 OUT_DIR    = os.path.join(BASE_DIR, "separated")
 os.environ["PATH"] += os.pathsep + str(BASE_DIR)  # ✅ str() på Path-objekt, ✅ environ inte getenv
 
+# ------------------------------------------------------- 
+# ✅ FastAPI-appen skapas efter att .env har laddats och BASE_DIR är definierat
+# -------------------------------------------------------
 app = FastAPI(title="AI Music Engine")
 
 # ✅ Tydligt felmeddelande om nyckeln saknas
