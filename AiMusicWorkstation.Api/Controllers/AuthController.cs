@@ -1,7 +1,9 @@
 using AiMusicWorkstation.Infrastructure.Persistence;
 using AiMusicWorkstation.Shared.Models;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Cryptography;
 
 namespace AiMusicWorkstation.Api.Controllers;
 
@@ -10,10 +12,13 @@ namespace AiMusicWorkstation.Api.Controllers;
 public class AuthController : ControllerBase
 {
     private readonly AiMusicWorkstationDbContext _dbContext;
+    private readonly IDataProtector _inviteSessionProtector;
+    private static readonly TimeSpan InviteSessionLifetime = TimeSpan.FromDays(30);
 
-    public AuthController(AiMusicWorkstationDbContext dbContext)
+    public AuthController(AiMusicWorkstationDbContext dbContext, IDataProtectionProvider dataProtectionProvider)
     {
         _dbContext = dbContext;
+        _inviteSessionProtector = dataProtectionProvider.CreateProtector("AiMusicWorkstation.InviteSession.v1");
     }
 
     [HttpPost("validate-invite")]
@@ -40,6 +45,41 @@ public class AuthController : ControllerBase
             return Unauthorized(new InviteTokenValidationResponse(false));
         }
 
-        return Ok(new InviteTokenValidationResponse(true));
+        long expiresAtUnixSeconds = DateTimeOffset.UtcNow.Add(InviteSessionLifetime).ToUnixTimeSeconds();
+        string payload = $"{expiresAtUnixSeconds}|{Guid.NewGuid():N}";
+        string sessionTicket = _inviteSessionProtector.Protect(payload);
+
+        return Ok(new InviteTokenValidationResponse(true, sessionTicket));
+    }
+
+    [HttpPost("validate-session")]
+    public ActionResult<InviteSessionValidationResponse> ValidateSession([FromBody] InviteSessionValidationRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.SessionTicket))
+        {
+            return BadRequest(new InviteSessionValidationResponse(false));
+        }
+
+        try
+        {
+            string payload = _inviteSessionProtector.Unprotect(request.SessionTicket);
+            string[] parts = payload.Split('|', 2);
+            if (parts.Length != 2 || !long.TryParse(parts[0], out long expiresAtUnixSeconds))
+            {
+                return Unauthorized(new InviteSessionValidationResponse(false));
+            }
+
+            bool isExpired = DateTimeOffset.UtcNow.ToUnixTimeSeconds() > expiresAtUnixSeconds;
+            if (isExpired)
+            {
+                return Unauthorized(new InviteSessionValidationResponse(false));
+            }
+
+            return Ok(new InviteSessionValidationResponse(true));
+        }
+        catch (CryptographicException)
+        {
+            return Unauthorized(new InviteSessionValidationResponse(false));
+        }
     }
 }

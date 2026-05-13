@@ -16,40 +16,45 @@ public class InviteTokenStore
         _filePath = Path.Combine(appData, "AiMusicWorkstation", FileName);
     }
 
-    public bool IsValidated()
+    public string? GetSessionTicket()
     {
         try
         {
             if (!File.Exists(_filePath))
             {
-                return false;
+                return null;
             }
 
             byte[] protectedBytes = File.ReadAllBytes(_filePath);
             byte[] dataBytes = ProtectedData.Unprotect(protectedBytes, null, DataProtectionScope.CurrentUser);
             var state = JsonSerializer.Deserialize<InviteTokenState>(Encoding.UTF8.GetString(dataBytes));
-            return state?.IsValidated == true;
+            if (state?.IsValidated != true || string.IsNullOrWhiteSpace(state.SessionTicket))
+            {
+                return null;
+            }
+
+            return state.SessionTicket;
         }
         catch (CryptographicException)
         {
             TryDeleteStateFile();
-            return false;
+            return null;
         }
         catch (IOException)
         {
-            return false;
+            return null;
         }
         catch (JsonException)
         {
-            return false;
+            return null;
         }
         catch (UnauthorizedAccessException)
         {
-            return false;
+            return null;
         }
     }
 
-    public void MarkValidated(string token)
+    public void MarkValidated(string sessionTicket)
     {
         string? dir = Path.GetDirectoryName(_filePath);
         if (!string.IsNullOrWhiteSpace(dir))
@@ -60,6 +65,7 @@ public class InviteTokenStore
         var state = new InviteTokenState
         {
             IsValidated = true,
+            SessionTicket = sessionTicket,
             ValidatedAt = DateTimeOffset.UtcNow
         };
 
@@ -72,7 +78,13 @@ public class InviteTokenStore
     private sealed class InviteTokenState
     {
         public bool IsValidated { get; set; }
+        public string? SessionTicket { get; set; }
         public DateTimeOffset ValidatedAt { get; set; }
+    }
+
+    public void Clear()
+    {
+        TryDeleteStateFile();
     }
 
     private void TryDeleteStateFile()

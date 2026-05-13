@@ -110,9 +110,17 @@ namespace AiMusicWorkstation.Desktop
         private static async Task<bool> EnsureInviteTokenValidatedAsync(IConfiguration configuration)
         {
             var inviteTokenStore = new InviteTokenStore();
-            if (inviteTokenStore.IsValidated())
+            var client = new InviteTokenClient(configuration);
+            string? storedSessionTicket = inviteTokenStore.GetSessionTicket();
+            if (!string.IsNullOrWhiteSpace(storedSessionTicket))
             {
-                return true;
+                bool isSessionValid = await client.ValidateSessionAsync(storedSessionTicket);
+                if (isSessionValid)
+                {
+                    return true;
+                }
+
+                inviteTokenStore.Clear();
             }
 
             var inputWindow = new InputWindow("Enter invite token:");
@@ -131,15 +139,14 @@ namespace AiMusicWorkstation.Desktop
 
             try
             {
-                var client = new InviteTokenClient(configuration);
-                bool isValid = await client.ValidateAsync(token);
-                if (!isValid)
+                var validation = await client.ValidateAsync(token);
+                if (validation?.IsValid != true || string.IsNullOrWhiteSpace(validation.SessionTicket))
                 {
                     MessageBox.Show("Invalid invite token.");
                     return false;
                 }
 
-                inviteTokenStore.MarkValidated(token);
+                inviteTokenStore.MarkValidated(validation.SessionTicket);
                 return true;
             }
             catch (Exception ex)

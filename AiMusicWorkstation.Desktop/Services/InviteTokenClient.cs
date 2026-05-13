@@ -19,7 +19,7 @@ public class InviteTokenClient
         _baseUri = new Uri(baseUrl);
     }
 
-    public async Task<bool> ValidateAsync(string token, CancellationToken cancellationToken = default)
+    public async Task<InviteTokenValidationResponse?> ValidateAsync(string token, CancellationToken cancellationToken = default)
     {
         var request = new InviteTokenValidationRequest(token);
         using var response = await SharedClient.PostAsJsonAsync(
@@ -29,10 +29,27 @@ public class InviteTokenClient
 
         if (!response.IsSuccessStatusCode)
         {
+            return null;
+        }
+
+        return await response.Content.ReadFromJsonAsync<InviteTokenValidationResponse>(
+            cancellationToken: cancellationToken);
+    }
+
+    public async Task<bool> ValidateSessionAsync(string sessionTicket, CancellationToken cancellationToken = default)
+    {
+        var request = new InviteSessionValidationRequest(sessionTicket);
+        using var response = await SharedClient.PostAsJsonAsync(
+            new Uri(_baseUri, "api/auth/validate-session"),
+            request,
+            cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
             return false;
         }
 
-        var result = await response.Content.ReadFromJsonAsync<InviteTokenValidationResponse>(
+        var result = await response.Content.ReadFromJsonAsync<InviteSessionValidationResponse>(
             cancellationToken: cancellationToken);
         return result?.IsValid == true;
     }
