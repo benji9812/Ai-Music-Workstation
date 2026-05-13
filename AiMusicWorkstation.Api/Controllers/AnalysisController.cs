@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace AiMusicWorkstation.Api.Controllers;
 
 [ApiController]
-[Route("")]
+[Route("api/[controller]")]
 public class AnalysisController : ControllerBase
 {
     private readonly PythonEngineClient _client;
@@ -14,6 +14,7 @@ public class AnalysisController : ControllerBase
         _client = client ?? throw new ArgumentNullException(nameof(client));
     }
 
+    // GET /api/analysis/health
     [HttpGet("health")]
     public async Task<IActionResult> Health()
     {
@@ -21,26 +22,35 @@ public class AnalysisController : ControllerBase
         return Ok(new { status = healthy ? "ok" : "error" });
     }
 
+    // POST /api/analysis/analyze
     [HttpPost("analyze")]
     public async Task<IActionResult> Analyze([FromForm] IFormFile file)
     {
-        if (file == null) return BadRequest(new { status = "error", message = "File missing" });
+        if (file == null)
+            return BadRequest(new { status = "error", message = "File missing" });
+
         string response = await _client.AnalyzeAsync(file);
         return Content(response, "application/json");
     }
 
+    // POST /api/analysis/analyze-only
     [HttpPost("analyze-only")]
     public async Task<IActionResult> AnalyzeOnly([FromForm] IFormFile file)
     {
-        if (file == null) return BadRequest(new { status = "error", message = "File missing" });
+        if (file == null)
+            return BadRequest(new { status = "error", message = "File missing" });
+
         string response = await _client.ReAnalyzeAsync(file);
         return Content(response, "application/json");
     }
 
+    // POST /api/analysis/structure
     [HttpPost("structure")]
     public async Task<IActionResult> Structure([FromBody] StructureRequest request)
     {
-        if (request == null) return BadRequest(new { status = "error", message = "Payload missing" });
+        if (request == null)
+            return BadRequest(new { status = "error", message = "Payload missing" });
+
         string response = await _client.GetStructureAsync(request);
         return Content(response, "application/json");
     }
