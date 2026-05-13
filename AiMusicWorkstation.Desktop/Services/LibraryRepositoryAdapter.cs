@@ -1,12 +1,11 @@
 using AiMusicWorkstation.Domain.Repositories;
-using AiMusicWorkstation.Shared.Models;
+using AiMusicWorkstation.Domain.Entities;
 
 namespace AiMusicWorkstation.Desktop.Services;
 
-/// <summary>
 /// Adapter to make LibraryManager compatible with ILibraryRepository.
 /// Note: This is a minimal implementation for DI purposes.
-/// </summary>
+
 public class DefaultLibraryRepository : ILibraryRepository
 {
     private readonly LibraryManager _libraryManager;

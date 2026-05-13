@@ -1,5 +1,4 @@
 ﻿using System.ComponentModel;
-using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
 namespace AiMusicWorkstation.Desktop.Models

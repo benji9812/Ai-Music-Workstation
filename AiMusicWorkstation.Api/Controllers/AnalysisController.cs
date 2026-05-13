@@ -1,4 +1,4 @@
-using AiMusicWorkstation.Api.Services;
+using AiMusicWorkstation.Infrastructure.ExternalServices;
 using Microsoft.AspNetCore.Mvc;
 
 namespace AiMusicWorkstation.Api.Controllers;

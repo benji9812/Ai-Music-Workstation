@@ -7,10 +7,11 @@ using AiMusicWorkstation.Application.Handlers.Queries;
 using AiMusicWorkstation.Application.Queries.Library;
 using AiMusicWorkstation.Application.Queries.Playback;
 using AiMusicWorkstation.Desktop.Services;
+using AiMusicWorkstation.Infrastructure.ExternalServices;
 using AiMusicWorkstation.Desktop.ViewModels;
 using AiMusicWorkstation.Domain.Repositories;
 using AiMusicWorkstation.Domain.Services;
-using AiMusicWorkstation.Infrastructure.Persistence;
+using AiMusicWorkstation.Domain.Entities;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -82,6 +83,9 @@ namespace AiMusicWorkstation.Desktop
             services.AddSingleton<MainWindow>();
 
             _serviceProvider = services.BuildServiceProvider();
+
+            // Starta PythonBridge explicit innan MainWindow visas
+            _serviceProvider.GetRequiredService<PythonBridge>();
 
             var mainWindow = _serviceProvider.GetRequiredService<MainWindow>();
             mainWindow.Show();

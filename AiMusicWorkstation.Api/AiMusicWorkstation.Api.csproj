@@ -12,6 +12,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\AiMusicWorkstation.Shared\AiMusicWorkstation.Shared.csproj" />
+    <ProjectReference Include="..\AiMusicWorkstation.Infrastructure\AiMusicWorkstation.Infrastructure.csproj" />
   </ItemGroup>
 
   <ItemGroup>

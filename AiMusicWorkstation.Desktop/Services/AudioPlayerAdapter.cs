@@ -2,9 +2,8 @@ using AiMusicWorkstation.Domain.Services;
 
 namespace AiMusicWorkstation.Desktop.Services;
 
-/// <summary>
 /// Adapter to make StemPlayer compatible with IAudioPlayer
-/// </summary>
+
 public class AudioPlayerAdapter : IAudioPlayer
 {
     private readonly StemPlayer _stemPlayer;

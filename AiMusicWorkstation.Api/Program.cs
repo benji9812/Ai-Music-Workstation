@@ -1,4 +1,4 @@
-using AiMusicWorkstation.Api.Services;
+using AiMusicWorkstation.Infrastructure.ExternalServices;
 
 var builder = WebApplication.CreateBuilder(args);
 

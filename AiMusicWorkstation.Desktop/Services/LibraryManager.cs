@@ -1,6 +1,6 @@
 ﻿using System.IO;
 using System.Text.Json;
-using AiMusicWorkstation.Shared.Models;
+using AiMusicWorkstation.Domain.Entities;
 using AiMusicWorkstation.Domain.Repositories;
 
 namespace AiMusicWorkstation.Desktop.Services

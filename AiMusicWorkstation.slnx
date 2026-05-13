@@ -1,4 +1,7 @@
 <Solution>
+  <Folder Name="/Solution Items/">
+    <File Path=".env" />
+  </Folder>
   <Project Path="AiMusicWorkstation.Api/AiMusicWorkstation.Api.csproj" />
   <Project Path="AiMusicWorkstation.Application/AiMusicWorkstation.Application.csproj" />
   <Project Path="AiMusicWorkstation.Desktop/AiMusicWorkstation.Desktop.csproj" />
