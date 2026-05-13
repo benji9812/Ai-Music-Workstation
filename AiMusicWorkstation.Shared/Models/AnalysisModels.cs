@@ -44,6 +44,9 @@ namespace AiMusicWorkstation.Shared.Models
         [JsonPropertyName("text")]
         public string Text { get; set; }
 
+        // ← Lägg till denna
+        public double FontSize { get; set; } = 14;
+
         private bool _isActive;
         public bool IsActive
         {

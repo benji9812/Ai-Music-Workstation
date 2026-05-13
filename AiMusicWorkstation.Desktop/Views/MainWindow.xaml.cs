@@ -40,6 +40,7 @@ namespace AiMusicWorkstation.Desktop
         private bool _isTransposing = false;
         private bool _isRefreshing = false;
         private bool _isHandlingPlaybackStopped = false;
+        private bool _isUpdatingLyrics = false;
 
         private double _currentPrimaryBpm = 0;
         private double _currentAltBpm = 0;
@@ -65,15 +66,10 @@ namespace AiMusicWorkstation.Desktop
             _playbackViewModel = playbackViewModel;
             _libraryViewModel = libraryViewModel;
 
-            // If ViewModels are injected via DI, set DataContext
             if (mainWindowViewModel != null)
-            {
                 DataContext = mainWindowViewModel;
-            }
             else if (_playbackViewModel != null && _libraryViewModel != null)
-            {
                 DataContext = new MainWindowViewModel(_playbackViewModel, _libraryViewModel);
-            }
 
             var config = new ConfigurationBuilder()
                 .AddUserSecrets<MainWindow>()
@@ -88,7 +84,7 @@ namespace AiMusicWorkstation.Desktop
 
             _player.PlaybackStopped += async (s, e) =>
             {
-                await Task.Delay(50); // Vänta 50ms — låt alla stems hinna stanna
+                await Task.Delay(50);
                 Dispatcher.Invoke(() =>
                 {
                     if (_isTransposing || _isHandlingPlaybackStopped || _player.IsPlaying) return;
@@ -97,10 +93,10 @@ namespace AiMusicWorkstation.Desktop
                     _metronome.Stop();
                     _metronome.ResetEvents();
                     MetronomeBtn.IsChecked = false;
-                    MetronomeBtn.Content = "🥁 Metro";
+                    MetronomeBtn.Content = "\U0001F941 Metro";
                     MetronomeBeatText.Text = "";
                     MetronomePulse.Opacity = 0.2;
-                    PlayPauseBtn.Content = "▶";
+                    PlayPauseBtn.Content = "\u25B6";
                     _timelineTimer.Stop();
                     _player.Reinitialize();
                     _isTimerUpdate = true;
@@ -111,7 +107,6 @@ namespace AiMusicWorkstation.Desktop
                 });
             };
 
-
             _timelineTimer = new DispatcherTimer();
             _timelineTimer.Interval = TimeSpan.FromMilliseconds(50);
             _timelineTimer.Tick += Timer_Tick;
@@ -119,6 +114,7 @@ namespace AiMusicWorkstation.Desktop
             BpmText.MouseDown += BpmText_MouseDown;
             RefreshLibrary();
             UpdateMixerUIState();
+            LyricsScroller.PreviewMouseWheel += LyricsScroller_PreviewMouseWheel;
         }
 
         // --- KEY BADGE ---
@@ -153,6 +149,7 @@ namespace AiMusicWorkstation.Desktop
             _currentLyrics = new ObservableCollection<LyricSegment>();
             _currentChords = new List<ChordEvent>();
             LyricsList.ItemsSource = _currentLyrics;
+            UpdateLyricsFontSize();
             CurrentChordText.Text = "";
             NextChordsText.Text = "";
             ChordDiagramHost.Child = null;
@@ -188,6 +185,7 @@ namespace AiMusicWorkstation.Desktop
                 _currentChords = analysisData.Chords ?? new List<ChordEvent>();
                 ClearSections();
                 LyricsList.ItemsSource = _currentLyrics;
+                UpdateLyricsFontSize();
 
                 if (analysisData.Bpm > 0)
                 {
@@ -211,7 +209,6 @@ namespace AiMusicWorkstation.Desktop
                 KeyText.Text = detectedKey;
                 _originalKey = detectedKey;
 
-                // ✅ Hämta Spotify-metadata EN gång och casha resultatet
                 bool isSpotify = !string.IsNullOrEmpty(spotifyUrl);
                 string genre = "Uncategorized";
                 var keySource = KeySource.Generated;
@@ -225,7 +222,7 @@ namespace AiMusicWorkstation.Desktop
                     if (!string.IsNullOrEmpty(meta.Genre) && meta.Genre != "Uncategorized")
                     {
                         genre = meta.Genre;
-                        keySource = KeySource.Metadata; // Badge visas bara om genre faktiskt hämtades
+                        keySource = KeySource.Metadata;
                     }
                 }
 
@@ -253,7 +250,7 @@ namespace AiMusicWorkstation.Desktop
                     ChordDiagramHost.Child = RenderChordDiagram(firstChord);
                     var upcoming = _currentChords.Skip(1).Take(3)
                         .Select(c => MusicTheoryHelper.TransposeChord(c.Chord, 0));
-                    NextChordsText.Text = string.Join(" → ", upcoming);
+                    NextChordsText.Text = string.Join(" \u2192 ", upcoming);
                 }
                 UpdateScaleDiagram();
 
@@ -291,16 +288,14 @@ namespace AiMusicWorkstation.Desktop
                     RefreshLibrary();
                 }
 
-                // ✅ Alltid utanför !alreadyExists — körs oavsett om låten är ny eller inte
                 var loadedProject = _library.Projects.FirstOrDefault(p => p.StemsPath == pathForPlayer);
                 if (loadedProject != null)
                     ProjectList.SelectedItem = loadedProject;
 
                 HideImportSection();
                 StatusLabel.Text = "Detecting song structure...";
-
-                AutoDetectStructure_Click(null, null); // Körs asynkront i bakgrunden
-                StatusLabel.Text = "Ready to Mix! 🎚️"; // Visas direkt
+                AutoDetectStructure_Click(null, null);
+                StatusLabel.Text = "Ready to Mix! \U0001F39A\uFE0F";
             }
             catch (Exception ex)
             {
@@ -313,7 +308,6 @@ namespace AiMusicWorkstation.Desktop
                 UpdateMixerUIState();
             }
         }
-
 
         private void UpdateMixerUIState()
         {
@@ -336,10 +330,7 @@ namespace AiMusicWorkstation.Desktop
         }
 
         // --- TIMELINE ---
-        private void Timeline_DragStarted(object sender, DragStartedEventArgs e)
-        {
-            _isDraggingTimeline = true;
-        }
+        private void Timeline_DragStarted(object sender, DragStartedEventArgs e) => _isDraggingTimeline = true;
 
         private void Timeline_DragCompleted(object sender, DragCompletedEventArgs e)
         {
@@ -403,7 +394,17 @@ namespace AiMusicWorkstation.Desktop
                 {
                     foreach (var line in _currentLyrics) line.IsActive = false;
                     activeLine.IsActive = true;
-                    LyricsList.ScrollIntoView(activeLine);
+
+                    int idx = _currentLyrics.IndexOf(activeLine);
+                    if (idx >= 0)
+                    {
+                        Dispatcher.InvokeAsync(() =>
+                        {
+                            double lineHeight = activeLine.FontSize * 1.8;
+                            double targetOffset = idx * lineHeight - (LyricsScroller.ActualHeight / 2);
+                            LyricsScroller.ScrollToVerticalOffset(Math.Max(0, targetOffset));
+                        }, System.Windows.Threading.DispatcherPriority.Background);
+                    }
                 }
             }
 
@@ -419,11 +420,22 @@ namespace AiMusicWorkstation.Desktop
                         ChordDiagramHost.Child = RenderChordDiagram(displayChord);
                         FlashChordColor();
 
-                        var upcoming = _currentChords
+                        var upcomingChords = _currentChords
                             .Where(c => c.Time > t)
                             .Take(3)
-                            .Select(c => MusicTheoryHelper.TransposeChord(c.Chord, _currentSemitones));
-                        NextChordsText.Text = string.Join("  →  ", upcoming);
+                            .Select(c => MusicTheoryHelper.TransposeChord(c.Chord, _currentSemitones))
+                            .ToList();
+
+                        NextChordsText.Text = upcomingChords.Count > 0
+                            ? string.Join("  \u2192  ", upcomingChords)
+                            : "\u2014 \u2014 \u2014";
+
+                        UpcomingChordsPanel.ItemsSource = upcomingChords
+                            .Select(chord => new UpcomingChordItem
+                            {
+                                ChordName = chord,
+                                Diagram = RenderChordDiagram(chord)
+                            }).ToList();
                     }
                 }
             }
@@ -435,6 +447,33 @@ namespace AiMusicWorkstation.Desktop
         {
             CurrentTimeText.Text = _player.CurrentTime.ToString(@"mm\:ss");
             TotalTimeText.Text = _player.TotalTime.ToString(@"mm\:ss");
+        }
+
+        private void LyricsPanel_SizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            UpdateLyricsFontSize();
+        }
+
+        private void UpdateLyricsFontSize()
+        {
+            if (_isUpdatingLyrics) return;
+            if (_currentLyrics == null || !_currentLyrics.Any()) return;
+            if (LyricsPanel.ActualHeight <= 0) return;
+
+            _isUpdatingLyrics = true;
+
+            double panelHeight = LyricsPanel.ActualHeight - 24;
+            int lineCount = _currentLyrics.Count;
+            double perLine = panelHeight / lineCount;
+            double fontSize = Math.Clamp(perLine * 0.6, 11, 28);
+
+            foreach (var line in _currentLyrics)
+                line.FontSize = fontSize;
+
+            LyricsList.ItemsSource = null;
+            LyricsList.ItemsSource = _currentLyrics;
+
+            _isUpdatingLyrics = false;
         }
 
         // --- VOLYM ---
@@ -511,7 +550,7 @@ namespace AiMusicWorkstation.Desktop
 
                 StatusLabel.Text = _currentSemitones == 0
                     ? $"Original key: {_originalKey}"
-                    : $"Transposed {(_currentSemitones > 0 ? "+" : "")}{_currentSemitones} st  ({_originalKey} → {transposedKey})";
+                    : $"Transposed {(_currentSemitones > 0 ? "+" : "")}{_currentSemitones} st  ({_originalKey} \u2192 {transposedKey})";
 
                 if (_currentChords != null && _currentChords.Any())
                 {
@@ -521,13 +560,24 @@ namespace AiMusicWorkstation.Desktop
                     string displayChord = MusicTheoryHelper.TransposeChord(activeChord.Chord, _currentSemitones);
                     CurrentChordText.Text = displayChord;
                     ChordDiagramHost.Child = RenderChordDiagram(displayChord);
-                    FlashChordColor(); // NY
+                    FlashChordColor();
 
-                    var upcoming = _currentChords
+                    var upcomingChords = _currentChords
                         .Where(c => c.Time > t)
                         .Take(3)
-                        .Select(c => MusicTheoryHelper.TransposeChord(c.Chord, _currentSemitones));
-                    NextChordsText.Text = string.Join("  →  ", upcoming);
+                        .Select(c => MusicTheoryHelper.TransposeChord(c.Chord, _currentSemitones))
+                        .ToList();
+
+                    NextChordsText.Text = upcomingChords.Count > 0
+                        ? string.Join("  \u2192  ", upcomingChords)
+                        : "\u2014 \u2014 \u2014";
+
+                    UpcomingChordsPanel.ItemsSource = upcomingChords
+                        .Select(chord => new UpcomingChordItem
+                        {
+                            ChordName = chord,
+                            Diagram = RenderChordDiagram(chord)
+                        }).ToList();
                 }
 
                 if (ScaleView.Visibility == Visibility.Visible)
@@ -537,7 +587,6 @@ namespace AiMusicWorkstation.Desktop
 
         private UIElement RenderChordDiagram(string chord)
         {
-            // Render hanterar nu all suffix-strippning internt
             return ChordDiagramRenderer.Render(chord, 100) ?? new Canvas();
         }
 
@@ -602,7 +651,7 @@ namespace AiMusicWorkstation.Desktop
             if (_player.IsPlaying)
             {
                 _player.Pause();
-                PlayPauseBtn.Content = "▶";
+                PlayPauseBtn.Content = "\u25B6";
                 _timelineTimer.Stop();
                 _metronome.Stop();
                 _metronome.ResetEvents();
@@ -617,7 +666,7 @@ namespace AiMusicWorkstation.Desktop
                 if (!countInOn)
                 {
                     _player.Play();
-                    PlayPauseBtn.Content = "⏸";
+                    PlayPauseBtn.Content = "\u23F8";
                     _timelineTimer.Start();
 
                     if (metroOn) StartMetronomePlayback();
@@ -636,7 +685,7 @@ namespace AiMusicWorkstation.Desktop
                     _metronome.OnBeat += (beat) => Dispatcher.Invoke(() =>
                     {
                         MetronomeBeatText.Text = string.Join(" ", Enumerable.Range(1, _metronome.TimeSignature)
-                            .Select(i => i == beat ? "●" : "○"));
+                            .Select(i => i == beat ? "\u25CF" : "\u25CB"));
                         MetronomePulse.Opacity = beat == 1 ? 1.0 : 0.5;
                         var t = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(80) };
                         t.Tick += (s, _) => { MetronomePulse.Opacity = 0.2; t.Stop(); };
@@ -646,9 +695,9 @@ namespace AiMusicWorkstation.Desktop
                     _metronome.OnCountInComplete += () => Dispatcher.Invoke(() =>
                     {
                         _player.Play();
-                        PlayPauseBtn.Content = "⏸";
+                        PlayPauseBtn.Content = "\u23F8";
                         _timelineTimer.Start();
-                        StatusLabel.Text = "▶ Playing";
+                        StatusLabel.Text = "\u25B6 Playing";
 
                         if (metroOn)
                         {
@@ -678,7 +727,7 @@ namespace AiMusicWorkstation.Desktop
             _metronome.OnBeat += (beat) => Dispatcher.Invoke(() =>
             {
                 MetronomeBeatText.Text = string.Join(" ", Enumerable.Range(1, _metronome.TimeSignature)
-                    .Select(i => i == beat ? "●" : "○"));
+                    .Select(i => i == beat ? "\u25CF" : "\u25CB"));
                 MetronomePulse.Opacity = beat == 1 ? 1.0 : 0.5;
                 var t = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(80) };
                 t.Tick += (s, _) => { MetronomePulse.Opacity = 0.2; t.Stop(); };
@@ -697,7 +746,7 @@ namespace AiMusicWorkstation.Desktop
             TimelineSlider.Value = 0;
             _isTimerUpdate = false;
 
-            PlayPauseBtn.Content = "▶";
+            PlayPauseBtn.Content = "\u25B6";
 
             if (_currentLyrics != null && _currentLyrics.Any())
             {
@@ -807,7 +856,6 @@ namespace AiMusicWorkstation.Desktop
                 StatusLabel.Text = $"[{updated + 1}/{total}] Refreshing: {project.Title}...";
                 try
                 {
-                    // Genre via Spotify/MusicBrainz
                     if (project.IsOfficialData && !string.IsNullOrEmpty(project.SpotifyId))
                     {
                         var meta = await _importer.GetOfficialMetadata(project.SpotifyId);
@@ -816,7 +864,6 @@ namespace AiMusicWorkstation.Desktop
                         await Task.Delay(300);
                     }
 
-                    // drums.mp3 alltid prioriterat
                     string? analysisSource = null;
                     if (!string.IsNullOrEmpty(project.StemsPath) && Directory.Exists(project.StemsPath))
                     {
@@ -831,7 +878,7 @@ namespace AiMusicWorkstation.Desktop
 
                     Debug.WriteLine($"[RefreshMetadata] Analyserar med fil: {analysisSource}");
                     var parseResult = await _analysisOrchestrator.RunReAnalyzeAsync(analysisSource);
-                    Debug.WriteLine($"[RefreshMetadata] {project.Title} → svar: {parseResult.RawResponse[..Math.Min(200, parseResult.RawResponse.Length)]}");
+                    Debug.WriteLine($"[RefreshMetadata] {project.Title} \u2192 svar: {parseResult.RawResponse[..Math.Min(200, parseResult.RawResponse.Length)]}");
 
                     if (parseResult.Error == null && parseResult.Result != null)
                     {
@@ -840,7 +887,6 @@ namespace AiMusicWorkstation.Desktop
                         if (result.TimeSignature > 0) project.TimeSignature = result.TimeSignature;
                         if (!string.IsNullOrEmpty(result.Key)) project.Key = result.Key;
 
-                        // Bevara gamla lyrics
                         var existingData = _sessionStorage.LoadSession(project.StemsPath);
                         var lyricsToSave = result.Lyrics?.Any() == true ? result.Lyrics : existingData.lyrics;
                         var chordsToSave = result.Chords?.Any() == true ? result.Chords : existingData.chords;
@@ -854,13 +900,11 @@ namespace AiMusicWorkstation.Desktop
 
             _library.SaveLibrary();
             RefreshLibrary();
-            StatusLabel.Text = $"✅ Refreshed {updated}/{total} tracks.";
+            StatusLabel.Text = $"\u2705 Refreshed {updated}/{total} tracks.";
         }
-
 
         private async void ProjectList_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            // Ignorera om det inte är ett faktiskt val (t.ex. högerklick)
             if (_suppressSelectionChange) return;
             if (e.AddedItems.Count == 0) return;
             if (ProjectList.SelectedItem is SongProject p)
@@ -895,15 +939,16 @@ namespace AiMusicWorkstation.Desktop
                     foreach (var line in _currentLyrics) line.IsActive = false;
                     LyricsScroller?.ScrollToTop();
                     _currentChords = chords;
-                    
-                    _currentSections = sections;  // ← sätt listan INNAN
-                    RefreshSectionsList();         // ← sedan refresh
-                    StatusLabel.Text = $"Loaded: {p.Artist} – {p.Title}";
-                    // ✅ Om inga sektioner sparats — kör AI-detection automatiskt
+
+                    _currentSections = sections;
+                    RefreshSectionsList();
+                    StatusLabel.Text = $"Loaded: {p.Artist} \u2013 {p.Title}";
+
                     if (!_currentSections.Any() && _player.TotalTime.TotalSeconds > 0)
                         AutoDetectStructure_Click(null, null);
 
                     LyricsList.ItemsSource = _currentLyrics.Any() ? _currentLyrics : null;
+                    UpdateLyricsFontSize();
 
                     if (_currentChords.Any())
                     {
@@ -912,7 +957,7 @@ namespace AiMusicWorkstation.Desktop
                         ChordDiagramHost.Child = RenderChordDiagram(firstChord);
                         var upcoming = _currentChords.Skip(1).Take(3)
                             .Select(c => MusicTheoryHelper.TransposeChord(c.Chord, _currentSemitones));
-                        NextChordsText.Text = string.Join("  →  ", upcoming);
+                        NextChordsText.Text = string.Join("  \u2192  ", upcoming);
                     }
                     else
                     {
@@ -922,7 +967,6 @@ namespace AiMusicWorkstation.Desktop
                     }
 
                     HideImportSection();
-
                     UpdateKeyBadge(p.KeySource);
                     UpdateScaleDiagram();
 
@@ -1014,7 +1058,7 @@ namespace AiMusicWorkstation.Desktop
             {
                 try
                 {
-                    StatusLabel.Text = "Exporting... 💾";
+                    StatusLabel.Text = "Exporting... \U0001F4BE";
                     _player.ExportMix(sfd.FileName,
                         (float)VolDrums.Value, (float)VolBass.Value,
                         (float)VolOther.Value, (float)VolVocals.Value);
@@ -1030,32 +1074,43 @@ namespace AiMusicWorkstation.Desktop
         private void YoutubeBox_LostFocus(object sender, RoutedEventArgs e)
         { if (string.IsNullOrWhiteSpace(YoutubeLinkBox.Text)) YoutubeLinkBox.Text = "Paste YouTube or Spotify Link here..."; }
 
-        private void LyricsLine_Click(object sender, SelectionChangedEventArgs e)
+        private void LyricsLine_Click(object sender, MouseButtonEventArgs e)
         {
-            if (LyricsList.SelectedItem is LyricSegment line)
+            if (sender is TextBlock tb && tb.DataContext is LyricSegment line)
             {
-                _isTimerUpdate = true;
                 _player.CurrentTime = TimeSpan.FromSeconds(line.Start);
                 TimelineSlider.Value = line.Start;
-                _isTimerUpdate = false;
-                UpdateTimerText();
-                LyricsList.SelectedItem = null;
             }
+        }
+
+        private void LyricsScroller_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+        {
+            LyricsScroller.ScrollToVerticalOffset(
+                LyricsScroller.VerticalOffset - e.Delta / 3.0);
+            e.Handled = true;
         }
 
         // --- VISA/DÖLJ LYRICS & ACKORD ---
         private void ToggleChords_Click(object sender, RoutedEventArgs e)
         {
-            bool show = ToggleChordsBtn.IsChecked == true;
-            ChordPanel.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
-            ChordColumn.Width = show ? new GridLength(190) : new GridLength(0);
+            ChordPanel.Visibility = ToggleChordsBtn.IsChecked == true
+                ? Visibility.Visible : Visibility.Collapsed;
+            ChordColumn.Width = ToggleChordsBtn.IsChecked == true
+                ? new GridLength(260) : new GridLength(0);
         }
 
         private void ToggleLyrics_Click(object sender, RoutedEventArgs e)
         {
             LyricsPanel.Visibility = ToggleLyricsBtn.IsChecked == true
-                ? Visibility.Visible
-                : Visibility.Collapsed;
+                ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        private void ToggleSections_Click(object sender, RoutedEventArgs e)
+        {
+            SectionsPanel.Visibility = ToggleSectionsBtn.IsChecked == true
+                ? Visibility.Visible : Visibility.Collapsed;
+            SectionsColumn.Width = ToggleSectionsBtn.IsChecked == true
+                ? new GridLength(200) : new GridLength(0);
         }
 
         private void MetronomeToggle_Click(object sender, RoutedEventArgs e)
@@ -1068,15 +1123,15 @@ namespace AiMusicWorkstation.Desktop
                     StatusLabel.Text = "No BPM loaded.";
                     return;
                 }
-                MetronomeBtn.Content = "⏹ Stop";
-                StatusLabel.Text = "Metronome armed — press Play to start.";
+                MetronomeBtn.Content = "\u23F9 Stop";
+                StatusLabel.Text = "Metronome armed \u2014 press Play to start.";
             }
             else
             {
                 _metronome.Stop();
                 _metronome.ResetEvents();
                 MetronomeBtn.IsChecked = false;
-                MetronomeBtn.Content = "🥁 Metro";
+                MetronomeBtn.Content = "\U0001F941 Metro";
                 MetronomePulse.Opacity = 0.2;
                 MetronomeBeatText.Text = "";
                 StatusLabel.Text = "Metronome stopped.";
@@ -1119,6 +1174,12 @@ namespace AiMusicWorkstation.Desktop
             _scaleToggling = false;
         }
 
+        private void UpcomingDiagram_Loaded(object sender, RoutedEventArgs e)
+        {
+            if (sender is Border border && border.Tag is string chordName)
+                border.Child = RenderChordDiagram(chordName);
+        }
+
         private void UpdateScaleDiagram()
         {
             string key = KeyText.Text;
@@ -1145,12 +1206,11 @@ namespace AiMusicWorkstation.Desktop
             _chordFlashBrush.BeginAnimation(
                 System.Windows.Media.SolidColorBrush.ColorProperty, animation);
         }
+    }
 
-        private void ToggleSections_Click(object sender, RoutedEventArgs e)
-        {
-            bool show = ToggleSectionsBtn.IsChecked == true;
-            SectionsPanel.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
-            SectionsColumn.Width = show ? new GridLength(180) : new GridLength(0);
-        }
+    public class UpcomingChordItem
+    {
+        public string ChordName { get; set; } = "";
+        public UIElement? Diagram { get; set; }
     }
 }
