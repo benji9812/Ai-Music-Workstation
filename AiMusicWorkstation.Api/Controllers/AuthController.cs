@@ -27,17 +27,18 @@ public class AuthController : ControllerBase
         }
 
         string normalizedToken = request.Token.Trim();
-        var token = await _dbContext.InviteTokens
-            .FirstOrDefaultAsync(candidate => candidate.Token == normalizedToken, cancellationToken);
+        int updated = await _dbContext.InviteTokens
+            .Where(candidate => candidate.Token == normalizedToken && candidate.IsActive && !candidate.IsUsed)
+            .ExecuteUpdateAsync(
+                updates => updates
+                    .SetProperty(candidate => candidate.IsUsed, true)
+                    .SetProperty(candidate => candidate.UsedAt, DateTimeOffset.UtcNow),
+                cancellationToken);
 
-        if (token == null || !token.IsActive || token.IsUsed)
+        if (updated == 0)
         {
             return Unauthorized(new InviteTokenValidationResponse(false));
         }
-
-        token.IsUsed = true;
-        token.UsedAt = DateTimeOffset.UtcNow;
-        await _dbContext.SaveChangesAsync(cancellationToken);
 
         return Ok(new InviteTokenValidationResponse(true));
     }
