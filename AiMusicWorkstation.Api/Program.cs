@@ -84,7 +84,7 @@ static string? NormalizeConnectionString(string? connectionString)
     if (!Uri.TryCreate(connectionString, UriKind.Absolute, out var uri))
     {
         throw new InvalidOperationException(
-            "Invalid Postgres URI format in connection string. Ensure DATABASE_URL or SUPABASE_CONNECTION_STRING is URL-encoded.");
+            "Invalid Postgres URI format in connection string. Verify DATABASE_URL or SUPABASE_CONNECTION_STRING is a properly formatted absolute URI.");
     }
     var userInfo = uri.UserInfo.Split(':', 2);
 

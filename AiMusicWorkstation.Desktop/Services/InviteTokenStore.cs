@@ -30,6 +30,11 @@ public class InviteTokenStore
             var state = JsonSerializer.Deserialize<InviteTokenState>(Encoding.UTF8.GetString(dataBytes));
             return state?.IsValidated == true;
         }
+        catch (CryptographicException)
+        {
+            TryDeleteStateFile();
+            return false;
+        }
         catch
         {
             return false;
@@ -60,5 +65,20 @@ public class InviteTokenStore
     {
         public bool IsValidated { get; set; }
         public DateTimeOffset ValidatedAt { get; set; }
+    }
+
+    private void TryDeleteStateFile()
+    {
+        try
+        {
+            if (File.Exists(_filePath))
+            {
+                File.Delete(_filePath);
+            }
+        }
+        catch
+        {
+            // Ignored intentionally. Validation will simply require a new token.
+        }
     }
 }
