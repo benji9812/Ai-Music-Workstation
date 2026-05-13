@@ -1,8 +1,8 @@
 name: Deploy PythonEngine to Azure Web App
 
 env:
-  AZURE_WEBAPP_NAME: aimusicworkstation-python-engine   # byt till EXAKT ditt Python App Service-namn
-  PYTHON_VERSION: '3.11'                                # matchar din App Service-runtime
+  AZURE_WEBAPP_NAME: aimusicworkstation-python-engine-aja9g0bwgkddhzhn   # OBS: exakta app-namnet
+  PYTHON_VERSION: '3.11'
 
 on:
   push:
@@ -33,15 +33,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      # Optional: Lägg till pytest här om du vill köra tester
-
       - name: Upload artifact for deployment jobs
         uses: actions/upload-artifact@v4
         with:
           name: pythonengine-app
-          path: |
-            PythonEngine
-            !PythonEngine/venv/
+          path: PythonEngine
 
   deploy:
     permissions:
