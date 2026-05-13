@@ -1,0 +1,32 @@
+name: ci
+
+on:
+  push:
+    branches: [dev, main]
+  pull_request:
+    branches: [dev, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore
+        run: dotnet restore AiMusicWorkstation.slnx /p:EnableWindowsTargeting=true
+
+      - name: Build
+        run: dotnet build AiMusicWorkstation.slnx -c Release /p:EnableWindowsTargeting=true --no-restore
+
+      - name: Test
+        run: dotnet test AiMusicWorkstation.slnx -c Release /p:EnableWindowsTargeting=true --no-build

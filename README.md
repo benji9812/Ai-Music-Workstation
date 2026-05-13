@@ -49,6 +49,9 @@ If not specified, the API defaults to `PythonEngine/venv/Scripts/python.exe` and
 ### Desktop appsettings
 ```json
 {
+  "Api": {
+    "BaseUrl": "https://localhost:7107/"
+  },
   "Python": {
     "BaseUrl": "https://localhost:7107/",
     "TimeoutMinutes": 10
@@ -59,12 +62,31 @@ If not specified, the API defaults to `PythonEngine/venv/Scripts/python.exe` and
 ### API appsettings
 ```json
 {
+  "ConnectionStrings": {
+    "DefaultConnection": "Host=<SUPABASE_HOST>;Port=5432;Database=<SUPABASE_DB>;Username=<SUPABASE_USER>;Password=<SUPABASE_PASSWORD>;Ssl Mode=Require"
+  },
   "PythonEngine": {
     "BaseUrl": "http://127.0.0.1:8000/",
     "TimeoutMinutes": 10
   }
 }
 ```
+
+For production (Azure App Service), supply the Supabase connection string via environment variables:
+- `DATABASE_URL` (preferred) or `SUPABASE_CONNECTION_STRING` (can be the Supabase `postgresql://` URI).
+- For local development, set `ConnectionStrings:DefaultConnection` in `AiMusicWorkstation.Api/appsettings.Development.json` using the key/value format above (or the Supabase `postgresql://` URI).
+
+### Azure deployment (API)
+The workflow `.github/workflows/deploy-api-azure.yml` publishes the API and deploys it to Azure App Service.
+Configure these GitHub secrets:
+- `AZURE_WEBAPP_NAME` (your App Service name)
+- `AZURE_WEBAPP_PUBLISH_PROFILE` (download from Azure Portal)
+
+Set the Supabase connection string in the App Service configuration as `DATABASE_URL` (or `SUPABASE_CONNECTION_STRING`).
+
+### Desktop beta builds
+The workflow `.github/workflows/desktop-build.yml` publishes the WPF desktop app on Windows and uploads a build artifact.
+Trigger it via push to `dev`/`main` or `workflow_dispatch`, then download `AiMusicWorkstation.Desktop-win-x64` from the workflow run artifacts.
 
 ## API Project Status
 `AiMusicWorkstation.Api` now acts as a local proxy to the Python engine during development. Start both the API and Desktop projects to run end-to-end.
