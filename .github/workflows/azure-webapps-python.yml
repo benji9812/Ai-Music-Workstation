@@ -1,7 +1,7 @@
 name: Deploy PythonEngine to Azure Web App
 
 env:
-  AZURE_WEBAPP_NAME: aimusicworkstation-python-engine    # EXAKT Web app Name från Azure Overview
+  AZURE_WEBAPP_NAME: aimusicworkstation-python-engine
   PYTHON_VERSION: '3.11'
 
 on:
@@ -27,7 +27,7 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: 'pip'
 
-      - name: Install dependencies
+      - name: Install dependencies (for tests, optional)
         working-directory: PythonEngine
         run: |
           python -m pip install --upgrade pip
@@ -55,10 +55,15 @@ jobs:
           name: pythonengine-app
           path: .
 
-      - name: 'Deploy to Azure Web App'
+      - name: Create ZIP package
+        run: |
+          cd PythonEngine
+          zip -r ../pythonengine.zip .
+
+      - name: 'Deploy to Azure Web App via ZIP'
         id: deploy-to-webapp
         uses: azure/webapps-deploy@v2
         with:
-          app-name: ${{ env.AZURE_WEBAPP_NAME }}             # -> aimusicworkstation-python-engine
+          app-name: ${{ env.AZURE_WEBAPP_NAME }}
           publish-profile: ${{ secrets.AZURE_PUBLISH_PROFILE_PYTHON }}
-          package: .
+          package: pythonengine.zip
