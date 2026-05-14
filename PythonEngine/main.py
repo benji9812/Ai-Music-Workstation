@@ -94,7 +94,6 @@ def transcribe_with_groq(audio_path):
                 "text":  s.text.strip()
             })
     else:
-        # Fallback om segments saknas — returnera hela texten som ett segment
         segments.append({
             "start": 0.0,
             "end":   0.0,
@@ -134,16 +133,12 @@ def detect_time_signature(y, sr, bpm):
         hop_length = 512
         onset_env  = librosa.onset.onset_strength(y=y, sr=sr, hop_length=hop_length)
         ac         = librosa.autocorrelate(onset_env, max_size=len(onset_env) // 2)
-
         beat_frames = int(round(60.0 * sr / (bpm * hop_length)))
-
         score_3 = float(ac[beat_frames * 3]) if beat_frames * 3 < len(ac) else 0
         score_4 = float(ac[beat_frames * 4]) if beat_frames * 4 < len(ac) else 0
         score_6 = float(ac[beat_frames * 6]) if beat_frames * 6 < len(ac) else 0
-
         best   = max(score_3, score_4, score_6)
         margin = 0.15
-
         if best == score_3 and score_3 > score_4 * (1 + margin): return 3
         if best == score_6 and score_6 > score_4 * (1 + margin): return 6
         return 4
@@ -236,7 +231,6 @@ async def analyze_only(file: UploadFile = File(...)):
         print(f"🥁 BPM: {bpm}, Taktart: {time_signature}/4")
 
         stems_folder = find_stems_folder_by_drums(file_path)
-
         bass_path  = os.path.join(stems_folder, "bass.mp3")  if stems_folder else None
         other_path = os.path.join(stems_folder, "other.mp3") if stems_folder else None
 
@@ -286,4 +280,99 @@ async def analyze_audio(file: UploadFile = File(...)):
         subprocess.run(cmd, text=True)
 
         folder_name  = os.path.splitext(safe_filename)[0]
-        stems_folder = os.path.join(OUT_DIR, "ht
+        stems_folder = os.path.join(OUT_DIR, "htdemucs", folder_name)
+
+        drums_path  = os.path.join(stems_folder, "drums.mp3")
+        bass_path   = os.path.join(stems_folder, "bass.mp3")
+        other_path  = os.path.join(stems_folder, "other.mp3")
+        vocals_path = os.path.join(stems_folder, "vocals.mp3")
+
+        # 2. BPM + Taktart → drums.mp3
+        y_drums, sr_drums = librosa.load(drums_path, sr=None)
+        bpm            = detect_bpm_robust(y_drums, sr_drums)
+        time_signature = detect_time_signature(y_drums, sr_drums, bpm)
+        print(f"🥁 BPM: {bpm}, Taktart: {time_signature}/4")
+
+        # 3. Tonart → bass.mp3
+        harm_src = bass_path if os.path.exists(bass_path) else (other_path if os.path.exists(other_path) else file_path)
+        y_harm, sr_harm = librosa.load(harm_src, sr=None)
+        key = detect_key(y_harm, sr_harm)
+        print(f"🎹 Tonart: {key} (källa: {os.path.basename(harm_src)})")
+
+        # 4. Ackord → other.mp3
+        chord_src = other_path if os.path.exists(other_path) else (bass_path if os.path.exists(bass_path) else file_path)
+        chords = get_chords(chord_src)
+        print(f"🎸 Ackord: {len(chords)} detekterade (källa: {os.path.basename(chord_src)})")
+
+        # 5. Lyrics → vocals.mp3 via Groq Whisper Large v3
+        whisper_src = prepare_vocals_for_whisper(vocals_path) if os.path.exists(vocals_path) else file_path
+        lyrics = transcribe_with_groq(whisper_src)
+        print(f"🎤 Lyrics: {len(lyrics)} segment")
+
+        return {
+            "status":         "success",
+            "bpm":            bpm,
+            "key":            key,
+            "time_signature": time_signature,
+            "lyrics":         lyrics,
+            "chords":         chords,
+            "stems_path":     stems_folder,
+            "original_path":  file_path
+        }
+
+    except Exception as e:
+        traceback.print_exc()
+        return {"status": "error", "message": str(e)}
+
+# -------------------------------------------------------
+# ENDPOINT: /structure — Sektion-detektering via Gemini
+# -------------------------------------------------------
+class StructureRequest(BaseModel):
+    artist: str
+    title: str
+    duration: float
+
+@app.post("/structure")
+async def get_structure(req: StructureRequest):
+    try:
+        prompt = (
+            f"You are a music analyst. List the ACTUAL song structure for '{req.artist} - {req.title}' "
+            f"with total duration {int(req.duration)} seconds.\n\n"
+            "STRICT RULES:\n"
+            "- Only include sections that ACTUALLY EXIST in this specific song\n"
+            "- Do NOT add Bridge, Solo or Instrumental unless they genuinely appear\n"
+            "- Timestamps must be realistic and span the full duration evenly\n"
+            "- Most pop/rock songs follow: Intro → Verse → Pre → Chorus → Verse → Pre → Chorus → Bridge/Solo → Chorus → Outro\n"
+            "- Return ONLY a raw JSON array, no markdown, no explanation\n\n"
+            "Format: [{\"label\": \"Intro\", \"start\": 0}, {\"label\": \"Verse\", \"start\": 14}]\n"
+            "Allowed labels: Intro, Verse, Pre, Chorus, Bridge, Solo, Instrumental, Outro, Break\n"
+            "First section must start at 0. All start times are integers in seconds."
+        )
+
+        response = gemini_client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt
+        )
+        raw   = response.text.strip()
+        start = raw.find("[")
+        end   = raw.rfind("]") + 1
+        if start == -1 or end == 0:
+            return {"status": "error", "message": "No JSON in response"}
+
+        sections = json.loads(raw[start:end])
+        result   = []
+        for i, sec in enumerate(sections):
+            end_time = sections[i + 1]["start"] if i + 1 < len(sections) else req.duration
+            result.append({
+                "label": sec["label"],
+                "start": float(sec["start"]),
+                "end":   float(end_time),
+                "color": ""
+            })
+        return {"status": "success", "sections": result}
+
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="127.0.0.1", port=8000)
