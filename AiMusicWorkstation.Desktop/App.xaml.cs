@@ -38,12 +38,6 @@ namespace AiMusicWorkstation.Desktop
                     .Build();
                 services.AddSingleton<IConfiguration>(config);
 
-                if (!await EnsureInviteTokenValidatedAsync(config))
-                {
-                    Shutdown();
-                    return;
-                }
-
                 // Core Services
                 services.AddSingleton(new StemPlayer());
                 services.AddSingleton<IAudioPlayer>(sp =>
@@ -104,55 +98,6 @@ namespace AiMusicWorkstation.Desktop
             {
                 MessageBox.Show($"Startup failed: {ex.Message}");
                 Shutdown();
-            }
-        }
-
-        private static async Task<bool> EnsureInviteTokenValidatedAsync(IConfiguration configuration)
-        {
-            var inviteTokenStore = new InviteTokenStore();
-            var client = new InviteTokenClient(configuration);
-            string? storedSessionTicket = inviteTokenStore.GetSessionTicket();
-            if (!string.IsNullOrWhiteSpace(storedSessionTicket))
-            {
-                bool isSessionValid = await client.ValidateSessionAsync(storedSessionTicket);
-                if (isSessionValid)
-                {
-                    return true;
-                }
-
-                inviteTokenStore.Clear();
-            }
-
-            var inputWindow = new InputWindow("Enter invite token:");
-            bool? accepted = inputWindow.ShowDialog();
-            if (accepted != true)
-            {
-                return false;
-            }
-
-            string token = inputWindow.Answer?.Trim() ?? string.Empty;
-            if (string.IsNullOrWhiteSpace(token))
-            {
-                MessageBox.Show("Invite token is required.");
-                return false;
-            }
-
-            try
-            {
-                var validation = await client.ValidateAsync(token);
-                if (validation?.IsValid != true || string.IsNullOrWhiteSpace(validation.SessionTicket))
-                {
-                    MessageBox.Show("Invalid invite token.");
-                    return false;
-                }
-
-                inviteTokenStore.MarkValidated(validation.SessionTicket);
-                return true;
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Unable to validate invite token: {ex.Message}");
-                return false;
             }
         }
     }
