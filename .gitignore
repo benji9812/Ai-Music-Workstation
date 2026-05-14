@@ -1,27 +1,39 @@
-﻿# Visual Studio
+# Visual Studio
 .vs/
 *.user
+*.suo
 
 # Build output
 **/obj/
 **/bin/
+artifacts/
+publish/
+release/
+dist/
 
-# Secrets & config
+# Secrets & local config
 appsettings.Development.json
+appsettings.Local.json
 secrets.json
 .env
+.env.*
+*.publishsettings
+*.pubxml.user
+*.pfx
 
 # Python
 PythonEngine/venv/
 PythonEngine/__pycache__/
 PythonEngine/temp_uploads/
+PythonEngine/separated/
 *.pyc
 
-# Binärer
+# Generated binaries / installers
 *.exe
-PythonEngine/separated/
+*.msi
+*.zip
 
-# Downloads (genererade filer)
+# User download folders
 **/Downloads/
 
 # OS
