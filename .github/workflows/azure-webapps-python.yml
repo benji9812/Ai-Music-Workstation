@@ -21,17 +21,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python version
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-          cache: 'pip'
-
-      - name: Install dependencies (for tests, optional)
-        working-directory: PythonEngine
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
+      # Ingen pip install här – vi låter Azure sköta builden med requirements.txt
 
       - name: Upload artifact for deployment jobs
         uses: actions/upload-artifact@v4
@@ -60,14 +50,10 @@ jobs:
           pwd
           ls -al
 
-      - name: Create ZIP package
-        run: |
-          zip -r pythonengine.zip .
-
-      - name: 'Deploy to Azure Web App via ZIP'
+      - name: 'Deploy to Azure Web App'
         id: deploy-to-webapp
         uses: azure/webapps-deploy@v2
         with:
           app-name: ${{ env.AZURE_WEBAPP_NAME }}
           publish-profile: ${{ secrets.AZURE_PUBLISH_PROFILE_PYTHON }}
-          package: pythonengine.zip
+          package: .
