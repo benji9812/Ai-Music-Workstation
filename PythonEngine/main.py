@@ -37,8 +37,8 @@ gemini_client = google_genai.Client(api_key=_api_key)
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 os.makedirs(OUT_DIR, exist_ok=True)
 
-print("⏳ Laddar Whisper Medium...")
-whisper_model = whisper.load_model("medium")
+print("⏳ Laddar Whisper Base...")
+whisper_model = whisper.load_model("base")
 
 NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'Bb', 'B']
 
