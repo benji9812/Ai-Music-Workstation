@@ -521,4 +521,5 @@ async def get_structure(req: StructureRequest):
         raise HTTPException(status_code=500, detail=f"Structure failed: {str(e)}")
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run("main:app", host="0.0.0.0", port=port)
