@@ -1,0 +1,9 @@
+name: web-deploy
+on:
+  push:
+    branches: [dev, Solution/Remodelling_To_Web]
+    paths:
+      - "AiMusicWorkstation.Web/**"
+# Vercel handles deployment automatically via its GitHub integration.
+# This workflow file documents the new deploy trigger folder: AiMusicWorkstation.Web.
+# No CI/CD steps needed: it exists for clarity/documentation, not action.
