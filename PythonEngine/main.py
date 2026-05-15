@@ -34,17 +34,23 @@ NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'Bb', 'B']
 DEMUCS_MODEL = "htdemucs"
 DEMUCS_TIMEOUT_SECONDS = 900
 
+AUDIO_LOAD_SR = 22050
+AUDIO_LOAD_MONO = True
+AUDIO_ANALYZE_DURATION = 45
+AUDIO_CHORDS_DURATION = 45
+WHISPER_SR = 16000
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     ensure_runtime_dirs()
-    print("🚀 AI Music Engine starting up...")
-    print(f"📁 BASE_DIR: {BASE_DIR}")
-    print(f"📁 UPLOAD_DIR: {UPLOAD_DIR}")
-    print(f"📁 OUT_DIR: {OUT_DIR}")
-    print(f"🔑 GOOGLE_API_KEY present: {bool(os.getenv('GOOGLE_API_KEY'))}")
-    print(f"🔑 GROQ_API_KEY present: {bool(os.getenv('GROQ_API_KEY'))}")
+    print("🚀 AI Music Engine starting up...", flush=True)
+    print(f"📁 BASE_DIR: {BASE_DIR}", flush=True)
+    print(f"📁 UPLOAD_DIR: {UPLOAD_DIR}", flush=True)
+    print(f"📁 OUT_DIR: {OUT_DIR}", flush=True)
+    print(f"🔑 GOOGLE_API_KEY present: {bool(os.getenv('GOOGLE_API_KEY'))}", flush=True)
+    print(f"🔑 GROQ_API_KEY present: {bool(os.getenv('GROQ_API_KEY'))}", flush=True)
     yield
-    print("🛑 AI Music Engine shutting down...")
+    print("🛑 AI Music Engine shutting down...", flush=True)
 
 app = FastAPI(title="AI Music Engine", lifespan=lifespan)
 
@@ -57,6 +63,9 @@ def now():
 
 def elapsed(start):
     return round(time.time() - start, 2)
+
+def log_step(message: str):
+    print(message, flush=True)
 
 def sanitize_filename(filename: str) -> str:
     if not filename:
@@ -93,6 +102,9 @@ async def debug_env():
         "base_dir": str(BASE_DIR),
         "upload_dir_exists": os.path.exists(UPLOAD_DIR),
         "out_dir_exists": os.path.exists(OUT_DIR),
+        "audio_load_sr": AUDIO_LOAD_SR,
+        "audio_analyze_duration": AUDIO_ANALYZE_DURATION,
+        "audio_chords_duration": AUDIO_CHORDS_DURATION
     }
 
 @lru_cache(maxsize=1)
@@ -111,31 +123,23 @@ def get_groq_client():
     api_key = os.getenv("GROQ_API_KEY")
     if not api_key:
         raise RuntimeError("GROQ_API_KEY saknas.")
-    print("✅ Groq Whisper Large v3 redo")
+    log_step("✅ Groq Whisper Large v3 redo")
     return Groq(api_key=api_key)
-
-def find_stems_folder_by_drums(drums_upload_path: str):
-    uploaded_size = os.path.getsize(drums_upload_path)
-    htdemucs_dir = os.path.join(OUT_DIR, DEMUCS_MODEL)
-    if not os.path.exists(htdemucs_dir):
-        return None
-
-    for song_folder in os.listdir(htdemucs_dir):
-        folder_path = os.path.join(htdemucs_dir, song_folder)
-        candidate = os.path.join(folder_path, "drums.mp3")
-        if os.path.exists(candidate) and os.path.getsize(candidate) == uploaded_size:
-            return folder_path
-    return None
 
 def prepare_vocals_for_whisper(vocals_path: str):
     try:
-        y, sr = librosa.load(vocals_path, sr=16000, mono=True)
+        y, sr = librosa.load(
+            vocals_path,
+            sr=WHISPER_SR,
+            mono=True,
+            duration=min(AUDIO_ANALYZE_DURATION, 30)
+        )
         y = y / (np.max(np.abs(y)) + 1e-6)
         temp_path = vocals_path.replace(".mp3", "_clean.wav")
         sf.write(temp_path, y, sr)
         return temp_path
     except Exception as e:
-        print(f"⚠️ prepare_vocals_for_whisper fallback: {e}")
+        log_step(f"⚠️ prepare_vocals_for_whisper fallback: {e}")
         return vocals_path
 
 def transcribe_with_groq(audio_path: str):
@@ -211,7 +215,7 @@ def detect_time_signature(y, sr, bpm):
             return 6
         return 4
     except Exception as e:
-        print(f"⚠️ detect_time_signature fallback to 4/4: {e}")
+        log_step(f"⚠️ detect_time_signature fallback to 4/4: {e}")
         return 4
 
 def detect_key(y, sr):
@@ -232,8 +236,14 @@ def detect_key(y, sr):
         return NOTES[np.argmax(major_corrs)]
     return NOTES[np.argmax(minor_corrs)] + "m"
 
-def get_chords(file_path):
-    y, sr = librosa.load(file_path, duration=180)
+def get_chords(file_path: str):
+    y, sr = librosa.load(
+        file_path,
+        sr=AUDIO_LOAD_SR,
+        mono=AUDIO_LOAD_MONO,
+        duration=AUDIO_CHORDS_DURATION
+    )
+
     y_harmonic = librosa.effects.harmonic(y, margin=4)
     chroma = librosa.feature.chroma_cqt(
         y=y_harmonic,
@@ -287,7 +297,7 @@ def run_demucs(file_path: str):
         file_path,
     ]
 
-    print(f"🎚️ Running Demucs: {' '.join(cmd)}")
+    log_step(f"🎚️ Running Demucs: {' '.join(cmd)}")
     start = now()
 
     result = subprocess.run(
@@ -298,13 +308,13 @@ def run_demucs(file_path: str):
         timeout=DEMUCS_TIMEOUT_SECONDS
     )
 
-    print(f"✅ Demucs klart på {elapsed(start)}s")
+    log_step(f"✅ Demucs klart på {elapsed(start)}s")
     if result.stdout:
-        print("📤 Demucs stdout:")
-        print(result.stdout)
+        log_step("📤 Demucs stdout:")
+        log_step(result.stdout)
     if result.stderr:
-        print("📥 Demucs stderr:")
-        print(result.stderr)
+        log_step("📥 Demucs stderr:")
+        log_step(result.stderr)
 
     folder_name = os.path.splitext(os.path.basename(file_path))[0]
     stems_folder = os.path.join(OUT_DIR, DEMUCS_MODEL, folder_name)
@@ -332,29 +342,39 @@ async def analyze_only(file: UploadFile = File(...)):
         if not file.filename:
             raise HTTPException(status_code=400, detail="Ingen fil skickades.")
 
+        log_step("📥 /analyze-only request mottagen")
+
         safe_filename = sanitize_filename(file.filename)
         file_path = os.path.join(UPLOAD_DIR, safe_filename)
 
         save_start = now()
         with open(file_path, "wb") as f:
             shutil.copyfileobj(file.file, f)
-        print(f"💾 Fil sparad: {file_path} ({elapsed(save_start)}s)")
+        log_step(f"💾 Fil sparad: {file_path} ({elapsed(save_start)}s)")
 
-        analyze_start = now()
-        y_audio, sr = librosa.load(file_path, sr=None)
+        load_start = now()
+        y_audio, sr = librosa.load(
+            file_path,
+            sr=AUDIO_LOAD_SR,
+            mono=AUDIO_LOAD_MONO,
+            duration=AUDIO_ANALYZE_DURATION
+        )
+        log_step(f"🎵 Audio laddad ({elapsed(load_start)}s), samples={len(y_audio)}, sr={sr}")
+
+        bpm_start = now()
         bpm = detect_bpm_robust(y_audio, sr)
         time_signature = detect_time_signature(y_audio, sr, bpm)
-        print(f"🥁 BPM: {bpm}, Taktart: {time_signature}/4 ({elapsed(analyze_start)}s)")
+        log_step(f"🥁 BPM: {bpm}, Taktart: {time_signature}/4 ({elapsed(bpm_start)}s)")
 
         key_start = now()
         key = detect_key(y_audio, sr)
-        print(f"🎹 Tonart: {key} ({elapsed(key_start)}s)")
+        log_step(f"🎹 Tonart: {key} ({elapsed(key_start)}s)")
 
         chords_start = now()
         chords = get_chords(file_path)
-        print(f"🎸 Ackord: {len(chords)} detekterade ({elapsed(chords_start)}s)")
+        log_step(f"🎸 Ackord: {len(chords)} detekterade ({elapsed(chords_start)}s)")
 
-        print(f"✅ /analyze-only klar på {elapsed(total_start)}s")
+        log_step(f"✅ /analyze-only klar på {elapsed(total_start)}s")
 
         return {
             "status": "success",
@@ -365,7 +385,8 @@ async def analyze_only(file: UploadFile = File(...)):
             "lyrics": [],
             "stems_path": "",
             "original_path": file_path,
-            "duration_seconds": elapsed(total_start)
+            "duration_seconds": elapsed(total_start),
+            "analysis_window_seconds": AUDIO_ANALYZE_DURATION
         }
 
     except HTTPException:
@@ -391,39 +412,51 @@ async def analyze_audio(file: UploadFile = File(...)):
         if not file.filename:
             raise HTTPException(status_code=400, detail="Ingen fil skickades.")
 
+        log_step("📥 /analyze request mottagen")
+
         safe_filename = sanitize_filename(file.filename)
         file_path = os.path.join(UPLOAD_DIR, safe_filename)
 
         save_start = now()
         with open(file_path, "wb") as f:
             shutil.copyfileobj(file.file, f)
-        print(f"💾 Fil sparad: {file_path} ({elapsed(save_start)}s)")
+        log_step(f"💾 Fil sparad: {file_path} ({elapsed(save_start)}s)")
 
         demucs_start = now()
         stems_folder, drums_path, bass_path, other_path, vocals_path = run_demucs(file_path)
-        print(f"🎚️ Demucs-steg klart ({elapsed(demucs_start)}s)")
+        log_step(f"🎚️ Demucs-steg klart ({elapsed(demucs_start)}s)")
 
         bpm_start = now()
-        y_drums, sr_drums = librosa.load(drums_path, sr=None)
+        y_drums, sr_drums = librosa.load(
+            drums_path,
+            sr=AUDIO_LOAD_SR,
+            mono=True,
+            duration=AUDIO_ANALYZE_DURATION
+        )
         bpm = detect_bpm_robust(y_drums, sr_drums)
         time_signature = detect_time_signature(y_drums, sr_drums, bpm)
-        print(f"🥁 BPM: {bpm}, Taktart: {time_signature}/4 ({elapsed(bpm_start)}s)")
+        log_step(f"🥁 BPM: {bpm}, Taktart: {time_signature}/4 ({elapsed(bpm_start)}s)")
 
         key_start = now()
-        y_harm, sr_harm = librosa.load(bass_path, sr=None)
+        y_harm, sr_harm = librosa.load(
+            bass_path,
+            sr=AUDIO_LOAD_SR,
+            mono=True,
+            duration=AUDIO_ANALYZE_DURATION
+        )
         key = detect_key(y_harm, sr_harm)
-        print(f"🎹 Tonart: {key} ({elapsed(key_start)}s)")
+        log_step(f"🎹 Tonart: {key} ({elapsed(key_start)}s)")
 
         chords_start = now()
         chords = get_chords(other_path)
-        print(f"🎸 Ackord: {len(chords)} detekterade ({elapsed(chords_start)}s)")
+        log_step(f"🎸 Ackord: {len(chords)} detekterade ({elapsed(chords_start)}s)")
 
         lyrics_start = now()
         whisper_src = prepare_vocals_for_whisper(vocals_path)
         lyrics = transcribe_with_groq(whisper_src)
-        print(f"🎤 Lyrics: {len(lyrics)} segment ({elapsed(lyrics_start)}s)")
+        log_step(f"🎤 Lyrics: {len(lyrics)} segment ({elapsed(lyrics_start)}s)")
 
-        print(f"✅ /analyze klar på {elapsed(total_start)}s")
+        log_step(f"✅ /analyze klar på {elapsed(total_start)}s")
 
         return {
             "status": "success",
@@ -434,17 +467,20 @@ async def analyze_audio(file: UploadFile = File(...)):
             "chords": chords,
             "stems_path": stems_folder,
             "original_path": file_path,
-            "duration_seconds": elapsed(total_start)
+            "duration_seconds": elapsed(total_start),
+            "analysis_window_seconds": AUDIO_ANALYZE_DURATION
         }
 
-    except subprocess.TimeoutExpired as e:
+    except subprocess.TimeoutExpired:
         traceback.print_exc()
         raise HTTPException(status_code=504, detail=f"Demucs timeout efter {DEMUCS_TIMEOUT_SECONDS}s")
     except subprocess.CalledProcessError as e:
-        print("❌ Demucs process failed")
-        print(f"Return code: {e.returncode}")
-        print(f"STDOUT:\n{e.stdout}")
-        print(f"STDERR:\n{e.stderr}")
+        log_step("❌ Demucs process failed")
+        log_step(f"Return code: {e.returncode}")
+        if e.stdout:
+            log_step(f"STDOUT:\n{e.stdout}")
+        if e.stderr:
+            log_step(f"STDERR:\n{e.stderr}")
         traceback.print_exc()
         raise HTTPException(status_code=500, detail="Demucs failed. Kontrollera Render-loggarna.")
     except HTTPException:
@@ -478,7 +514,6 @@ async def get_structure(req: StructureRequest):
             "- Only include sections that ACTUALLY EXIST in this specific song\n"
             "- Do NOT add Bridge, Solo or Instrumental unless they genuinely appear\n"
             "- Timestamps must be realistic and span the full duration evenly\n"
-            "- Most pop/rock songs follow: Intro → Verse → Pre → Chorus → Verse → Pre → Chorus → Bridge/Solo → Chorus → Outro\n"
             "- Return ONLY a raw JSON array, no markdown, no explanation\n\n"
             "Format: [{\"label\": \"Intro\", \"start\": 0}, {\"label\": \"Verse\", \"start\": 14}]\n"
             "Allowed labels: Intro, Verse, Pre, Chorus, Bridge, Solo, Instrumental, Outro, Break\n"
@@ -521,5 +556,5 @@ async def get_structure(req: StructureRequest):
         raise HTTPException(status_code=500, detail=f"Structure failed: {str(e)}")
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8000))
+    port = int(os.environ.get("PORT", 10000))
     uvicorn.run("main:app", host="0.0.0.0", port=port)
