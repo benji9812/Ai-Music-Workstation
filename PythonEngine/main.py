@@ -1,6 +1,7 @@
 import uvicorn
 from dotenv import load_dotenv
 from pathlib import Path
+from functools import lru_cache
 import os
 from fastapi import FastAPI, UploadFile, File
 from pydantic import BaseModel
@@ -33,35 +34,30 @@ app = FastAPI(title="AI Music Engine")
 async def health():
     return {"status": "ok"}
 
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-os.makedirs(OUT_DIR, exist_ok=True)
+def ensure_runtime_dirs():
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
+    os.makedirs(OUT_DIR, exist_ok=True)
 
 NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'Bb', 'B']
-_gemini_client = None
-_groq_client = None
 
+@lru_cache(maxsize=1)
 def get_gemini_client():
-    global _gemini_client
-    if _gemini_client is None:
-        from google import genai as google_genai
+    from google import genai as google_genai
 
-        api_key = os.getenv("GOOGLE_API_KEY")
-        if not api_key:
-            raise RuntimeError("GOOGLE_API_KEY saknas — kontrollera att .env finns i AiMusicWorkstation/ och innehåller nyckeln.")
-        _gemini_client = google_genai.Client(api_key=api_key)
-    return _gemini_client
+    api_key = os.getenv("GOOGLE_API_KEY")
+    if not api_key:
+        raise RuntimeError("GOOGLE_API_KEY saknas — kontrollera att .env finns i AiMusicWorkstation/ och innehåller nyckeln.")
+    return google_genai.Client(api_key=api_key)
 
+@lru_cache(maxsize=1)
 def get_groq_client():
-    global _groq_client
-    if _groq_client is None:
-        from groq import Groq
+    from groq import Groq
 
-        api_key = os.getenv("GROQ_API_KEY")
-        if not api_key:
-            raise RuntimeError("GROQ_API_KEY saknas — lägg till den i .env och som Railway-variabel.")
-        _groq_client = Groq(api_key=api_key)
-        print("✅ Groq Whisper Large v3 redo (API-baserad, ingen lokal modell)")
-    return _groq_client
+    api_key = os.getenv("GROQ_API_KEY")
+    if not api_key:
+        raise RuntimeError("GROQ_API_KEY saknas — lägg till den i .env och som Railway-variabel.")
+    print("✅ Groq Whisper Large v3 redo (API-baserad, ingen lokal modell)")
+    return Groq(api_key=api_key)
 
 # -------------------------------------------------------
 # HJÄLPFUNKTION: Hitta stems-mapp via drums.mp3-storlek
@@ -230,6 +226,7 @@ def get_chords(file_path):
 @app.post("/analyze-only")
 async def analyze_only(file: UploadFile = File(...)):
     try:
+        ensure_runtime_dirs()
         safe_filename = "".join([c for c in file.filename
             if c.isalnum() or c in ('.', '-', '_')]).strip()
         file_path = os.path.join(UPLOAD_DIR, safe_filename)
@@ -280,6 +277,7 @@ async def analyze_only(file: UploadFile = File(...)):
 @app.post("/analyze")
 async def analyze_audio(file: UploadFile = File(...)):
     try:
+        ensure_runtime_dirs()
         safe_filename = "".join([c for c in file.filename
             if c.isalnum() or c in ('.', '-', '_')]).strip()
         file_path = os.path.join(UPLOAD_DIR, safe_filename)
