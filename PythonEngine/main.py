@@ -3,8 +3,6 @@ from dotenv import load_dotenv
 from pathlib import Path
 import os
 from fastapi import FastAPI, UploadFile, File
-from google import genai as google_genai
-from groq import Groq
 from pydantic import BaseModel
 import shutil
 import warnings
@@ -28,23 +26,42 @@ os.environ["PATH"] += os.pathsep + str(BASE_DIR)
 
 app = FastAPI(title="AI Music Engine")
 
-# ✅ Tydligt felmeddelande om nyckeln saknas
-_api_key = os.getenv("GOOGLE_API_KEY")
-if not _api_key:
-    raise RuntimeError("GOOGLE_API_KEY saknas — kontrollera att .env finns i AiMusicWorkstation/ och innehåller nyckeln.")
-gemini_client = google_genai.Client(api_key=_api_key)
-
-# ✅ Groq-klient för Whisper Large v3 via API (ingen RAM-användning)
-_groq_api_key = os.getenv("GROQ_API_KEY")
-if not _groq_api_key:
-    raise RuntimeError("GROQ_API_KEY saknas — lägg till den i .env och som Railway-variabel.")
-groq_client = Groq(api_key=_groq_api_key)
-print("✅ Groq Whisper Large v3 redo (API-baserad, ingen lokal modell)")
+# -------------------------------------------------------
+# ENDPOINT: /health
+# -------------------------------------------------------
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
 
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 os.makedirs(OUT_DIR, exist_ok=True)
 
 NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'Bb', 'B']
+_gemini_client = None
+_groq_client = None
+
+def get_gemini_client():
+    global _gemini_client
+    if _gemini_client is None:
+        from google import genai as google_genai
+
+        api_key = os.getenv("GOOGLE_API_KEY")
+        if not api_key:
+            raise RuntimeError("GOOGLE_API_KEY saknas — kontrollera att .env finns i AiMusicWorkstation/ och innehåller nyckeln.")
+        _gemini_client = google_genai.Client(api_key=api_key)
+    return _gemini_client
+
+def get_groq_client():
+    global _groq_client
+    if _groq_client is None:
+        from groq import Groq
+
+        api_key = os.getenv("GROQ_API_KEY")
+        if not api_key:
+            raise RuntimeError("GROQ_API_KEY saknas — lägg till den i .env och som Railway-variabel.")
+        _groq_client = Groq(api_key=api_key)
+        print("✅ Groq Whisper Large v3 redo (API-baserad, ingen lokal modell)")
+    return _groq_client
 
 # -------------------------------------------------------
 # HJÄLPFUNKTION: Hitta stems-mapp via drums.mp3-storlek
@@ -78,6 +95,7 @@ def prepare_vocals_for_whisper(vocals_path):
 # HJÄLPFUNKTION: Transkribera med Groq Whisper Large v3
 # -------------------------------------------------------
 def transcribe_with_groq(audio_path):
+    groq_client = get_groq_client()
     with open(audio_path, "rb") as f:
         transcription = groq_client.audio.transcriptions.create(
             file=(os.path.basename(audio_path), f),
@@ -207,13 +225,6 @@ def get_chords(file_path):
     return chords
 
 # -------------------------------------------------------
-# ENDPOINT: /health
-# -------------------------------------------------------
-@app.get("/health")
-async def health():
-    return {"status": "ok"}
-
-# -------------------------------------------------------
 # ENDPOINT: /analyze-only — Refresh utan Whisper/Demucs
 # -------------------------------------------------------
 @app.post("/analyze-only")
@@ -335,6 +346,7 @@ class StructureRequest(BaseModel):
 @app.post("/structure")
 async def get_structure(req: StructureRequest):
     try:
+        gemini_client = get_gemini_client()
         prompt = (
             f"You are a music analyst. List the ACTUAL song structure for '{req.artist} - {req.title}' "
             f"with total duration {int(req.duration)} seconds.\n\n"
