@@ -1,0 +1,45 @@
+# Exported from Render on 2026-05-15
+version: "1"
+
+projects:
+  - name: Ai Music Workstation
+    environments:
+      - name: Production
+        services:
+          - type: web
+            name: ai-music-python-engine
+            runtime: docker
+            repo: https://github.com/benji9812/Ai-Music-Workstation
+            branch: Solution/Remodelling_To_Web
+            plan: free
+            envVars:
+              - key: GROQ_API_KEY
+                sync: false
+              - key: GOOGLE_API_KEY
+                sync: false
+            region: frankfurt
+            healthCheckPath: /health
+            dockerContext: .
+            dockerfilePath: ./Dockerfile
+            autoDeployTrigger: commit
+            buildFilter:
+              paths:
+                - PythonEngine
+            rootDir: PythonEngine
+
+          - type: web
+            name: ai-music-api
+            runtime: docker
+            repo: https://github.com/benji9812/Ai-Music-Workstation
+            branch: Solution/Remodelling_To_Web
+            plan: free
+            envVars:
+              - key: PythonEngine__BaseUrl
+                sync: false
+              - key: ConnectionStrings__DefaultConnection
+                sync: false
+            region: frankfurt
+            healthCheckPath: /health
+            dockerContext: .
+            dockerfilePath: AiMusicWorkstation.Api/Dockerfile
+            autoDeployTrigger: commit
