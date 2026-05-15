@@ -19,6 +19,18 @@ if (usesPortBinding)
     builder.WebHost.UseUrls($"http://*:{port}");
 }
 
+// === Add CORS for React web app (Vercel/local dev) ===
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowWeb", policy =>
+        policy.WithOrigins(
+            "https://ai-music-workstation.vercel.app",
+            "http://localhost:5173")
+        .AllowAnyMethod()
+        .AllowAnyHeader());
+});
+// === ===
+
 // Services
 builder.Services.AddControllers();
 // Generera OpenAPI-dokument (krävs för Scalar)
@@ -69,6 +81,10 @@ if (!usesPortBinding)
 {
     app.UseHttpsRedirection();
 }
+
+// === Enable new CORS policy here ===
+app.UseCors("AllowWeb");
+// === ===
 
 app.UseAuthorization();
 
