@@ -1,5 +1,5 @@
 # AI Music Workstation – Projektöversikt & Referens
-> Skapad: 2026-05-14 | Branch: `dev` | Repo: `benji9812/Ai-Music-Workstation`
+> Skapad: 2026-05-14 | Branch: `Solution/Remodelling_To_Web` | Repo: `benji9812/Ai-Music-Workstation`
 
 ---
 
@@ -144,6 +144,7 @@ FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS base
 ---
 
 ## 8. Migrationsplan: Railway → Render + React-webb
+
 
 ### Steg 1: Deploya PythonEngine på Render
 
@@ -311,3 +312,102 @@ docker run -p 8000:8000 \
 - [ ] Verifiera att Demucs installeras (kolla build-loggen i Render)
 - [ ] Testa `/analyze` med en hel MP3-fil via Swagger på Render
 - [ ] Deploya AiMusicWorkstation.
+
+# AI Music Workstation – Kom igång & Referens (2026)
+
+> **Branch:** `Solution/Remodelling_To_Web`  
+> **Repo:** `benji9812/Ai-Music-Workstation`
+
+---
+
+## 1. LOKAL UPPSTART (Windows/macOS/Linux)
+
+### **A. Krav**
+- Python 3.11+
+- .NET 10 SDK
+- Node.js + npm
+- ffmpeg
+- (Windows: Powershell v5+, Linux/Mac: Bash)
+
+### **B. CLI: Automatiserad setup**
+
+#### **Linux/macOS/WSL**
+```bash
+./setup-all.sh
+```
+#### **Windows Powershell**
+```powershell
+.\setup-all.ps1
+```
+> *Dessa skript hanterar:*
+> - Python venv, pip install
+> - .env/autofyll (kopierar .env.example där det saknas, men du måste fylla i secrets)
+> - Startar backend (Uvicorn/FastAPI) i nytt fönster
+> - Startar React-webb i nytt fönster
+> - .NET API startas manuellt/lämnas till IDE
+
+### **C. Manuella steg**
+- Om `.env` saknas efter setup: Kopiera .env.example → .env och fyll i API-nycklar.
+- För .NET API:  
+  ```powershell
+  cd AiMusicWorkstation.Api
+  dotnet restore
+  dotnet build
+  dotnet run
+  ```
+
+---
+
+## 2. LOKALA ADRESSER
+
+| Tjänst            | URL                              |
+|-------------------|----------------------------------|
+| Python backend    | http://localhost:8000/docs       |
+| API gateway (.NET)| https://localhost:7107/scalar/v1 |
+| Webb (React)      | http://localhost:5173            |
+
+---
+
+## 3. PRODUKTIONSDEPLOY (kortfattat)
+
+Se `DEPLOYMENT_INSTRUCTIONS.md` för utförlig handledning:
+- **Backend på Azure VM** (föredras):  
+  PythonEngine
+- **API Gateway på Azure/Render:**  
+  AiMusicWorkstation.Api (Docker eller hostad)
+- **Webb på Vercel:**  
+  AiMusicWorkstation.Web (VITE_API_URL mot din prod-API)
+  
+---
+
+## 4. WORKFLOWS (GitHub Actions)
+
+- **.github/workflows/ci.yml**: Bygger & testar .NET
+- **.github/workflows/web-deploy.yml**: Dokumenterar watch-path för Vercel; ingen build/zip
+- **Legacy:** desktop-build.yml (tas snart bort)
+
+---
+
+## 5. SECRET FILER
+- PythonEngine/.env – **INTE i git**, behöver:
+  ```
+  GOOGLE_API_KEY=din_key
+  GROQ_API_KEY=din_key
+  ```
+- AiMusicWorkstation.Web/.env – **INTE i git**, bara:
+  ```
+  VITE_API_URL=https://ai-music-api-XXX.onrender.com
+  ```
+
+- **Exemplen finns som `.env.example` i respektive mapp**
+
+---
+
+## 6. FÖR AGENTEN / CONTEXT-FILER
+Se alltid:  
+- README.md, AI_MUSIC_WORKSTATION_REFERENCE.md (denna fil)  
+- CLI-skript (`setup-all.sh`, `setup-all.ps1`)
+
+---
+
+### **Vid frågor, kolla AI_MUSIC_WORKSTATION_REFERENCE.md och DEPLOYMENT_INSTRUCTIONS.md först! Hör annars av dig till repoägaren.**
