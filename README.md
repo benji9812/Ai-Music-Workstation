@@ -1,102 +1,128 @@
 # AI Music Workstation
 
 ## Overview
-AI Music Workstation is a WPF desktop app backed by a local Python analysis service. The app auto-starts the Python service and communicates via HTTP.
 
-## Prerequisites
-- **.NET SDK 10.0** (for building the WPF app)
-- **Python 3.11+** (for the local analysis service)
-- A valid **`GOOGLE_API_KEY`** for Gemini (stored in `.env`)
+AI Music Workstation is a cloud/web-based music analysis app. Upload an MP3 and get back BPM, key, time signature, chords, lyrics, and song structure — powered by Demucs, Groq Whisper, and Google Gemini.
 
-## Quick Start
-1. **Restore .NET dependencies**
-   ```powershell
-   dotnet restore
-   ```
+**Stack:** Python FastAPI → ASP.NET Core 10 API Gateway → React/Vite frontend (Vercel)
 
-2. **Prepare Python environment**
-   - Ensure a `.env` file exists at the repository root containing:
-     ```
-     GOOGLE_API_KEY=your_key_here
-     ```
-   - Run the setup script:
-     ```powershell
-     ./setup.ps1
-     ```
-
-3. **Build and run the app**
-   ```powershell
-   dotnet build
-   ```
-   Start both `AiMusicWorkstation.Api` and `AiMusicWorkstation.Desktop` from Visual Studio (multi-startup) or run them separately with `dotnet run`.
-
-## Python Configuration
-The desktop app targets the local API (`AiMusicWorkstation.Api`), which proxies requests to the Python engine (`PythonEngine/main.py`, default port `8000`). Configuration can be overridden via `appsettings.json` or user secrets.
-
-```json
-{
-  "Python": {
-    "BaseUrl": "http://127.0.0.1:8000/",
-    "TimeoutMinutes": 10,
-    "ExecutablePath": "C:\\path\\to\\python.exe",
-    "ServerScriptPath": "C:\\path\\to\\main.py"
-  }
-}
-```
-
-If not specified, the API defaults to `PythonEngine/venv/Scripts/python.exe` and `PythonEngine/main.py` relative to the solution root.
-
-### Desktop appsettings
-```json
-{
-  "Api": {
-    "BaseUrl": "https://localhost:7107/"
-  },
-  "Python": {
-    "BaseUrl": "https://localhost:7107/",
-    "TimeoutMinutes": 10
-  }
-}
-```
-
-### API appsettings
-```json
-{
-  "ConnectionStrings": {
-    "DefaultConnection": "Host=<SUPABASE_HOST>;Port=5432;Database=<SUPABASE_DB>;Username=<SUPABASE_USER>;Password=<SUPABASE_PASSWORD>;Ssl Mode=Require"
-  },
-  "PythonEngine": {
-    "BaseUrl": "http://127.0.0.1:8000/",
-    "TimeoutMinutes": 10
-  }
-}
-```
-
-For production (Azure App Service), supply the Supabase connection string via environment variables:
-- `DATABASE_URL` (preferred) or `SUPABASE_CONNECTION_STRING` (can be the Supabase `postgresql://` URI).
-- For local development, set `ConnectionStrings:DefaultConnection` in `AiMusicWorkstation.Api/appsettings.Development.json` using the key/value format above (or the Supabase `postgresql://` URI).
-
-### Azure deployment (API)
-The workflow `.github/workflows/deploy-api-azure.yml` publishes the API and deploys it to Azure App Service.
-Configure these GitHub secrets:
-- `AZURE_WEBAPP_NAME` (your App Service name)
-- `AZURE_WEBAPP_PUBLISH_PROFILE` (download from Azure Portal)
-
-Set the Supabase connection string in the App Service configuration as `DATABASE_URL` (or `SUPABASE_CONNECTION_STRING`).
-
-### Desktop beta builds
-The workflow `.github/workflows/desktop-build.yml` publishes the WPF desktop app on Windows and uploads a build artifact.
-Trigger it via push to `dev`/`main` or `workflow_dispatch`, then download `AiMusicWorkstation.Desktop-win-x64` from the workflow run artifacts.
-
-## API Project Status
-`AiMusicWorkstation.Api` now acts as a local proxy to the Python engine during development. Start both the API and Desktop projects to run end-to-end.
+---
 
 ## Repository Layout
-- `AiMusicWorkstation.Desktop`: WPF UI
-- `AiMusicWorkstation.Application`: Application layer
-- `AiMusicWorkstation.Infrastructure`: Persistence and adapters
-- `PythonEngine`: Local Python analysis service
 
-## Notes
-- The app auto-starts the Python server when it initializes the `PythonBridge` and will retry a health check before analysis requests.
-- `PythonEngine/requirements.txt` reflects the current Python environment.
+```
+AiMusicWorkstation.Api/       ASP.NET Core 10 – API gateway/proxy
+AiMusicWorkstation.Application/  Business logic
+AiMusicWorkstation.Domain/    Domain models
+AiMusicWorkstation.Infrastructure/  EF Core, ExternalServices (PythonEngineClient)
+AiMusicWorkstation.Shared/    Shared DTOs
+AiMusicWorkstation.Tests/     xUnit tests
+AiMusicWorkstation.Web/       React + Vite + TypeScript frontend
+AiMusicWorkstation.Desktop/   Legacy WPF app (kept for reference)
+PythonEngine/                 FastAPI music analysis backend
+```
+
+---
+
+## Quick Start (Local)
+
+### Prerequisites
+- Python 3.11+, ffmpeg
+- .NET 10 SDK
+- Node.js 18+ and npm
+
+### 1. Python Backend
+
+```bash
+cd PythonEngine
+python -m venv venv
+source venv/bin/activate      # Windows: venv\Scripts\activate
+pip install -r requirements.txt
+cp .env.example .env           # fill in GOOGLE_API_KEY and GROQ_API_KEY
+uvicorn main:app --host 0.0.0.0 --port 8000
+# Swagger UI: http://localhost:8000/docs
+```
+
+### 2. API Gateway
+
+```bash
+cd AiMusicWorkstation.Api
+dotnet restore
+dotnet run
+# Scalar UI: https://localhost:7107/scalar/v1
+# Set DATABASE_URL or ConnectionStrings:DefaultConnection for Supabase
+```
+
+### 3. React Frontend
+
+```bash
+cd AiMusicWorkstation.Web
+cp .env.example .env           # set VITE_API_URL=http://localhost:5082
+npm install
+npm run dev
+# http://localhost:5173
+```
+
+Or use the all-in-one setup script (Windows PowerShell):
+
+```powershell
+.\setup-all.ps1
+```
+
+---
+
+## Environment Variables
+
+### PythonEngine/.env
+```
+GOOGLE_API_KEY=your_google_gemini_api_key
+GROQ_API_KEY=your_groq_api_key
+```
+
+### AiMusicWorkstation.Web/.env
+```
+VITE_API_URL=https://your-api-gateway-url
+```
+
+### AiMusicWorkstation.Api (environment / appsettings)
+```
+DATABASE_URL=postgresql://...           # Supabase connection string
+PythonEngine__BaseUrl=https://...       # URL of the deployed Python backend
+```
+
+> **Never commit real secrets.** Use `.env.example` files as templates.
+
+---
+
+## API Endpoints
+
+### PythonEngine (FastAPI) – port 8000
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/health` | Health check |
+| POST | `/analyze` | Full analysis: Demucs + Groq + BPM/key/chords |
+| POST | `/analyze-only` | Fast analysis: BPM/key/chords only (no Demucs) |
+| POST | `/structure` | Song structure via Gemini 2.5 Flash |
+
+### AiMusicWorkstation.Api (ASP.NET Core) – port 8080
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/health` | Health check |
+| POST | `/api/analysis/analyze` | Proxies to Python `/analyze` |
+| POST | `/api/analysis/analyze-only` | Proxies to Python `/analyze-only` |
+| POST | `/api/analysis/structure` | Proxies to Python `/structure` |
+| GET | `/scalar/v1` | Scalar API documentation UI |
+
+---
+
+## GitHub Actions
+
+- **`.github/workflows/ci.yml`** — builds and tests .NET on push/PR to `dev`/`main`
+- **`.github/workflows/web-deploy.yml`** — documents the Vercel watch path (Vercel auto-deploys)
+
+---
+
+## Deployment
+
+See [`DEPLOYMENT_INSTRUCTIONS.md`](./DEPLOYMENT_INSTRUCTIONS.md) for full cloud deployment steps (Render, Azure, Vercel, Supabase, Docker).
+
