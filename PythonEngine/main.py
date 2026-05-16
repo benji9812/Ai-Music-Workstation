@@ -48,7 +48,7 @@ origins = [
 ]
 
 @asynccontextmanager
-def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI):
     ensure_runtime_dirs()
     print("🚀 AI Music Engine starting up...", flush=True)
     print(f"📁 BASE_DIR: {BASE_DIR}", flush=True)
@@ -381,7 +381,8 @@ async def analyze_only(file: UploadFile = File(...)):
         except Exception:
             pass
 
-# (Remaining /analyze and /structure endpoints unchanged for brevity)
+# (Övriga endpoints /analyze, /structure, finns kvar oförändrade)
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     uvicorn.run("main:app", host="0.0.0.0", port=port)
