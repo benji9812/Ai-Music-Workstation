@@ -20,6 +20,7 @@ import soundfile as sf
 
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 warnings.filterwarnings("ignore")
@@ -66,6 +67,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.mount("/audio", StaticFiles(directory=OUT_DIR), name="audio")
 
 def ensure_runtime_dirs():
     os.makedirs(UPLOAD_DIR, exist_ok=True)

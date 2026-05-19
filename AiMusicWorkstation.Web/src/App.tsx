@@ -99,6 +99,21 @@ export default function App() {
       }
   };
 
+  const loadProject = (p: SongProject) => {
+      if (p.stemsPath) {
+          const pathParts = p.stemsPath.split(/[\/\\]/);
+          const relPath = pathParts.slice(-2).join('/');
+          stems.current.drums.src = `${API_URL}/api/analysis/audio/${relPath}/drums.mp3`;
+          stems.current.bass.src = `${API_URL}/api/analysis/audio/${relPath}/bass.mp3`;
+          stems.current.other.src = `${API_URL}/api/analysis/audio/${relPath}/other.mp3`;
+          stems.current.vocals.src = `${API_URL}/api/analysis/audio/${relPath}/vocals.mp3`;
+          stems.current.drums.onloadedmetadata = () => setDuration(stems.current.drums.duration);
+      }
+      setResult({ bpm: p.bpm, key: p.key });
+      setCurrentTime(0);
+      setIsPlaying(false);
+  };
+
   const handleYoutubeImport = async () => {
       if (!urlInput) return;
       setLoading(true);
@@ -260,13 +275,21 @@ export default function App() {
           
           setResult(data);
 
-          // We don't have static files exposed yet, so we will play the uploaded file as a fallback on all stems to simulate it
-          // In the real app, this will be: src = `${API_URL}/audio/${folder}/drums.mp3`
-          const objectUrl = URL.createObjectURL(selectedFile);
-          stems.current.drums.src = objectUrl;
-          stems.current.bass.src = objectUrl;
-          stems.current.other.src = objectUrl;
-          stems.current.vocals.src = objectUrl;
+          // Play stems from proxy if available, else fallback
+          if (data.stems_path) {
+              const pathParts = data.stems_path.split(/[\/\\]/);
+              const relPath = pathParts.slice(-2).join('/');
+              stems.current.drums.src = `${API_URL}/api/analysis/audio/${relPath}/drums.mp3`;
+              stems.current.bass.src = `${API_URL}/api/analysis/audio/${relPath}/bass.mp3`;
+              stems.current.other.src = `${API_URL}/api/analysis/audio/${relPath}/other.mp3`;
+              stems.current.vocals.src = `${API_URL}/api/analysis/audio/${relPath}/vocals.mp3`;
+          } else {
+              const objectUrl = URL.createObjectURL(selectedFile);
+              stems.current.drums.src = objectUrl;
+              stems.current.bass.src = objectUrl;
+              stems.current.other.src = objectUrl;
+              stems.current.vocals.src = objectUrl;
+          }
           
           stems.current.drums.onloadedmetadata = () => setDuration(stems.current.drums.duration);
 
@@ -326,7 +349,7 @@ export default function App() {
           </div>
           <div style={{ overflowY: 'auto', flex: 1, paddingRight: '5px' }}>
               {projects.map(p => (
-                  <div key={p.id} className="glass-panel-inner mb-1 flex justify-between" style={{ cursor: 'pointer' }}>
+                  <div key={p.id} className="glass-panel-inner mb-1 flex justify-between" style={{ cursor: 'pointer' }} onClick={() => loadProject(p)}>
                     <div>
                       <div style={{ color: 'white', fontWeight: 'bold', fontSize: '13px' }}>{p.title}</div>
                       <div style={{ color: '#aaa', fontSize: '11px', marginBottom: '4px' }}>{p.artist}</div>
