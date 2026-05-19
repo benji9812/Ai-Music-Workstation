@@ -174,26 +174,44 @@ app.MapGet("/test-poolers", async (IConfiguration config) =>
     }
 
     NpgsqlConnectionStringBuilder cb;
+    string originalHost = "";
+    string originalUsername = "";
     try
     {
         if (connString.StartsWith("postgres://", StringComparison.OrdinalIgnoreCase) ||
             connString.StartsWith("postgresql://", StringComparison.OrdinalIgnoreCase))
         {
-            var normalized = NormalizeConnectionString(connString);
-            cb = new NpgsqlConnectionStringBuilder(normalized);
+            if (Uri.TryCreate(connString, UriKind.Absolute, out var uri))
+            {
+                var userInfo = uri.UserInfo.Split(':', 2);
+                originalHost = uri.Host;
+                originalUsername = userInfo.Length > 0 ? Uri.UnescapeDataString(userInfo[0]) : string.Empty;
+                cb = new NpgsqlConnectionStringBuilder
+                {
+                    Host = originalHost,
+                    Port = uri.Port > 0 ? uri.Port : 5432,
+                    Database = uri.AbsolutePath.TrimStart('/'),
+                    Username = originalUsername,
+                    Password = userInfo.Length > 1 ? Uri.UnescapeDataString(userInfo[1]) : string.Empty,
+                    SslMode = SslMode.Require
+                };
+            }
+            else
+            {
+                return Results.BadRequest("Invalid Postgres URI format in connection string.");
+            }
         }
         else
         {
             cb = new NpgsqlConnectionStringBuilder(connString);
+            originalHost = cb.Host;
+            originalUsername = cb.Username;
         }
     }
     catch (Exception ex)
     {
         return Results.BadRequest($"Failed to parse connection string: {ex.Message}");
     }
-
-    var originalHost = cb.Host;
-    var originalUsername = cb.Username;
 
     var projectRef = "";
     if (originalHost.StartsWith("db.", StringComparison.OrdinalIgnoreCase) && originalHost.EndsWith(".supabase.co", StringComparison.OrdinalIgnoreCase))
