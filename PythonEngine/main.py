@@ -588,7 +588,8 @@ async def import_url(request: ImportUrlRequest):
             "-m",
             "yt_dlp",
             "--no-playlist",
-            "--js-runtimes", "node",
+            "--js-runtimes", "deno,node",
+            "--remote-components", "ejs:github",
             "-x",  # extract audio
             "--audio-format", "mp3",
             "--audio-quality", "0",
