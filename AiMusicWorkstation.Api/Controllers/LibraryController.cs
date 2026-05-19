@@ -3,6 +3,7 @@ using AiMusicWorkstation.Domain.Repositories;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using AiMusicWorkstation.Infrastructure.Persistence;
+using AiMusicWorkstation.Infrastructure.ExternalServices;
 using Npgsql;
 
 namespace AiMusicWorkstation.Api.Controllers;
@@ -19,7 +20,9 @@ public class LibraryController : ControllerBase
     }
 
     [HttpGet("db-check")]
-    public async Task<IActionResult> DbCheck([FromServices] AiMusicWorkstationDbContext context)
+    public async Task<IActionResult> DbCheck(
+        [FromServices] AiMusicWorkstationDbContext context,
+        [FromServices] PythonEngineConfig pythonConfig)
     {
         string connectionString = "";
         string sanitizedConnString = "";
@@ -68,7 +71,8 @@ public class LibraryController : ControllerBase
                 appliedMigrations = migrations,
                 pendingMigrations = pendingMigrations,
                 connectionStringConfigured = !string.IsNullOrEmpty(connectionString),
-                sanitizedConnectionString = sanitizedConnString
+                sanitizedConnectionString = sanitizedConnString,
+                pythonEngineBaseUrl = pythonConfig.BaseUrl
             });
         }
         catch (Exception ex)
