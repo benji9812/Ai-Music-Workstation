@@ -114,6 +114,54 @@ app.MapControllers();
 // Enkel health‑endpoint för snabb koll att API:t lever
 app.MapGet("/health", () => Results.Ok(new { status = "healthy", timestamp = DateTime.UtcNow }));
 
+app.MapGet("/test-conn", (IConfiguration config) =>
+{
+    var defaultConnection = config.GetConnectionString("DefaultConnection");
+    var databaseUrl = config["DATABASE_URL"];
+    var supabaseString = config["SUPABASE_CONNECTION_STRING"];
+
+    var normDefault = NormalizeConnectionString(defaultConnection);
+    var normDatabaseUrl = NormalizeConnectionString(databaseUrl);
+    var normSupabase = NormalizeConnectionString(supabaseString);
+
+    Func<string?, string?> maskPassword = (conn) =>
+    {
+        if (string.IsNullOrEmpty(conn)) return conn;
+        try
+        {
+            var cb = new NpgsqlConnectionStringBuilder(conn);
+            if (!string.IsNullOrEmpty(cb.Password)) cb.Password = "***";
+            return cb.ConnectionString;
+        }
+        catch
+        {
+            if (conn.Contains("@"))
+            {
+                var parts = conn.Split('@');
+                var left = parts[0];
+                var right = parts[1];
+                if (left.Contains(":"))
+                {
+                    var leftParts = left.Split(':');
+                    var scheme = leftParts[0];
+                    var user = leftParts[1].TrimStart('/');
+                    return $"{scheme}://{user}:***@{right}";
+                }
+            }
+            return "[Mask Error] " + conn;
+        }
+    };
+
+    return Results.Ok(new {
+        defaultConnection = maskPassword(defaultConnection),
+        databaseUrl = maskPassword(databaseUrl),
+        supabaseString = maskPassword(supabaseString),
+        normDefault = maskPassword(normDefault),
+        normDatabaseUrl = maskPassword(normDatabaseUrl),
+        normSupabase = maskPassword(normSupabase)
+    });
+});
+
 app.Run();
 
 static string? NormalizeConnectionString(string? connectionString)
