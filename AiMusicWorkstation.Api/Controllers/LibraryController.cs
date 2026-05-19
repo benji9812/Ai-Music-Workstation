@@ -1,6 +1,8 @@
 using AiMusicWorkstation.Domain.Entities;
 using AiMusicWorkstation.Domain.Repositories;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using AiMusicWorkstation.Infrastructure.Persistence;
 
 namespace AiMusicWorkstation.Api.Controllers;
 
@@ -13,6 +15,46 @@ public class LibraryController : ControllerBase
     public LibraryController(ILibraryRepository repository)
     {
         _repository = repository ?? throw new ArgumentNullException(nameof(repository));
+    }
+
+    [HttpGet("db-check")]
+    public async Task<IActionResult> DbCheck([FromServices] AiMusicWorkstationDbContext context)
+    {
+        try
+        {
+            var canConnect = await context.Database.CanConnectAsync();
+            var migrations = await context.Database.GetAppliedMigrationsAsync();
+            var pendingMigrations = await context.Database.GetPendingMigrationsAsync();
+            
+            int projectCount = 0;
+            string tableStatus = "Unknown";
+            try
+            {
+                projectCount = await context.Projects.CountAsync();
+                tableStatus = "Exists and is accessible";
+            }
+            catch (Exception ex)
+            {
+                tableStatus = $"Error: {ex.Message}";
+            }
+
+            return Ok(new {
+                canConnect,
+                tableStatus,
+                projectCount,
+                appliedMigrations = migrations,
+                pendingMigrations = pendingMigrations,
+                connectionStringConfigured = !string.IsNullOrEmpty(context.Database.GetConnectionString())
+            });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new {
+                error = ex.Message,
+                stackTrace = ex.StackTrace,
+                innerError = ex.InnerException?.Message
+            });
+        }
     }
 
     [HttpGet("projects")]
