@@ -64,6 +64,11 @@ export default function App() {
   const [mutes, setMutes] = useState({ drums: false, bass: false, other: false, vocals: false });
   const [solos, setSolos] = useState({ drums: false, bass: false, other: false, vocals: false });
 
+  // Panel toggles
+  const [showChords, setShowChords] = useState(true);
+  const [showLyrics, setShowLyrics] = useState(true);
+  const [showStructure, setShowStructure] = useState(true);
+
   // API Integration States
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [structure, setStructure] = useState<StructureResult | null>(null);
@@ -330,6 +335,12 @@ export default function App() {
 
   return (
     <div className="app-container">
+      {/* Top Navigation / Toolbar */}
+      <div style={{ position: 'absolute', top: '15px', right: '20px', zIndex: 100, display: 'flex', gap: '10px' }}>
+         <button className={`btn-primary ${!showChords ? 'opacity-50' : ''}`} onClick={() => setShowChords(!showChords)}>🎹 Chords</button>
+         <button className={`btn-primary ${!showLyrics ? 'opacity-50' : ''}`} onClick={() => setShowLyrics(!showLyrics)}>🎤 Lyrics</button>
+         <button className={`btn-primary ${!showStructure ? 'opacity-50' : ''}`} onClick={() => setShowStructure(!showStructure)}>📑 Structure</button>
+      </div>
       
       {/* COLUMN 1: LIBRARY */}
       <div className="col-library">
@@ -366,6 +377,7 @@ export default function App() {
       </div>
 
       {/* COLUMN 2: CHORDS & SCALES */}
+      {showChords && (
       <div className="col-chords">
         <div className="glass-panel" style={{ flex: 1 }}>
           <div className="glass-panel-inner text-center mb-2" style={{ borderBottom: '1px solid rgba(0,240,255,0.2)' }}>
@@ -399,6 +411,7 @@ export default function App() {
           )}
         </div>
       </div>
+      )}
 
       {/* COLUMN 3: MAIN WORKSTATION (Now strictly matches Desktop layout) */}
       <div className="col-main">
@@ -464,6 +477,7 @@ export default function App() {
         </div>
 
         {/* LYRICS PANEL IN THE MIDDLE */}
+        {showLyrics && (
         <div className="glass-panel" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
           <div className="flex justify-between items-center mb-2">
             <span className="section-title" style={{ marginBottom: 0 }}>LYRICS</span>
@@ -494,6 +508,7 @@ export default function App() {
             )}
           </div>
         </div>
+        )}
 
         {/* Mixer */}
         <div className="glass-panel" style={{ paddingBottom: '4px' }}>
@@ -535,6 +550,7 @@ export default function App() {
       </div>
 
       {/* COLUMN 4: SECTIONS */}
+      {showStructure && (
       <div className="col-sections">
         <div className="glass-panel" style={{ flex: 1 }}>
           <div className="flex justify-between items-center mb-2">
@@ -556,6 +572,7 @@ export default function App() {
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 }
