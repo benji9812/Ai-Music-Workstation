@@ -170,18 +170,35 @@ def transcribe_with_groq(audio_path: str):
             language="en"
         )
     segments = []
-    if hasattr(transcription, "segments") and transcription.segments:
-        for s in transcription.segments:
+    
+    # Robustly convert response to dict/object access
+    if isinstance(transcription, dict):
+        raw_segments = transcription.get("segments")
+        raw_text = transcription.get("text", "")
+    else:
+        raw_segments = getattr(transcription, "segments", None)
+        raw_text = getattr(transcription, "text", "")
+
+    if raw_segments:
+        for s in raw_segments:
+            if isinstance(s, dict):
+                start = s.get("start", 0.0)
+                end = s.get("end", 0.0)
+                text = s.get("text", "").strip()
+            else:
+                start = getattr(s, "start", 0.0)
+                end = getattr(s, "end", 0.0)
+                text = getattr(s, "text", "").strip()
             segments.append({
-                "start": s.start,
-                "end": s.end,
-                "text": s.text.strip()
+                "start": start,
+                "end": end,
+                "text": text
             })
     else:
         segments.append({
             "start": 0.0,
             "end": 0.0,
-            "text": transcription.text.strip() if hasattr(transcription, "text") else ""
+            "text": raw_text.strip() if raw_text else ""
         })
     return segments
 
