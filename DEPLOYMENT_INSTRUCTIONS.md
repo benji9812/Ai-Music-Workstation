@@ -1,132 +1,192 @@
-AI Music Workstation: Komplett Deploy-Manual (2026)
+# AI Music Workstation — Deployment Instructions
 
-Gäller branch: Solution/Remodelling_To_Web
-Repo: benji9812/Ai-Music-Workstation
+> Branch: `Solution/Remodelling_To_Web` | Repo: `benji9812/Ai-Music-Workstation`
 
-______________________________________
-1.  Lokalt - Allt från start till slut
-______________________________________
+---
 
-A) Krav (på din maskin/VM):
+## 1. Local Development
 
-Python 3.11+
-.NET 10 SDK
-Node.js (18+) och npm
-ffmpeg, Docker (valfritt)
-God internetuppkoppling
+### Prerequisites
+- Python 3.11+ and ffmpeg
+- .NET 10 SDK
+- Node.js 18+ and npm
+- (Optional) Docker
 
-B) Klona projektet
-
-bash
+### Clone the repository
+```bash
 git clone https://github.com/benji9812/Ai-Music-Workstation.git
 cd Ai-Music-Workstation
 git checkout Solution/Remodelling_To_Web
+```
 
-C) Python backend
-
-bash
+### A. Python Backend
+```bash
 cd PythonEngine
 python -m venv venv
-# Windows:
-venv\Scripts\activate
-# Mac/Linux:
-source venv/bin/activate
-
+source venv/bin/activate        # Windows: venv\Scripts\activate
 pip install --upgrade pip
 pip install -r requirements.txt
 
-# Lägg .env i PythonEngine med:
-# GOOGLE_API_KEY=...
-# GROQ_API_KEY=...
-# (fyll på med secrets du behöver – finns .env.example)
-# Starta backend:
+# Create .env from the example, then fill in your API keys
+cp .env.example .env
+
 uvicorn main:app --host 0.0.0.0 --port 8000
-Swagger-UI: http://localhost:8000/docs
+# Swagger UI: http://localhost:8000/docs
+```
 
-D) API Gateway
+`PythonEngine/.env` must contain:
+```
+GOOGLE_API_KEY=<your Gemini API key>
+GROQ_API_KEY=<your Groq API key>
+```
 
-bash
-cd ../AiMusicWorkstation.Api
+### B. API Gateway (.NET)
+```bash
+cd AiMusicWorkstation.Api
 dotnet restore
 dotnet build
 dotnet run
-# (startar ofta på https://localhost:7107 eller http://localhost:5082)
-Scalar API docs: https://localhost:7107/scalar/v1
+# Scalar UI: https://localhost:7107/scalar/v1
+```
 
-E) React/Frontend
+For local dev with a database, use `dotnet user-secrets` (never commit real credentials):
+```bash
+cd AiMusicWorkstation.Api
+dotnet user-secrets set "ConnectionStrings:DefaultConnection" "postgresql://user:pass@host:5432/db"
+```
 
-bash
-cd ../AiMusicWorkstation.Web
-cp .env.example .env     # editera in rätt VITE_API_URL (från din API-proxy)
+### C. React Frontend
+```bash
+cd AiMusicWorkstation.Web
+cp .env.example .env            # edit VITE_API_URL to point to your API gateway
 npm install
 npm run dev
 # http://localhost:5173
+```
 
-______________________
-2. Deployment på Cloud
-______________________
+`AiMusicWorkstation.Web/.env` must contain:
+```
+VITE_API_URL=http://localhost:5082
+```
 
-A) Python backend på Azure VM (rekommenderas)
+### Automated setup (Windows PowerShell)
+```powershell
+.\setup-all.ps1
+```
 
-Skapa Azure VM (Ubuntu/Windows), öppna port 8000.
-Klona repo, följ steg C ovan.
-Kör med screen/tmux/systemd:
-bash
-nohup uvicorn main:app --host 0.0.0.0 --port 8000 &
-Externa anrop: http://<din-azure-vm>:8000/docs
+---
 
-B) API Gateway på Azure (eller Render)
+## 2. Cloud Deployment
 
-Bygg Docker-image (eller hosta lokalt/hosta i cloud).
-Se till att env-vars för Pythons backend (PythonEngine__BaseUrl) mappas rätt mot din backend-Vm:s IP.
-Ange din databas-SUPABASE-connection-string.
-Kan även deployas direkt till Azure Web App (se README).
+### A. PythonEngine on Render (recommended free tier)
 
-C) Frontend på Vercel
+1. Go to [render.com](https://render.com) → **New** → **Web Service**
+2. Connect `benji9812/Ai-Music-Workstation`
+3. Settings:
+   - **Branch**: `Solution/Remodelling_To_Web`
+   - **Root Directory**: `PythonEngine`
+   - **Runtime**: Docker
+   - **Dockerfile path**: `./Dockerfile`
+   - **Health Check Path**: `/health`
+4. **Environment Variables** (set in Render dashboard — never in git):
+   - `GOOGLE_API_KEY` = your Gemini key
+   - `GROQ_API_KEY` = your Groq key
+5. Deploy → note your URL: `https://ai-music-python-engine-XXXX.onrender.com`
+6. Verify: `https://ai-music-python-engine-XXXX.onrender.com/docs`
 
-Gå till vercel.com
-“New Project” → koppla Github-repo.
-Framework: Vite
-Root Directory: AiMusicWorkstation.Web
-Environment: VITE_API_URL=https://din-api-url
-Deploy
-Kopiera slut-URL och kontrollera CORS
+> The `render.yaml` at the repo root pre-configures both services for Render.
+> After connecting the repo in Render, use **"Use render.yaml"** to apply it.
 
-D) Docker - Allt-i-ett
-Du kan (på egen server/VM) bygga och köra båda backend och API via Docker:
+### B. PythonEngine on Azure VM (alternative)
 
-bash
-cd PythonEngine
-docker build -t ai-python-engine .
-docker run -p 8000:8000 --env-file .env ai-python-engine
+1. Create an Ubuntu VM on Azure, open inbound port 8000
+2. SSH in, clone repo, follow the local Python setup steps above
+3. Run persistently with systemd or screen:
+   ```bash
+   nohup uvicorn main:app --host 0.0.0.0 --port 8000 &
+   ```
+4. External URL: `http://<vm-public-ip>:8000`
 
-cd ../AiMusicWorkstation.Api
-docker build -t ai-music-api .
+### C. AiMusicWorkstation.Api on Render
+
+1. **New** → **Web Service** → same repo
+2. Settings:
+   - **Root Directory**: `.` (repo root)
+   - **Runtime**: Docker
+   - **Dockerfile path**: `AiMusicWorkstation.Api/Dockerfile`
+   - **Health Check Path**: `/health`
+3. **Environment Variables**:
+   - `DATABASE_URL` = your Supabase postgresql:// URI
+   - `PythonEngine__BaseUrl` = `https://ai-music-python-engine-XXXX.onrender.com/`
+4. Deploy → note your URL: `https://ai-music-api-XXXX.onrender.com`
+5. Verify: `https://ai-music-api-XXXX.onrender.com/scalar/v1`
+
+### D. AiMusicWorkstation.Api via Docker (any host)
+
+```bash
+# Build (from repo root)
+docker build -t ai-music-api -f AiMusicWorkstation.Api/Dockerfile .
+
+# Run
 docker run -p 8080:8080 \
-  -e DATABASE_URL=... \
-  -e PythonEngine__BaseUrl=http://ai-python-engine:8000/ \
+  -e DATABASE_URL="postgresql://user:pass@host:5432/db" \
+  -e PythonEngine__BaseUrl="https://your-python-engine.onrender.com/" \
   ai-music-api
+```
 
-_________________________________
-3.  Secrets/Filer att skapa själv
-_________________________________
+### E. React Frontend on Vercel
 
-.env.example finns i varje huvud-mapp med alla "public" env-vars.
-Alltid skapa egen .env – lägg aldrig hemliga nycklar i git!
+1. Go to [vercel.com](https://vercel.com) → **New Project** → import `benji9812/Ai-Music-Workstation`
+2. Settings:
+   - **Framework Preset**: Vite
+   - **Root Directory**: `AiMusicWorkstation.Web`
+3. **Environment Variables** (in Vercel project settings):
+   - `VITE_API_URL` = `https://ai-music-api-XXXX.onrender.com`
+4. Deploy → `https://ai-music-workstation.vercel.app`
 
-____________
-4.  Workflow
-____________
+> Vercel auto-deploys on every push to the configured branch.
+> No GitHub Actions step is needed for Vercel deploys.
 
-Cloud deploy på Vercel = automatisk
-GitHub Actions för build/test = automatisk vid push/PR
-Desktop/workflows nu ersatt/dokumenterad (se .github/workflows/)
-README och AI_MUSIC_WORKSTATION_REFERENCE.md pekar alltid ut exakt deploysteg
+---
 
-______________________________
-5.  Skicka till vänner/testare
-______________________________
+## 3. Database (Supabase)
 
-Länka din frontend (Vercel), API (Azure/Render), och backend (Azure VM el liknande)
-De kan även köra lokalt – skicka denna manual!
-All kod/index finns och är färdig för feedback
+1. Create a project at [supabase.com](https://supabase.com)
+2. Copy the connection string from **Settings → Database → Connection string → URI**
+3. Supply it to the API via `DATABASE_URL` environment variable
+4. Run EF Core migrations:
+   ```bash
+   cd AiMusicWorkstation.Api
+   dotnet ef database update
+   ```
+
+---
+
+## 4. Required Secrets Summary
+
+| Secret | Where to set | Description |
+|--------|-------------|-------------|
+| `GOOGLE_API_KEY` | Render/Azure env var | Google Gemini API key |
+| `GROQ_API_KEY` | Render/Azure env var | Groq Whisper API key |
+| `DATABASE_URL` | Render/Azure env var | Supabase PostgreSQL URI |
+| `PythonEngine__BaseUrl` | Render/Azure env var | URL of deployed Python backend |
+| `VITE_API_URL` | Vercel env var | URL of deployed API gateway |
+
+> All secrets are configured in the cloud dashboard — **nothing secret is ever committed to git**.
+> Use the `.env.example` files in `PythonEngine/` and `AiMusicWorkstation.Web/` as templates.
+
+---
+
+## 5. GitHub Actions
+
+- **`ci.yml`**: Builds and tests the .NET solution on every push/PR to `dev`/`main`
+- **`web-deploy.yml`**: Documents the Vercel watch path (`AiMusicWorkstation.Web/**`); Vercel handles actual deploys
+
+---
+
+## 6. Sharing with Teammates
+
+- Frontend (Vercel): `https://ai-music-workstation.vercel.app`
+- API docs (Scalar): `https://ai-music-api-XXXX.onrender.com/scalar/v1`
+- Python docs (Swagger): `https://ai-music-python-engine-XXXX.onrender.com/docs`
+- For local setup: share this file and `README.md`

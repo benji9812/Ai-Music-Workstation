@@ -381,7 +381,119 @@ async def analyze_only(file: UploadFile = File(...)):
         except Exception:
             pass
 
-# (Övriga endpoints /analyze, /structure, finns kvar oförändrade)
+
+@app.post("/analyze")
+async def analyze(file: UploadFile = File(...)):
+    """Full analysis: Demucs stem separation + Groq Whisper lyrics + BPM/key/chords."""
+    total_start = now()
+    file_path = None
+    stems_folder = None
+    try:
+        ensure_runtime_dirs()
+        if not file.filename:
+            raise HTTPException(status_code=400, detail="Ingen fil skickades.")
+        log_step("📥 /analyze request mottagen")
+        safe_filename = sanitize_filename(file.filename)
+        file_path = os.path.join(UPLOAD_DIR, safe_filename)
+        contents = await file.read()
+        with open(file_path, "wb") as f:
+            f.write(contents)
+        log_step(f"💾 Fil sparad: {file_path} ({elapsed(total_start)}s)")
+
+        load_start = now()
+        y_audio, sr = librosa.load(
+            file_path,
+            sr=AUDIO_LOAD_SR,
+            mono=AUDIO_LOAD_MONO,
+            duration=AUDIO_ANALYZE_DURATION
+        )
+        log_step(f"🎵 Audio laddad ({elapsed(load_start)}s)")
+
+        bpm = detect_bpm_robust(y_audio, sr)
+        time_signature = detect_time_signature(y_audio, sr, bpm)
+        log_step(f"🥁 BPM: {bpm}, Taktart: {time_signature}/4")
+
+        key = detect_key(y_audio, sr)
+        log_step(f"🎹 Tonart: {key}")
+
+        chords = get_chords(file_path)
+        log_step(f"🎸 Ackord: {len(chords)} detekterade")
+
+        demucs_start = now()
+        stems_folder, drums_path, bass_path, other_path, vocals_path = run_demucs(file_path)
+        log_step(f"🎚️ Demucs klart ({elapsed(demucs_start)}s)")
+
+        lyrics = []
+        try:
+            clean_vocals = prepare_vocals_for_whisper(vocals_path)
+            lyrics = transcribe_with_groq(clean_vocals)
+            if clean_vocals != vocals_path:
+                cleanup_file(clean_vocals)
+            log_step(f"🗣️ Lyrics transkriberade: {len(lyrics)} segment")
+        except Exception as e:
+            log_step(f"⚠️ Lyrics-transkription misslyckades: {e}")
+
+        log_step(f"✅ /analyze klar på {elapsed(total_start)}s")
+        return {
+            "status": "success",
+            "bpm": bpm,
+            "key": key,
+            "time_signature": time_signature,
+            "chords": chords,
+            "lyrics": lyrics,
+            "stems_path": stems_folder or "",
+            "original_path": file_path,
+            "duration_seconds": elapsed(total_start),
+            "analysis_window_seconds": AUDIO_ANALYZE_DURATION
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        print("\n============== Traceback ==============")
+        print(traceback.format_exc())
+        print("============== End Traceback ==============")
+        raise HTTPException(status_code=500, detail=f"Analyze failed: {str(e)}")
+    finally:
+        try:
+            await file.close()
+        except Exception:
+            pass
+
+
+class StructureRequest(BaseModel):
+    artist: str
+    title: str
+    duration: float
+
+
+@app.post("/structure")
+async def structure(request: StructureRequest):
+    """Song structure analysis via Gemini 2.5 Flash."""
+    try:
+        gemini = get_gemini_client()
+        prompt = (
+            f"Analyze the song structure of '{request.title}' by '{request.artist}' "
+            f"(duration: {request.duration:.1f} seconds). "
+            "Return a JSON array of sections with fields: "
+            "'label' (e.g. Intro, Verse, Chorus, Bridge, Outro), "
+            "'start' (seconds, float), 'end' (seconds, float). "
+            "Only return valid JSON, no extra text."
+        )
+        response = gemini.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt
+        )
+        raw = response.text.strip()
+        # Strip markdown code fences if present
+        if raw.startswith("```"):
+            raw = re.sub(r"^```[a-z]*\n?", "", raw)
+            raw = re.sub(r"\n?```$", "", raw)
+        sections = json.loads(raw)
+        return {"status": "success", "sections": sections}
+    except Exception as e:
+        log_step(f"⚠️ /structure misslyckades: {e}")
+        raise HTTPException(status_code=500, detail=f"Structure analysis failed: {str(e)}")
+
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
