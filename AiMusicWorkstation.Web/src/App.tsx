@@ -324,6 +324,8 @@ export default function App() {
               setStructure(structData);
           }
           
+          fetchLibrary();
+          
       } catch (e: any) {
           setError("Network error: " + e.message);
       }

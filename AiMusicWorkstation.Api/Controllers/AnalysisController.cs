@@ -1,5 +1,9 @@
 using AiMusicWorkstation.Infrastructure.ExternalServices;
+using AiMusicWorkstation.Domain.Entities;
+using AiMusicWorkstation.Domain.Repositories;
 using Microsoft.AspNetCore.Mvc;
+using System.Text.Json;
+using System.IO;
 
 namespace AiMusicWorkstation.Api.Controllers;
 
@@ -8,10 +12,12 @@ namespace AiMusicWorkstation.Api.Controllers;
 public class AnalysisController : ControllerBase
 {
     private readonly PythonEngineClient _client;
+    private readonly ILibraryRepository _repository;
 
-    public AnalysisController(PythonEngineClient client)
+    public AnalysisController(PythonEngineClient client, ILibraryRepository repository)
     {
         _client = client ?? throw new ArgumentNullException(nameof(client));
+        _repository = repository ?? throw new ArgumentNullException(nameof(repository));
     }
 
     // GET /api/analysis/health
@@ -30,6 +36,46 @@ public class AnalysisController : ControllerBase
             return BadRequest(new { status = "error", message = "File missing" });
 
         string response = await _client.AnalyzeAsync(file);
+        
+        try
+        {
+            using var doc = JsonDocument.Parse(response);
+            var root = doc.RootElement;
+            if (root.TryGetProperty("status", out var statusProp) && statusProp.GetString() == "success")
+            {
+                string title = Path.GetFileNameWithoutExtension(file.FileName);
+                string artist = "Local Upload";
+                double bpm = root.TryGetProperty("bpm", out var bpmProp) ? bpmProp.GetDouble() : 120.0;
+                string key = root.TryGetProperty("key", out var keyProp) && keyProp.ValueKind != JsonValueKind.Null ? keyProp.GetString() : "C";
+                string stemsPath = root.TryGetProperty("stems_path", out var stemsProp) && stemsProp.ValueKind != JsonValueKind.Null ? stemsProp.GetString() : "";
+                int timeSig = root.TryGetProperty("time_signature", out var timeSigProp) ? timeSigProp.GetInt32() : 4;
+                double durationSeconds = root.TryGetProperty("duration_seconds", out var durationProp) ? durationProp.GetDouble() : 180.0;
+
+                var project = new SongProject
+                {
+                    Id = Guid.NewGuid().ToString(),
+                    Title = title,
+                    Artist = artist,
+                    Bpm = bpm,
+                    Key = key,
+                    StemsPath = stemsPath,
+                    OriginalPath = stemsPath,
+                    Duration = TimeSpan.FromSeconds(durationSeconds),
+                    TimeSignature = timeSig,
+                    Genre = "Uncategorized",
+                    DateAdded = DateTime.Now,
+                    KeySource = KeySource.Generated
+                };
+
+                await _repository.AddAsync(project);
+                await _repository.SaveAsync();
+            }
+        }
+        catch (Exception)
+        {
+            // Do not fail request if db saving fails
+        }
+
         return Content(response, "application/json");
     }
 

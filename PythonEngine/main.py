@@ -533,6 +533,8 @@ async def import_url(request: ImportUrlRequest):
         url = request.url
         is_spotify = False
         spotify_query = None
+        title = "Unknown Track"
+        artist = "Unknown Artist"
 
         if "spotify.com" in url.lower() and "/track/" in url.lower():
             is_spotify = True
@@ -595,6 +597,34 @@ async def import_url(request: ImportUrlRequest):
 
             if not spotify_query:
                 raise RuntimeError("Could not resolve Spotify track metadata.")
+        else:
+            # Try to get title from YouTube URL
+            try:
+                cookies_path = os.path.join(BASE_DIR, "cookies.txt")
+                info_cmd = [
+                    sys.executable,
+                    "-m",
+                    "yt_dlp",
+                    "--get-title",
+                    "--no-playlist",
+                ]
+                if os.path.exists(cookies_path):
+                    info_cmd.extend(["--cookies", cookies_path])
+                info_cmd.append(url)
+                
+                title_result = subprocess.run(info_cmd, capture_output=True, text=True, timeout=20)
+                if title_result.returncode == 0 and title_result.stdout:
+                    raw_title = title_result.stdout.strip()
+                    if raw_title:
+                        # Try to parse artist from title if it has " - "
+                        if " - " in raw_title:
+                            parts = raw_title.split(" - ", 2)
+                            artist = parts[0].strip()
+                            title = parts[1].strip()
+                        else:
+                            title = raw_title
+            except Exception as e:
+                log_step(f"⚠️ Could not get YouTube title: {e}")
 
         # 1. Download with yt-dlp (run as a python module to guarantee environment safety)
         unique_id = uuid.uuid4().hex[:8]
@@ -680,6 +710,8 @@ async def import_url(request: ImportUrlRequest):
         log_step(f"✅ /import-url complete in {elapsed(total_start)}s")
         return {
             "status": "success",
+            "title": title,
+            "artist": artist,
             "bpm": bpm,
             "key": key,
             "time_signature": time_signature,
