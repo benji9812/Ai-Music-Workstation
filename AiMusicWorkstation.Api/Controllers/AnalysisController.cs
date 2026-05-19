@@ -54,6 +54,20 @@ public class AnalysisController : ControllerBase
         string response = await _client.GetStructureAsync(request);
         return Content(response, "application/json");
     }
+
+    // GET /api/analysis/audio/{path}
+    [HttpGet("audio/{*path}")]
+    public async Task<IActionResult> GetAudio(string path, [FromServices] PythonEngineConfig config, [FromServices] IHttpClientFactory clientFactory)
+    {
+        var client = clientFactory.CreateClient();
+        var response = await client.GetAsync($"{config.BaseUrl.TrimEnd('/')}/audio/{path}", HttpCompletionOption.ResponseHeadersRead);
+        
+        if (!response.IsSuccessStatusCode)
+            return StatusCode((int)response.StatusCode, "Audio not found on Python engine.");
+            
+        var stream = await response.Content.ReadAsStreamAsync();
+        return File(stream, "audio/mpeg", enableRangeProcessing: true);
+    }
 }
 
 public record StructureRequest(string artist, string title, double duration);
