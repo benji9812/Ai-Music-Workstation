@@ -74,7 +74,7 @@ public class ImportController : ControllerBase
                 StemsPath = "", // This will be parsed in frontend
                 Bpm = 0,
                 Key = "",
-                CreatedAt = DateTime.UtcNow
+                DateAdded = DateTime.UtcNow
             };
             
             await _repository.AddAsync(project);
