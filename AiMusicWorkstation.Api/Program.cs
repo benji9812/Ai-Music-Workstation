@@ -249,27 +249,30 @@ app.MapGet("/test-poolers", async (IConfiguration config) =>
 
     foreach (var region in regions)
     {
-        var poolerHost = $"aws-0-{region}.pooler.supabase.com";
-        var testCb = new NpgsqlConnectionStringBuilder(cb.ConnectionString)
+        foreach (var prefix in new[] { "aws-0", "aws-1" })
         {
-            Host = poolerHost,
-            Username = originalUsername.EndsWith("." + projectRef, StringComparison.OrdinalIgnoreCase) 
-                ? originalUsername 
-                : $"{originalUsername}.{projectRef}"
-        };
+            var poolerHost = $"{prefix}-{region}.pooler.supabase.com";
+            var testCb = new NpgsqlConnectionStringBuilder(cb.ConnectionString)
+            {
+                Host = poolerHost,
+                Username = originalUsername.EndsWith("." + projectRef, StringComparison.OrdinalIgnoreCase) 
+                    ? originalUsername 
+                    : $"{originalUsername}.{projectRef}"
+            };
 
-        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
-        try
-        {
-            using var conn = new NpgsqlConnection(testCb.ConnectionString);
-            await conn.OpenAsync();
-            stopwatch.Stop();
-            results.Add(new { region, host = poolerHost, success = true, timeMs = stopwatch.ElapsedMilliseconds, message = "Success" });
-        }
-        catch (Exception ex)
-        {
-            stopwatch.Stop();
-            results.Add(new { region, host = poolerHost, success = false, timeMs = stopwatch.ElapsedMilliseconds, message = ex.Message });
+            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+            try
+            {
+                using var conn = new NpgsqlConnection(testCb.ConnectionString);
+                await conn.OpenAsync();
+                stopwatch.Stop();
+                results.Add(new { region, host = poolerHost, success = true, timeMs = stopwatch.ElapsedMilliseconds, message = "Success" });
+            }
+            catch (Exception ex)
+            {
+                stopwatch.Stop();
+                results.Add(new { region, host = poolerHost, success = false, timeMs = stopwatch.ElapsedMilliseconds, message = ex.Message });
+            }
         }
     }
 
