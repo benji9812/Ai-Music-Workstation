@@ -20,6 +20,16 @@ type StructureResult = {
     error?: string;
 };
 
+type SongProject = {
+    id: string;
+    title: string;
+    artist: string;
+    genre: string;
+    bpm: number;
+    key: string;
+    stemsPath: string;
+};
+
 const API_URL = import.meta.env.VITE_API_URL ?? "";
 
 // Web Audio Context for Metronome beep
@@ -60,6 +70,58 @@ export default function App() {
   const [structure, setStructure] = useState<StructureResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  const [projects, setProjects] = useState<SongProject[]>([]);
+  const [urlInput, setUrlInput] = useState("");
+
+  const fetchLibrary = async () => {
+      try {
+          const resp = await fetch(`${API_URL}/api/library/projects`);
+          if (resp.ok) {
+              const data = await resp.json();
+              setProjects(data);
+          }
+      } catch (e) {
+          console.error("Failed to fetch library", e);
+      }
+  };
+
+  useEffect(() => {
+      fetchLibrary();
+  }, []);
+
+  const deleteProject = async (id: string) => {
+      try {
+          await fetch(`${API_URL}/api/library/projects/${id}`, { method: 'DELETE' });
+          fetchLibrary();
+      } catch (e) {
+          console.error("Failed to delete project", e);
+      }
+  };
+
+  const handleYoutubeImport = async () => {
+      if (!urlInput) return;
+      setLoading(true);
+      setError(null);
+      try {
+          const resp = await fetch(`${API_URL}/api/import/youtube`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ url: urlInput }),
+          });
+          
+          const data = await resp.json();
+          if (!resp.ok || data.error) {
+              setError(data.error || data.detail || resp.statusText);
+          } else {
+              setResult(data);
+              fetchLibrary(); // Refresh library after import
+          }
+      } catch (e: any) {
+          setError("Network error: " + e.message);
+      }
+      setLoading(false);
+  };
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const lyricsScrollRef = useRef<HTMLDivElement>(null);
@@ -263,16 +325,21 @@ export default function App() {
             </select>
           </div>
           <div style={{ overflowY: 'auto', flex: 1, paddingRight: '5px' }}>
-              <div className="glass-panel-inner mb-1 flex justify-between" style={{ cursor: 'pointer' }}>
-                <div>
-                  <div style={{ color: 'white', fontWeight: 'bold', fontSize: '13px' }}>Cyberpunk Beat 1</div>
-                  <div style={{ color: '#aaa', fontSize: '11px', marginBottom: '4px' }}>Benji</div>
-                </div>
-                <div className="flex flex-col gap-1">
-                    <button className="btn-icon" style={{ fontSize: '10px' }}>✏️</button>
-                    <button className="btn-icon" style={{ fontSize: '10px', color: '#ff4444' }}>❌</button>
-                </div>
-              </div>
+              {projects.map(p => (
+                  <div key={p.id} className="glass-panel-inner mb-1 flex justify-between" style={{ cursor: 'pointer' }}>
+                    <div>
+                      <div style={{ color: 'white', fontWeight: 'bold', fontSize: '13px' }}>{p.title}</div>
+                      <div style={{ color: '#aaa', fontSize: '11px', marginBottom: '4px' }}>{p.artist}</div>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                        <button className="btn-icon" style={{ fontSize: '10px' }}>✏️</button>
+                        <button className="btn-icon" style={{ fontSize: '10px', color: '#ff4444' }} onClick={(e) => { e.stopPropagation(); deleteProject(p.id); }}>❌</button>
+                    </div>
+                  </div>
+              ))}
+              {projects.length === 0 && (
+                  <div style={{ color: '#aaa', fontSize: '11px', textAlign: 'center', marginTop: '10px' }}>Library is empty</div>
+              )}
           </div>
         </div>
       </div>
@@ -328,8 +395,8 @@ export default function App() {
         {/* Import Section */}
         <div className="glass-panel">
           <div className="flex gap-2 mb-2">
-            <input type="text" className="input-dark" placeholder="Paste YouTube or Spotify Link here..." />
-            <button className="btn-accent" style={{ background: 'rgba(255,0,0,0.1)', color: '#ff4444', borderColor: '#ff4444' }}>⬇ DOWNLOAD</button>
+            <input type="text" className="input-dark" placeholder="Paste YouTube or Spotify Link here..." value={urlInput} onChange={(e) => setUrlInput(e.target.value)} />
+            <button className="btn-accent" style={{ background: 'rgba(255,0,0,0.1)', color: '#ff4444', borderColor: '#ff4444' }} onClick={handleYoutubeImport} disabled={loading}>⬇ DOWNLOAD</button>
           </div>
           <input type="file" accept="audio/*" ref={fileInputRef} onChange={handleFileSelect} style={{ display: 'none' }} />
           <button className="btn-primary" style={{ padding: '12px', width: '100%' }} onClick={triggerFileInput} disabled={loading}>
