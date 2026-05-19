@@ -304,7 +304,7 @@ static string? NormalizeConnectionString(string? connectionString)
                     if (parts.Length == 4)
                     {
                         var projectRef = parts[1];
-                        connBuilder.Host = "aws-0-eu-north-1.pooler.supabase.com";
+                        connBuilder.Host = "aws-1-eu-north-1.pooler.supabase.com";
                         if (!string.IsNullOrEmpty(connUsername) && !connUsername.EndsWith("." + projectRef, StringComparison.OrdinalIgnoreCase))
                         {
                             connBuilder.Username = $"{connUsername}.{projectRef}";
@@ -337,7 +337,7 @@ static string? NormalizeConnectionString(string? connectionString)
         if (parts.Length == 4)
         {
             var projectRef = parts[1];
-            host = "aws-0-eu-north-1.pooler.supabase.com";
+            host = "aws-1-eu-north-1.pooler.supabase.com";
             if (!string.IsNullOrEmpty(username) && !username.EndsWith("." + projectRef, StringComparison.OrdinalIgnoreCase))
             {
                 username = $"{username}.{projectRef}";
