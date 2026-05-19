@@ -26,7 +26,9 @@ from pydantic import BaseModel
 warnings.filterwarnings("ignore")
 
 BASE_DIR = Path(__file__).resolve().parent
+# Load environment variables from both root and local .env if available
 load_dotenv(dotenv_path=BASE_DIR.parent / ".env")
+load_dotenv(dotenv_path=BASE_DIR / ".env")
 
 UPLOAD_DIR = os.path.join(BASE_DIR, "temp_uploads")
 OUT_DIR = os.path.join(BASE_DIR, "separated")
