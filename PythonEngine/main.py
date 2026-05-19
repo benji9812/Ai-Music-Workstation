@@ -509,17 +509,62 @@ async def import_url(request: ImportUrlRequest):
         ensure_runtime_dirs()
         log_step(f"📥 /import-url request: {request.url}")
 
-        # 1. Download with yt-dlp
+        url = request.url
+        is_spotify = False
+        spotify_query = None
+
+        if "spotify.com" in url.lower() and "/track/" in url.lower():
+            is_spotify = True
+            log_step("🟢 Spotify track URL detected. Fetching track metadata...")
+            # Extract track ID
+            track_id_match = re.search(r"track/([a-zA-Z0-9]{22})", url)
+            if track_id_match:
+                track_id = track_id_match.group(1)
+            else:
+                clean_url = url.split("?")[0]
+                track_id = clean_url.split("/")[-1]
+            
+            # Scrape Spotify page for metadata
+            try:
+                import urllib.request
+                from html import unescape
+                req = urllib.request.Request(
+                    f"https://open.spotify.com/track/{track_id}",
+                    headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
+                )
+                with urllib.request.urlopen(req, timeout=10) as response:
+                    html = response.read().decode("utf-8")
+                
+                title_match = re.search(r"<title>(.*?)</title>", html, re.IGNORECASE)
+                if title_match:
+                    page_title = unescape(title_match.group(1))
+                    # Expected format: "Face Down - song and lyrics by The Red Jumpsuit Apparatus | Spotify"
+                    match = re.search(r"^(.*?) - (?:song and lyrics|song|single|EP|album) by (.*?) \| Spotify$", page_title, re.IGNORECASE)
+                    if match:
+                        title = match.group(1).strip()
+                        artist = match.group(2).strip()
+                        spotify_query = f"{artist} - {title} audio"
+                        log_step(f"✅ Scraped Spotify Metadata: '{artist}' - '{title}'")
+            except Exception as e:
+                log_step(f"⚠️ Spotify metadata scraping failed: {e}")
+
+            if not spotify_query:
+                raise RuntimeError("Could not resolve Spotify track metadata.")
+
+        # 1. Download with yt-dlp (run as a python module to guarantee environment safety)
         unique_id = uuid.uuid4().hex[:8]
         output_template = os.path.join(UPLOAD_DIR, f"dl_{unique_id}.%(ext)s")
+        download_target = f"ytsearch1:{spotify_query}" if is_spotify else url
         cmd = [
-            "yt-dlp",
+            sys.executable,
+            "-m",
+            "yt_dlp",
             "--no-playlist",
             "-x",  # extract audio
             "--audio-format", "mp3",
             "--audio-quality", "0",
             "-o", output_template,
-            request.url,
+            download_target,
         ]
         log_step(f"⬇️ Running yt-dlp: {' '.join(cmd)}")
         dl_start = now()

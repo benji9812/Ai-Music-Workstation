@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Configuration;
 using SpotifyAPI.Web;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -121,11 +121,39 @@ namespace AiMusicWorkstation.Infrastructure.ExternalServices
             {
                 string id = ExtractSpotifyId(url);
                 if (string.IsNullOrEmpty(id)) return null;
-                var spotify = await GetSpotifyClient();
-                var track = await spotify.Tracks.Get(id);
-                return (track.Artists[0].Name, track.Name);
+
+                if (!string.IsNullOrEmpty(_spotifyClientId) && !string.IsNullOrEmpty(_spotifyClientSecret))
+                {
+                    try
+                    {
+                        var spotify = await GetSpotifyClient();
+                        var track = await spotify.Tracks.Get(id);
+                        return (track.Artists[0].Name, track.Name);
+                    }
+                    catch
+                    {
+                        // Fallback to scraping
+                    }
+                }
+
+                using (var client = new HttpClient())
+                {
+                    client.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+                    var html = await client.GetStringAsync($"https://open.spotify.com/track/{id}");
+                    var titleMatch = Regex.Match(html, @"<title>(.*?)</title>", RegexOptions.IgnoreCase);
+                    if (titleMatch.Success)
+                    {
+                        string pageTitle = System.Net.WebUtility.HtmlDecode(titleMatch.Groups[1].Value);
+                        var match = Regex.Match(pageTitle, @"^(.*?) - (?:song and lyrics|song|single|EP|album) by (.*?) \| Spotify$", RegexOptions.IgnoreCase);
+                        if (match.Success)
+                        {
+                            return (match.Groups[2].Value.Trim(), match.Groups[1].Value.Trim());
+                        }
+                    }
+                }
             }
-            catch { return null; }
+            catch { }
+            return null;
         }
 
         public async Task<OfficialMetadata> GetOfficialMetadata(string trackId)
@@ -133,15 +161,42 @@ namespace AiMusicWorkstation.Infrastructure.ExternalServices
             if (string.IsNullOrEmpty(trackId)) return new OfficialMetadata();
             try
             {
-                var spotify = await GetSpotifyClient();
-                var track = await spotify.Tracks.Get(trackId);
-                string artist = track.Artists?[0]?.Name ?? "";
-                string title = track.Name ?? "";
-                // ✅ Skicka med title för bättre MusicBrainz-träff
-                string genre = await GetGenreFromMusicBrainz(artist, title);
-                return new OfficialMetadata { Genre = genre };
+                string artist = "";
+                string title = "";
+
+                if (!string.IsNullOrEmpty(_spotifyClientId) && !string.IsNullOrEmpty(_spotifyClientSecret))
+                {
+                    try
+                    {
+                        var spotify = await GetSpotifyClient();
+                        var track = await spotify.Tracks.Get(trackId);
+                        artist = track.Artists?[0]?.Name ?? "";
+                        title = track.Name ?? "";
+                    }
+                    catch
+                    {
+                        // Fallback to scrape below
+                    }
+                }
+
+                if (string.IsNullOrEmpty(artist) || string.IsNullOrEmpty(title))
+                {
+                    var scraped = await GetSpotifyTrackInfo($"https://open.spotify.com/track/{trackId}");
+                    if (scraped != null)
+                    {
+                        artist = scraped.Value.Artist;
+                        title = scraped.Value.Title;
+                    }
+                }
+
+                if (!string.IsNullOrEmpty(artist))
+                {
+                    string genre = await GetGenreFromMusicBrainz(artist, title);
+                    return new OfficialMetadata { Genre = genre };
+                }
             }
-            catch { return new OfficialMetadata(); }
+            catch { }
+            return new OfficialMetadata();
         }
 
         // ✅ Bug 2 fix — title-parameter tillagd

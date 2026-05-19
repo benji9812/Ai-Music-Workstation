@@ -1,4 +1,4 @@
-﻿annotated-doc==0.0.4
+annotated-doc==0.0.4
 annotated-types==0.7.0
 anyio==4.13.0
 audioread==3.1.0
@@ -81,3 +81,5 @@ uritemplate==4.2.0
 urllib3==2.6.3
 uvicorn==0.43.0
 websockets==16.0
+yt-dlp
+
