@@ -162,6 +162,102 @@ app.MapGet("/test-conn", (IConfiguration config) =>
     });
 });
 
+app.MapGet("/test-poolers", async (IConfiguration config) =>
+{
+    var connString = config.GetConnectionString("DefaultConnection")
+        ?? config["DATABASE_URL"]
+        ?? config["SUPABASE_CONNECTION_STRING"];
+
+    if (string.IsNullOrEmpty(connString))
+    {
+        return Results.BadRequest("Connection string not configured.");
+    }
+
+    NpgsqlConnectionStringBuilder cb;
+    try
+    {
+        if (connString.StartsWith("postgres://", StringComparison.OrdinalIgnoreCase) ||
+            connString.StartsWith("postgresql://", StringComparison.OrdinalIgnoreCase))
+        {
+            var normalized = NormalizeConnectionString(connString);
+            cb = new NpgsqlConnectionStringBuilder(normalized);
+        }
+        else
+        {
+            cb = new NpgsqlConnectionStringBuilder(connString);
+        }
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest($"Failed to parse connection string: {ex.Message}");
+    }
+
+    var originalHost = cb.Host;
+    var originalUsername = cb.Username;
+
+    var projectRef = "";
+    if (originalHost.StartsWith("db.", StringComparison.OrdinalIgnoreCase) && originalHost.EndsWith(".supabase.co", StringComparison.OrdinalIgnoreCase))
+    {
+        var parts = originalHost.Split('.');
+        if (parts.Length == 4)
+        {
+            projectRef = parts[1];
+        }
+    }
+
+    if (string.IsNullOrEmpty(projectRef))
+    {
+        return Results.BadRequest($"Could not extract project reference from host: {originalHost}");
+    }
+
+    var regions = new[]
+    {
+        "eu-north-1",     // Stockholm
+        "eu-central-1",   // Frankfurt
+        "eu-west-1",      // Ireland
+        "eu-west-2",      // London
+        "eu-west-3",      // Paris
+        "us-east-1",      // N. Virginia
+        "us-east-2",      // Ohio
+        "us-west-1",      // N. California
+        "us-west-2",      // Oregon
+        "ap-southeast-1", // Singapore
+        "ap-northeast-1", // Tokyo
+        "ap-northeast-2", // Seoul
+        "sa-east-1"       // São Paulo
+    };
+
+    var results = new System.Collections.Generic.List<object>();
+
+    foreach (var region in regions)
+    {
+        var poolerHost = $"aws-0-{region}.pooler.supabase.com";
+        var testCb = new NpgsqlConnectionStringBuilder(cb.ConnectionString)
+        {
+            Host = poolerHost,
+            Username = originalUsername.EndsWith("." + projectRef, StringComparison.OrdinalIgnoreCase) 
+                ? originalUsername 
+                : $"{originalUsername}.{projectRef}"
+        };
+
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+        try
+        {
+            using var conn = new NpgsqlConnection(testCb.ConnectionString);
+            await conn.OpenAsync();
+            stopwatch.Stop();
+            results.Add(new { region, host = poolerHost, success = true, timeMs = stopwatch.ElapsedMilliseconds, message = "Success" });
+        }
+        catch (Exception ex)
+        {
+            stopwatch.Stop();
+            results.Add(new { region, host = poolerHost, success = false, timeMs = stopwatch.ElapsedMilliseconds, message = ex.Message });
+        }
+    }
+
+    return Results.Ok(results);
+});
+
 app.Run();
 
 static string? NormalizeConnectionString(string? connectionString)
