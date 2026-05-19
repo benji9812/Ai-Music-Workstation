@@ -3,6 +3,7 @@ using AiMusicWorkstation.Domain.Repositories;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using AiMusicWorkstation.Infrastructure.Persistence;
+using Npgsql;
 
 namespace AiMusicWorkstation.Api.Controllers;
 
@@ -38,13 +39,24 @@ public class LibraryController : ControllerBase
                 tableStatus = $"Error: {ex.Message}";
             }
 
+            var connectionString = context.Database.GetConnectionString() ?? "";
+            var sanitizedConnString = connectionString;
+            try
+            {
+                var cb = new NpgsqlConnectionStringBuilder(connectionString);
+                if (!string.IsNullOrEmpty(cb.Password)) cb.Password = "***";
+                sanitizedConnString = cb.ConnectionString;
+            }
+            catch {}
+
             return Ok(new {
                 canConnect,
                 tableStatus,
                 projectCount,
                 appliedMigrations = migrations,
                 pendingMigrations = pendingMigrations,
-                connectionStringConfigured = !string.IsNullOrEmpty(context.Database.GetConnectionString())
+                connectionStringConfigured = !string.IsNullOrEmpty(connectionString),
+                sanitizedConnectionString = sanitizedConnString
             });
         }
         catch (Exception ex)
