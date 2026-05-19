@@ -12,6 +12,8 @@ type AnalysisResult = {
     time_signature?: number;
     lyrics?: LyricSegment[];
     stems_path?: string;
+    title?: string;
+    artist?: string;
     error?: string;
 };
 
@@ -31,6 +33,48 @@ type SongProject = {
 };
 
 const API_URL = import.meta.env.VITE_API_URL ?? "";
+
+// --- Chord diagram data (root note → intervals shown as dots) ---
+const CHORD_INTERVALS: Record<string, number[]> = {
+    '':    [0, 4, 7],
+    'm':   [0, 3, 7],
+    '7':   [0, 4, 7, 10],
+    'maj7':[0, 4, 7, 11],
+    'm7':  [0, 3, 7, 10],
+    'sus2':[0, 2, 7],
+    'sus4':[0, 5, 7],
+    'dim': [0, 3, 6],
+    'aug': [0, 4, 8],
+};
+const NOTES = ['C','C#','D','D#','E','F','F#','G','G#','A','Bb','B'];
+function parseChord(chord: string): { root: string; quality: string } {
+    const match = chord.match(/^([A-G](?:#|b)?)(.*)?$/);
+    if (!match) return { root: chord, quality: '' };
+    return { root: match[1], quality: match[2] || '' };
+}
+function ChordDiagram({ chord }: { chord: string }) {
+    const { root, quality } = parseChord(chord);
+    const rootIdx = NOTES.findIndex(n => n === root);
+    const intervals = CHORD_INTERVALS[quality] ?? CHORD_INTERVALS[''];
+    const activeNotes = new Set(intervals.map(i => (rootIdx + i) % 12));
+    return (
+        <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap: 4 }}>
+            <div style={{ fontSize: 28, fontWeight: 'bold', color: 'var(--neon-yellow)' }}>{chord}</div>
+            <div style={{ display:'flex', gap: 3 }}>
+                {NOTES.map((n, i) => (
+                    <div key={n} style={{
+                        width: 20, height: 20, borderRadius: '50%',
+                        background: activeNotes.has(i) ? 'var(--neon-cyan)' : 'rgba(255,255,255,0.08)',
+                        border: activeNotes.has(i) ? '2px solid var(--neon-cyan)' : '1px solid rgba(255,255,255,0.15)',
+                        display:'flex', alignItems:'center', justifyContent:'center',
+                        fontSize: 7, color: activeNotes.has(i) ? '#000' : '#555',
+                        fontWeight: 'bold', transition: 'all 0.2s'
+                    }}>{n}</div>
+                ))}
+            </div>
+        </div>
+    );
+}
 
 // Web Audio Context for Metronome beep
 const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -74,6 +118,7 @@ export default function App() {
   const [structure, setStructure] = useState<StructureResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [nowPlaying, setNowPlaying] = useState<{ title: string; artist: string } | null>(null);
   
   const [projects, setProjects] = useState<SongProject[]>([]);
   const [urlInput, setUrlInput] = useState("");
@@ -103,19 +148,32 @@ export default function App() {
       }
   };
 
-  const loadProject = (p: SongProject) => {
-      if (p.stemsPath) {
-          const pathParts = p.stemsPath.split(/[\/\\]/);
-          const relPath = pathParts.slice(-2).join('/');
-          stems.current.drums.src = `${API_URL}/api/analysis/audio/${relPath}/drums.mp3`;
-          stems.current.bass.src = `${API_URL}/api/analysis/audio/${relPath}/bass.mp3`;
-          stems.current.other.src = `${API_URL}/api/analysis/audio/${relPath}/other.mp3`;
-          stems.current.vocals.src = `${API_URL}/api/analysis/audio/${relPath}/vocals.mp3`;
-          stems.current.drums.onloadedmetadata = () => setDuration(stems.current.drums.duration);
-      }
-      setResult({ bpm: p.bpm, key: p.key });
+  const loadStemsFromPath = (stemsPath: string) => {
+      const pathParts = stemsPath.split(/[\/\\]/);
+      const relPath = pathParts.slice(-2).join('/');
+      stems.current.drums.src    = `${API_URL}/api/analysis/audio/${relPath}/drums.mp3`;
+      stems.current.bass.src     = `${API_URL}/api/analysis/audio/${relPath}/bass.mp3`;
+      stems.current.other.src    = `${API_URL}/api/analysis/audio/${relPath}/other.mp3`;
+      stems.current.vocals.src   = `${API_URL}/api/analysis/audio/${relPath}/vocals.mp3`;
+      stems.current.drums.onloadedmetadata = () => setDuration(stems.current.drums.duration);
+  };
+
+  const loadProject = async (p: SongProject) => {
+      if (p.stemsPath) loadStemsFromPath(p.stemsPath);
+      setResult({ bpm: p.bpm, key: p.key, title: p.title, artist: p.artist });
+      setNowPlaying({ title: p.title, artist: p.artist });
       setCurrentTime(0);
       setIsPlaying(false);
+      setStructure(null);
+      try {
+          const structResp = await fetch(`${API_URL}/api/analysis/structure`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ artist: p.artist, title: p.title, duration: 180 }),
+          });
+          const structData = await structResp.json();
+          if (structResp.ok && !structData.error) setStructure(structData);
+      } catch { /* structure is optional */ }
   };
 
   const handleYoutubeImport = async () => {
@@ -130,25 +188,35 @@ export default function App() {
           });
           
           const text = await resp.text();
-          if (!text) {
-              setError(`Server returned empty response (HTTP ${resp.status})`);
-              setLoading(false);
-              return;
-          }
+          if (!text) { setError(`Server returned empty response (HTTP ${resp.status})`); setLoading(false); return; }
           
-          let data;
-          try {
-              data = JSON.parse(text);
-          } catch {
-              setError(`Server error (HTTP ${resp.status}): ${text.substring(0, 200)}`);
-              setLoading(false);
-              return;
-          }
+          let data: AnalysisResult;
+          try { data = JSON.parse(text); }
+          catch { setError(`Server error (HTTP ${resp.status}): ${text.substring(0, 200)}`); setLoading(false); return; }
           
           if (!resp.ok || data.error) {
-              setError(data.error || data.message || data.detail || resp.statusText);
+              setError((data as any).error || (data as any).message || (data as any).detail || resp.statusText);
           } else {
               setResult(data);
+              const trackTitle = data.title || 'Unknown Track';
+              const trackArtist = data.artist || 'Unknown Artist';
+              setNowPlaying({ title: trackTitle, artist: trackArtist });
+              setUrlInput('');
+
+              // Load stems audio
+              if (data.stems_path) loadStemsFromPath(data.stems_path);
+
+              // Fetch song structure
+              try {
+                  const structResp = await fetch(`${API_URL}/api/analysis/structure`, {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ artist: trackArtist, title: trackTitle, duration: 180 }),
+                  });
+                  const structData = await structResp.json();
+                  if (structResp.ok && !structData.error) setStructure(structData);
+              } catch { /* structure is optional */ }
+
               fetchLibrary();
           }
       } catch (e: any) {
@@ -292,38 +360,29 @@ export default function App() {
           }
           
           setResult(data);
+          const fileName = selectedFile.name.replace(/\.[^.]+$/, '');
+          setNowPlaying({ title: fileName, artist: 'Local Upload' });
 
-          // Play stems from proxy if available, else fallback
+          // Load stems from proxy if available, else use local file
           if (data.stems_path) {
-              const pathParts = data.stems_path.split(/[\/\\]/);
-              const relPath = pathParts.slice(-2).join('/');
-              stems.current.drums.src = `${API_URL}/api/analysis/audio/${relPath}/drums.mp3`;
-              stems.current.bass.src = `${API_URL}/api/analysis/audio/${relPath}/bass.mp3`;
-              stems.current.other.src = `${API_URL}/api/analysis/audio/${relPath}/other.mp3`;
-              stems.current.vocals.src = `${API_URL}/api/analysis/audio/${relPath}/vocals.mp3`;
+              loadStemsFromPath(data.stems_path);
           } else {
               const objectUrl = URL.createObjectURL(selectedFile);
-              stems.current.drums.src = objectUrl;
-              stems.current.bass.src = objectUrl;
-              stems.current.other.src = objectUrl;
-              stems.current.vocals.src = objectUrl;
+              stems.current.drums.src   = objectUrl;
+              stems.current.bass.src    = objectUrl;
+              stems.current.other.src   = objectUrl;
+              stems.current.vocals.src  = objectUrl;
+              stems.current.drums.onloadedmetadata = () => setDuration(stems.current.drums.duration);
           }
-          
-          stems.current.drums.onloadedmetadata = () => setDuration(stems.current.drums.duration);
 
           const structResp = await fetch(`${API_URL}/api/analysis/structure`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ artist: "Unknown", title: selectedFile.name, duration: 180 }),
+              body: JSON.stringify({ artist: 'Local Upload', title: fileName, duration: 180 }),
           });
-          
           const structData = await structResp.json();
-          if (!structResp.ok || structData.error) {
-              console.error("Structure error:", structData.error);
-          } else {
-              setStructure(structData);
-          }
-          
+          if (structResp.ok && !structData.error) setStructure(structData);
+
           fetchLibrary();
           
       } catch (e: any) {
@@ -401,21 +460,35 @@ export default function App() {
           </div>
 
           {activeTab === 'chord' && (
-            <div className="flex flex-col items-center justify-center" style={{ flex: 1 }}>
-              <div style={{ fontSize: '50px', fontWeight: 'bold', color: 'var(--neon-yellow)' }}>
-                {result?.key ? result.key : "Am"}
-              </div>
-              <div className="glass-panel-inner mt-2 w-full text-center" style={{ maxHeight: '200px', overflowY: 'auto' }}>
-                <div style={{ color: '#888', fontSize: '14px', marginBottom: '5px' }}>Chord Timeline</div>
+            <div className="flex flex-col items-center justify-center" style={{ flex: 1, gap: 8 }}>
+              {/* Active chord diagram */}
+              {result?.chords && result.chords.length > 0 ? (
+                <ChordDiagram chord={
+                  result.chords.reduce((best, ch) =>
+                    ch.time <= currentTime ? ch : best,
+                    result.chords[0]
+                  ).chord
+                } />
+              ) : (
+                <div style={{ fontSize: 40, fontWeight: 'bold', color: 'var(--neon-yellow)' }}>
+                  {result?.key ?? 'Am'}
+                </div>
+              )}
+              <div className="glass-panel-inner w-full text-center" style={{ maxHeight: '180px', overflowY: 'auto' }}>
+                <div style={{ color: '#888', fontSize: '12px', marginBottom: '4px' }}>Chord Timeline</div>
                 {result?.chords ? (
-                    result.chords.map((ch, i) => (
-                        <div key={i} className="flex justify-between items-center mb-1 border-b border-gray-800 pb-1">
-                            <span style={{ fontSize: '12px', color: '#aaa' }}>{ch.time.toFixed(1)}s</span>
-                            <span style={{ fontSize: '14px', fontWeight: 'bold', color: 'var(--neon-cyan)' }}>{ch.chord}</span>
-                        </div>
-                    ))
+                    result.chords.map((ch, i) => {
+                        const isActive = currentTime >= ch.time && (i === result.chords!.length - 1 || currentTime < result.chords![i + 1].time);
+                        return (
+                          <div key={i} className="flex justify-between items-center mb-1 border-b border-gray-800 pb-1"
+                            style={{ background: isActive ? 'rgba(0,240,255,0.08)' : 'transparent', borderRadius: 4, padding: '2px 4px' }}>
+                            <span style={{ fontSize: '11px', color: '#aaa' }}>{ch.time.toFixed(1)}s</span>
+                            <span style={{ fontSize: '13px', fontWeight: 'bold', color: isActive ? 'var(--neon-cyan)' : '#888' }}>{ch.chord}</span>
+                          </div>
+                        );
+                    })
                 ) : (
-                    <div style={{ fontSize: '14px', color: '#555' }}>Waiting for analysis...</div>
+                    <div style={{ fontSize: '13px', color: '#555' }}>Waiting for analysis...</div>
                 )}
               </div>
             </div>
@@ -444,17 +517,38 @@ export default function App() {
 
         {error && <div style={{ background: 'rgba(255,0,0,0.1)', color: '#ff4444', padding: '10px', margin: '10px 0' }}>⚠️ {error}</div>}
 
-        {/* Import Section */}
-        <div className="glass-panel">
-          <div className="flex gap-2 mb-2">
-            <input type="text" className="input-dark" placeholder="Paste YouTube or Spotify Link here..." value={urlInput} onChange={(e) => setUrlInput(e.target.value)} />
-            <button className="btn-accent" style={{ background: 'rgba(255,0,0,0.1)', color: '#ff4444', borderColor: '#ff4444' }} onClick={handleYoutubeImport} disabled={loading}>⬇ DOWNLOAD</button>
+        {/* Import Section — collapses to Now Playing bar when a song is loaded */}
+        {nowPlaying && !loading ? (
+          <div className="glass-panel" style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding: '8px 14px' }}>
+            <div>
+              <div style={{ color: 'var(--neon-cyan)', fontSize: 11, fontWeight: 'bold', letterSpacing: 1 }}>NOW PLAYING</div>
+              <div style={{ color: '#fff', fontWeight: 'bold', fontSize: 14 }}>{nowPlaying.title}</div>
+              <div style={{ color: '#aaa', fontSize: 11 }}>{nowPlaying.artist}</div>
+            </div>
+            <button
+              className="btn-icon"
+              style={{ fontSize: 11, color: '#aaa', whiteSpace: 'nowrap' }}
+              onClick={() => { setNowPlaying(null); setResult(null); setStructure(null); setUrlInput(''); }}
+            >✕ Import new</button>
           </div>
-          <input type="file" accept="audio/*" ref={fileInputRef} onChange={handleFileSelect} style={{ display: 'none' }} />
-          <button className="btn-primary" style={{ padding: '12px', width: '100%' }} onClick={triggerFileInput} disabled={loading}>
-            {loading ? "⚡ ANALYZING WITH AI... (Separating Stems & Transcribing)" : "📂 OPEN LOCAL AUDIO FILE"}
-          </button>
-        </div>
+        ) : (
+          <div className="glass-panel">
+            <div className="flex gap-2 mb-2">
+              <input
+                type="text" className="input-dark"
+                placeholder="Paste YouTube or Spotify Link here..."
+                value={urlInput}
+                onChange={(e) => setUrlInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleYoutubeImport()}
+              />
+              <button className="btn-accent" style={{ background: 'rgba(255,0,0,0.1)', color: '#ff4444', borderColor: '#ff4444' }} onClick={handleYoutubeImport} disabled={loading}>⬇ DOWNLOAD</button>
+            </div>
+            <input type="file" accept="audio/*" ref={fileInputRef} onChange={handleFileSelect} style={{ display: 'none' }} />
+            <button className="btn-primary" style={{ padding: '12px', width: '100%' }} onClick={triggerFileInput} disabled={loading}>
+              {loading ? '⚡ ANALYZING WITH AI... (Separating Stems & Transcribing)' : '📂 OPEN LOCAL AUDIO FILE'}
+            </button>
+          </div>
+        )}
 
         {/* Analysis Data (Tempo, Key, Transpose, Metronome) */}
         <div className="flex gap-2">
