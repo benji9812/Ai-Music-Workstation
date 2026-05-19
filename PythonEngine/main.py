@@ -609,7 +609,9 @@ async def import_url(request: ImportUrlRequest):
                     "--no-playlist",
                 ]
                 if os.path.exists(cookies_path):
-                    info_cmd.extend(["--cookies", cookies_path])
+                    cookies_age_days = (time.time() - os.path.getmtime(cookies_path)) / 86400
+                    if cookies_age_days < 7:
+                        info_cmd.extend(["--cookies", cookies_path])
                 info_cmd.append(url)
                 
                 title_result = subprocess.run(info_cmd, capture_output=True, text=True, timeout=20)
@@ -635,18 +637,23 @@ async def import_url(request: ImportUrlRequest):
             "-m",
             "yt_dlp",
             "--no-playlist",
-            "--js-runtimes", "deno,node",
-            "--remote-components", "ejs:github",
+            "--extractor-retries", "3",
+            "--socket-timeout", "30",
             "-x",  # extract audio
             "--audio-format", "mp3",
             "--audio-quality", "0",
             "-o", output_template,
         ]
         
-        # Check if local cookies.txt exists in PythonEngine directory to bypass YouTube bot detection on Azure VM
+        # Check if local cookies.txt exists and is not stale (< 7 days old)
         cookies_path = os.path.join(BASE_DIR, "cookies.txt")
         if os.path.exists(cookies_path):
-            cmd.extend(["--cookies", cookies_path])
+            cookies_age_days = (time.time() - os.path.getmtime(cookies_path)) / 86400
+            if cookies_age_days < 7:
+                cmd.extend(["--cookies", cookies_path])
+                log_step(f"🍪 Using cookies.txt (age: {cookies_age_days:.1f} days)")
+            else:
+                log_step(f"⚠️ cookies.txt is {cookies_age_days:.1f} days old — skipping (re-export from browser to fix YouTube bot detection)")
             
         cmd.append(download_target)
         log_step(f"⬇️ Running yt-dlp: {' '.join(cmd)}")
