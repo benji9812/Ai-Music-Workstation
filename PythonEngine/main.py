@@ -534,7 +534,7 @@ async def import_url(request: ImportUrlRequest):
                 from html import unescape
                 req = urllib.request.Request(
                     f"https://open.spotify.com/track/{track_id}",
-                    headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
+                    headers={"User-Agent": "Mozilla/5.0"}
                 )
                 with urllib.request.urlopen(req, timeout=10) as response:
                     html = response.read().decode("utf-8")
@@ -549,6 +549,30 @@ async def import_url(request: ImportUrlRequest):
                         artist = match.group(2).strip()
                         spotify_query = f"{artist} - {title} audio"
                         log_step(f"✅ Scraped Spotify Metadata: '{artist}' - '{title}'")
+                
+                # Fallback to OpenGraph metadata if page title format differs
+                if not spotify_query:
+                    og_title = None
+                    title_meta = re.search(r'<meta[^>]+property=["\']og:title["\'][^>]+content=["\'](.*?)["\']', html)
+                    if not title_meta:
+                        title_meta = re.search(r'<meta[^>]+content=["\'](.*?)["\'][^>]+property=["\']og:title["\']', html)
+                    if title_meta:
+                        og_title = unescape(title_meta.group(1))
+
+                    og_desc = None
+                    desc_meta = re.search(r'<meta[^>]+property=["\']og:description["\'][^>]+content=["\'](.*?)["\']', html)
+                    if not desc_meta:
+                        desc_meta = re.search(r'<meta[^>]+content=["\'](.*?)["\'][^>]+property=["\']og:description["\']', html)
+                    if desc_meta:
+                        og_desc = unescape(desc_meta.group(1))
+
+                    if og_title and og_desc:
+                        parts = og_desc.split(" · ")
+                        if len(parts) >= 1:
+                            artist = parts[0].strip()
+                            title = og_title.strip()
+                            spotify_query = f"{artist} - {title} audio"
+                            log_step(f"✅ Scraped Spotify OG Metadata: '{artist}' - '{title}'")
             except Exception as e:
                 log_step(f"⚠️ Spotify metadata scraping failed: {e}")
 

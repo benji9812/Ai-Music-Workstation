@@ -138,7 +138,7 @@ namespace AiMusicWorkstation.Infrastructure.ExternalServices
 
                 using (var client = new HttpClient())
                 {
-                    client.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+                    client.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0");
                     var html = await client.GetStringAsync($"https://open.spotify.com/track/{id}");
                     var titleMatch = Regex.Match(html, @"<title>(.*?)</title>", RegexOptions.IgnoreCase);
                     if (titleMatch.Success)
@@ -148,6 +148,30 @@ namespace AiMusicWorkstation.Infrastructure.ExternalServices
                         if (match.Success)
                         {
                             return (match.Groups[2].Value.Trim(), match.Groups[1].Value.Trim());
+                        }
+                    }
+
+                    // Fallback to OpenGraph metadata
+                    var ogTitleMatch = Regex.Match(html, @"<meta[^>]+property=[""']og:title[""'][^>]+content=[""'](.*?)[""']", RegexOptions.IgnoreCase);
+                    if (!ogTitleMatch.Success)
+                    {
+                        ogTitleMatch = Regex.Match(html, @"<meta[^>]+content=[""'](.*?)[""'][^>]+property=[""']og:title[""']", RegexOptions.IgnoreCase);
+                    }
+
+                    var ogDescMatch = Regex.Match(html, @"<meta[^>]+property=[""']og:description[""'][^>]+content=[""'](.*?)[""']", RegexOptions.IgnoreCase);
+                    if (!ogDescMatch.Success)
+                    {
+                        ogDescMatch = Regex.Match(html, @"<meta[^>]+content=[""'](.*?)[""'][^>]+property=[""']og:description[""']", RegexOptions.IgnoreCase);
+                    }
+
+                    if (ogTitleMatch.Success && ogDescMatch.Success)
+                    {
+                        string ogTitle = System.Net.WebUtility.HtmlDecode(ogTitleMatch.Groups[1].Value).Trim();
+                        string ogDesc = System.Net.WebUtility.HtmlDecode(ogDescMatch.Groups[1].Value).Trim();
+                        var parts = ogDesc.Split(new[] { " · " }, StringSplitOptions.RemoveEmptyEntries);
+                        if (parts.Length >= 1)
+                        {
+                            return (parts[0].Trim(), ogTitle);
                         }
                     }
                 }
