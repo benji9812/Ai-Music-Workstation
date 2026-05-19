@@ -126,6 +126,28 @@ static string? NormalizeConnectionString(string? connectionString)
     if (!connectionString.StartsWith("postgres://", StringComparison.OrdinalIgnoreCase)
         && !connectionString.StartsWith("postgresql://", StringComparison.OrdinalIgnoreCase))
     {
+        try
+        {
+            var connBuilder = new NpgsqlConnectionStringBuilder(connectionString);
+            var connHost = connBuilder.Host;
+            if (!string.IsNullOrEmpty(connHost))
+            {
+                var ipAddresses = System.Net.Dns.GetHostAddresses(connHost);
+                foreach (var ip in ipAddresses)
+                {
+                    if (ip.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
+                    {
+                        connBuilder.Host = ip.ToString();
+                        break;
+                    }
+                }
+                return connBuilder.ConnectionString;
+            }
+        }
+        catch
+        {
+            // Fallback to original connection string if parsing or DNS fails
+        }
         return connectionString;
     }
 
