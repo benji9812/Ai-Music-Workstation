@@ -593,8 +593,14 @@ async def import_url(request: ImportUrlRequest):
             "--audio-format", "mp3",
             "--audio-quality", "0",
             "-o", output_template,
-            download_target,
         ]
+        
+        # Check if local cookies.txt exists in PythonEngine directory to bypass YouTube bot detection on Azure VM
+        cookies_path = os.path.join(BASE_DIR, "cookies.txt")
+        if os.path.exists(cookies_path):
+            cmd.extend(["--cookies", cookies_path])
+            
+        cmd.append(download_target)
         log_step(f"⬇️ Running yt-dlp: {' '.join(cmd)}")
         dl_start = now()
         result = subprocess.run(
