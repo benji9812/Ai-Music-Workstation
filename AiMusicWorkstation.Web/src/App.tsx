@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect, UIEvent } from 'react';
 import './index.css';
 
 type LyricSegment = { start: number; end: number; text: string };
@@ -11,21 +11,48 @@ type AnalysisResult = {
     chords?: ChordEntry[];
     time_signature?: number;
     lyrics?: LyricSegment[];
-    status?: string;
+    stems_path?: string;
     error?: string;
 };
 
 type StructureResult = {
     sections?: Section[];
-    status?: string;
     error?: string;
 };
 
 const API_URL = import.meta.env.VITE_API_URL ?? "";
 
+// Web Audio Context for Metronome beep
+const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+const playClick = () => {
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.frequency.value = 1000;
+    gain.gain.setValueAtTime(1, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.1);
+};
+
 export default function App() {
   const [activeTab, setActiveTab] = useState<'chord' | 'scale'>('chord');
+  
+  // Audio playback states
   const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  
+  const [metronomeEnabled, setMetronomeEnabled] = useState(false);
+  const [countInEnabled, setCountInEnabled] = useState(false);
+  const [masterVol, setMasterVol] = useState(100);
+  
+  // Mixer states
+  const [volumes, setVolumes] = useState({ drums: 80, bass: 80, other: 80, vocals: 80 });
+  const [mutes, setMutes] = useState({ drums: false, bass: false, other: false, vocals: false });
+  const [solos, setSolos] = useState({ drums: false, bass: false, other: false, vocals: false });
 
   // API Integration States
   const [file, setFile] = useState<File | null>(null);
@@ -35,39 +62,129 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const lyricsScrollRef = useRef<HTMLDivElement>(null);
+  
+  // Audio elements
+  const stems = useRef({
+      drums: new Audio(),
+      bass: new Audio(),
+      other: new Audio(),
+      vocals: new Audio()
+  });
 
-  // Mock data for UI presentation
-  const projects = [
-    { title: "Cyberpunk Beat 1", artist: "Unknown", bpm: 124, key: "Am", genre: "Synthwave" },
-    { title: "Neon Nights", artist: "Benji", bpm: 95, key: "C", genre: "Lofi" },
-  ];
+  const [autoScrollLyrics, setAutoScrollLyrics] = useState(true);
+
+  // Apply volumes and mutes/solos
+  useEffect(() => {
+      const anySolo = Object.values(solos).some(s => s);
+      Object.keys(stems.current).forEach(key => {
+          const k = key as keyof typeof stems.current;
+          const audio = stems.current[k];
+          
+          let targetVol = (volumes[k] / 100) * (masterVol / 100);
+          if (mutes[k]) targetVol = 0;
+          if (anySolo && !solos[k]) targetVol = 0;
+          
+          audio.volume = Math.min(Math.max(targetVol, 0), 1);
+      });
+  }, [volumes, mutes, solos, masterVol]);
+
+  // Sync time
+  useEffect(() => {
+      const interval = setInterval(() => {
+          if (isPlaying) {
+              const current = stems.current.drums.currentTime;
+              setCurrentTime(current);
+              
+              if (result?.lyrics && autoScrollLyrics && lyricsScrollRef.current) {
+                  // Simple auto-scroll based on time
+                  const activeIdx = result.lyrics.findIndex(l => l.start <= current && l.end >= current);
+                  if (activeIdx !== -1) {
+                      const container = lyricsScrollRef.current;
+                      const activeElem = container.children[activeIdx] as HTMLElement;
+                      if (activeElem) {
+                          container.scrollTo({ top: activeElem.offsetTop - container.clientHeight / 2, behavior: 'smooth' });
+                      }
+                  }
+              }
+              
+              // Metronome logic
+              if (metronomeEnabled && result?.bpm) {
+                  const beatInterval = 60 / result.bpm;
+                  if (current % beatInterval < 0.1 && (current % beatInterval) > 0) {
+                      // playClick(); // Basic implementation, needs tight scheduling in real app
+                  }
+              }
+          }
+      }, 100);
+      return () => clearInterval(interval);
+  }, [isPlaying, result, autoScrollLyrics, metronomeEnabled]);
+
+  const handleManualScroll = (e: UIEvent<HTMLDivElement>) => {
+      // If user scrolls manually, disable auto-scroll temporarily
+      setAutoScrollLyrics(false);
+      // Re-enable after 3 seconds of no scrolling
+      setTimeout(() => setAutoScrollLyrics(true), 3000);
+  };
+
+  const handlePlayPause = () => {
+      if (isPlaying) {
+          Object.values(stems.current).forEach(a => a.pause());
+      } else {
+          // Count-in logic
+          if (countInEnabled) {
+              let count = 0;
+              const interval = setInterval(() => {
+                  playClick();
+                  count++;
+                  if (count >= 4) {
+                      clearInterval(interval);
+                      Object.values(stems.current).forEach(a => a.play());
+                      setIsPlaying(true);
+                  }
+              }, 500);
+              return;
+          }
+          Object.values(stems.current).forEach(a => a.play());
+      }
+      setIsPlaying(!isPlaying);
+  };
+
+  const skipToStart = () => {
+      Object.values(stems.current).forEach(a => a.currentTime = 0);
+      setCurrentTime(0);
+      if (!isPlaying) handlePlayPause();
+  };
+
+  const seekTime = (offset: number) => {
+      Object.values(stems.current).forEach(a => {
+          a.currentTime = Math.max(0, Math.min(a.currentTime + offset, duration));
+      });
+      setCurrentTime(stems.current.drums.currentTime);
+  };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
-    if (f && (f.type === "audio/mpeg" || f.name.endsWith(".mp3"))) {
+    if (f && (f.type === "audio/mpeg" || f.name.endsWith(".mp3") || f.type.includes("audio/"))) {
         setFile(f);
         analyzeFile(f);
     } else {
-        setError("Please select a valid MP3 file.");
+        setError("Please select a valid Audio file.");
     }
   };
 
-  const triggerFileInput = () => {
-      fileInputRef.current?.click();
-  };
+  const triggerFileInput = () => fileInputRef.current?.click();
 
   const analyzeFile = async (selectedFile: File) => {
       setLoading(true);
-      setResult(null);
-      setStructure(null);
       setError(null);
       
       try {
-          // 1. Analyze Audio
           const form = new FormData();
           form.append("file", selectedFile);
           
-          const resp = await fetch(`${API_URL}/api/analysis/analyze-only`, {
+          // Using /analyze to actually get stems on the backend
+          const resp = await fetch(`${API_URL}/api/analysis/analyze`, {
               method: "POST",
               body: form,
           });
@@ -81,12 +198,20 @@ export default function App() {
           
           setResult(data);
 
-          // 2. Fetch Structure (Run in parallel or right after)
-          const name = selectedFile.name.replace(/\.[^.]+$/, "");
+          // We don't have static files exposed yet, so we will play the uploaded file as a fallback on all stems to simulate it
+          // In the real app, this will be: src = `${API_URL}/audio/${folder}/drums.mp3`
+          const objectUrl = URL.createObjectURL(selectedFile);
+          stems.current.drums.src = objectUrl;
+          stems.current.bass.src = objectUrl;
+          stems.current.other.src = objectUrl;
+          stems.current.vocals.src = objectUrl;
+          
+          stems.current.drums.onloadedmetadata = () => setDuration(stems.current.drums.duration);
+
           const structResp = await fetch(`${API_URL}/api/analysis/structure`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ artist: "Unknown", title: name, duration: 180 }),
+              body: JSON.stringify({ artist: "Unknown", title: selectedFile.name, duration: 180 }),
           });
           
           const structData = await structResp.json();
@@ -97,9 +222,27 @@ export default function App() {
           }
           
       } catch (e: any) {
-          setError("Network or server error: " + e.message);
+          setError("Network error: " + e.message);
       }
       setLoading(false);
+  };
+
+  const formatTime = (sec: number) => {
+      const m = Math.floor(sec / 60);
+      const s = Math.floor(sec % 60);
+      return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  };
+
+  const setMixerVolume = (stem: keyof typeof volumes, val: number) => {
+      setVolumes(prev => ({ ...prev, [stem]: val }));
+  };
+
+  const toggleMute = (stem: keyof typeof mutes) => {
+      setMutes(prev => ({ ...prev, [stem]: !prev[stem] }));
+  };
+
+  const toggleSolo = (stem: keyof typeof solos) => {
+      setSolos(prev => ({ ...prev, [stem]: !prev[stem] }));
   };
 
   return (
@@ -109,7 +252,7 @@ export default function App() {
       <div className="col-library">
         <div className="glass-panel" style={{ flex: 1 }}>
           <div className="flex justify-between items-center mb-2">
-            <span className="section-title" style={{ marginBottom: 0 }}>Library</span>
+            <span className="section-title" style={{ marginBottom: 0 }}>LIBRARY</span>
             <button className="btn-icon">⟳</button>
           </div>
           <input type="text" className="input-dark mb-2" placeholder="Search..." />
@@ -117,20 +260,19 @@ export default function App() {
             <select className="input-dark">
               <option>Latest</option>
               <option>A-Z</option>
-              <option>BPM</option>
             </select>
           </div>
-          
           <div style={{ overflowY: 'auto', flex: 1, paddingRight: '5px' }}>
-            {projects.map((proj, idx) => (
-              <div key={idx} className="glass-panel-inner mb-1" style={{ cursor: 'pointer' }}>
-                <div style={{ color: 'white', fontWeight: 'bold', fontSize: '13px' }}>{proj.title}</div>
-                <div style={{ color: '#aaa', fontSize: '11px', marginBottom: '4px' }}>{proj.artist}</div>
-                <div style={{ fontSize: '10px', color: '#888' }}>
-                  {proj.bpm} BPM • <span className="highlight-cyan">{proj.key}</span> • <i>{proj.genre}</i>
+              <div className="glass-panel-inner mb-1 flex justify-between" style={{ cursor: 'pointer' }}>
+                <div>
+                  <div style={{ color: 'white', fontWeight: 'bold', fontSize: '13px' }}>Cyberpunk Beat 1</div>
+                  <div style={{ color: '#aaa', fontSize: '11px', marginBottom: '4px' }}>Benji</div>
+                </div>
+                <div className="flex flex-col gap-1">
+                    <button className="btn-icon" style={{ fontSize: '10px' }}>✏️</button>
+                    <button className="btn-icon" style={{ fontSize: '10px', color: '#ff4444' }}>❌</button>
                 </div>
               </div>
-            ))}
           </div>
         </div>
       </div>
@@ -143,20 +285,8 @@ export default function App() {
           </div>
           
           <div className="flex gap-2 mb-2">
-            <button 
-              className={`btn-primary w-full ${activeTab === 'chord' ? 'active' : ''}`}
-              style={activeTab !== 'chord' ? { borderColor: 'rgba(255,255,255,0.2)', color: '#aaa'} : {}}
-              onClick={() => setActiveTab('chord')}
-            >
-              Chord
-            </button>
-            <button 
-              className={`btn-primary w-full ${activeTab === 'scale' ? 'active' : ''}`}
-              style={activeTab !== 'scale' ? { borderColor: 'rgba(255,255,255,0.2)', color: '#aaa'} : {}}
-              onClick={() => setActiveTab('scale')}
-            >
-              Scale
-            </button>
+            <button className={`btn-primary w-full ${activeTab === 'chord' ? 'active' : ''}`} onClick={() => setActiveTab('chord')}>Chord</button>
+            <button className={`btn-primary w-full ${activeTab === 'scale' ? 'active' : ''}`} onClick={() => setActiveTab('scale')}>Scale</button>
           </div>
 
           {activeTab === 'chord' && (
@@ -179,153 +309,155 @@ export default function App() {
               </div>
             </div>
           )}
-
-          {activeTab === 'scale' && (
-            <div className="flex flex-col items-center justify-center" style={{ flex: 1 }}>
-              <div className="flex gap-2 mb-2 w-full">
-                <button className="btn-primary w-full" style={{ fontSize: '10px' }}>Penta</button>
-                <button className="btn-primary w-full" style={{ fontSize: '10px', borderColor: 'rgba(255,255,255,0.2)', color: '#aaa' }}>Maj/Min</button>
-              </div>
-              <div style={{ fontSize: '20px', fontWeight: 'bold', color: 'var(--neon-magenta)' }}>{result?.key ? `${result.key} Scale` : "A Minor Scale"}</div>
-              <div className="mt-2" style={{ color: '#aaa', fontSize: '12px' }}>A B C D E F G</div>
-            </div>
-          )}
         </div>
       </div>
 
-      {/* COLUMN 3: MAIN WORKSTATION */}
+      {/* COLUMN 3: MAIN WORKSTATION (Now strictly matches Desktop layout) */}
       <div className="col-main">
         {/* Header */}
         <div className="flex justify-between items-center" style={{ padding: '0 10px' }}>
           <h1 className="neon-text-gradient m-0" style={{ fontSize: '24px' }}>AI MUSIC WORKSTATION</h1>
           <div className="flex items-center gap-2">
             <span style={{ fontSize: '10px', fontWeight: 'bold', color: '#888' }}>MASTER VOL</span>
-            <input type="range" min="0" max="100" defaultValue="100" style={{ width: '80px' }} />
+            <input type="range" min="0" max="100" value={masterVol} onChange={e => setMasterVol(Number(e.target.value))} style={{ width: '80px' }} />
           </div>
         </div>
 
-        {/* Error Message */}
-        {error && (
-            <div style={{ background: 'rgba(255,0,0,0.1)', border: '1px solid #ff4444', color: '#ff4444', padding: '10px', borderRadius: '4px', margin: '10px 0', fontSize: '14px' }}>
-                ⚠️ {error}
-            </div>
-        )}
+        {error && <div style={{ background: 'rgba(255,0,0,0.1)', color: '#ff4444', padding: '10px', margin: '10px 0' }}>⚠️ {error}</div>}
 
         {/* Import Section */}
         <div className="glass-panel">
           <div className="flex gap-2 mb-2">
             <input type="text" className="input-dark" placeholder="Paste YouTube or Spotify Link here..." />
-            <button className="btn-accent" style={{ background: 'rgba(255,0,0,0.1)', color: '#ff4444', borderColor: '#ff4444' }}>
-              ⬇ DOWNLOAD
-            </button>
+            <button className="btn-accent" style={{ background: 'rgba(255,0,0,0.1)', color: '#ff4444', borderColor: '#ff4444' }}>⬇ DOWNLOAD</button>
           </div>
-          
-          {/* Hidden File Input */}
-          <input 
-            type="file" 
-            accept="audio/mp3,.mp3,audio/mpeg" 
-            ref={fileInputRef} 
-            onChange={handleFileSelect} 
-            style={{ display: 'none' }} 
-          />
-          
-          <button 
-            className="btn-primary" 
-            style={{ padding: '12px', width: '100%' }}
-            onClick={triggerFileInput}
-            disabled={loading}
-          >
-            {loading ? "⚡ ANALYZING AUDIO WITH AI..." : "📂 OPEN LOCAL AUDIO FILE"}
+          <input type="file" accept="audio/*" ref={fileInputRef} onChange={handleFileSelect} style={{ display: 'none' }} />
+          <button className="btn-primary" style={{ padding: '12px', width: '100%' }} onClick={triggerFileInput} disabled={loading}>
+            {loading ? "⚡ ANALYZING WITH AI... (Separating Stems & Transcribing)" : "📂 OPEN LOCAL AUDIO FILE"}
           </button>
-          
-          <div className="text-center mt-2" style={{ fontSize: '12px', color: '#888' }}>
-            {file ? `Selected: ${file.name}` : "Ready"}
-          </div>
         </div>
 
-        {/* Analysis Data (Tempo, Key, Transpose) */}
+        {/* Analysis Data (Tempo, Key, Transpose, Metronome) */}
         <div className="flex gap-2">
           <div className="glass-panel flex-col items-center justify-center" style={{ flex: 1 }}>
             <span className="section-title">TEMPO</span>
-            <span className="highlight-cyan" style={{ fontSize: '40px', fontWeight: 'bold' }}>
-                {result?.bpm ? Math.round(result.bpm) : "—"}
-            </span>
-            <span className="badge badge-ai mt-1">⚡ AI ANALYSIS</span>
+            <span className="highlight-cyan" style={{ fontSize: '40px', fontWeight: 'bold' }}>{result?.bpm ? Math.round(result.bpm) : "—"}</span>
           </div>
           <div className="glass-panel flex-col items-center justify-center" style={{ flex: 1 }}>
             <span className="section-title">TIME SIG</span>
-            <span className="highlight-cyan" style={{ fontSize: '40px', fontWeight: 'bold' }}>
-                {result?.time_signature ? `${result.time_signature}/4` : "—"}
-            </span>
-            <span className="badge badge-ai mt-1">⚡ AI ANALYSIS</span>
+            <span className="highlight-cyan" style={{ fontSize: '40px', fontWeight: 'bold' }}>{result?.time_signature ? `${result.time_signature}/4` : "—"}</span>
           </div>
           <div className="glass-panel flex-col items-center justify-center" style={{ flex: 1 }}>
             <span className="section-title">KEY</span>
-            <span className="highlight-cyan" style={{ fontSize: '40px', fontWeight: 'bold' }}>
-                {result?.key ? result.key : "—"}
-            </span>
-            <span className="badge badge-ai mt-1">⚡ AI ANALYSIS</span>
+            <span className="highlight-cyan" style={{ fontSize: '40px', fontWeight: 'bold' }}>{result?.key ? result.key : "—"}</span>
+          </div>
+        </div>
+        
+        {/* Transpose & Metronome (Like Desktop) */}
+        <div className="glass-panel flex justify-center items-center gap-4">
+            <div className="flex items-center gap-2">
+                <span style={{ fontSize: '10px', fontWeight: 'bold', color: '#888' }}>TRANSPOSE</span>
+                <button className="btn-icon">− </button>
+                <span style={{ fontSize: '16px', fontWeight: 'bold', color: 'var(--neon-cyan)' }}>0</span>
+                <button className="btn-icon"> +</button>
+            </div>
+            <div className="flex items-center gap-2">
+                <button 
+                    className={`btn-primary ${countInEnabled ? 'active' : ''}`} 
+                    style={{ fontSize: '10px', padding: '4px 8px' }}
+                    onClick={() => setCountInEnabled(!countInEnabled)}
+                >Count In</button>
+                <button 
+                    className={`btn-primary ${metronomeEnabled ? 'active' : ''}`} 
+                    style={{ fontSize: '10px', padding: '4px 8px' }}
+                    onClick={() => setMetronomeEnabled(!metronomeEnabled)}
+                >🥁 Metro</button>
+            </div>
+        </div>
+
+        {/* LYRICS PANEL IN THE MIDDLE */}
+        <div className="glass-panel" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+          <div className="flex justify-between items-center mb-2">
+            <span className="section-title" style={{ marginBottom: 0 }}>LYRICS</span>
+            <button className="btn-icon">📝</button>
+          </div>
+          <div 
+            ref={lyricsScrollRef}
+            onScroll={handleManualScroll}
+            style={{ overflowY: 'auto', flex: 1, paddingRight: '5px' }}
+          >
+            {result?.lyrics ? (
+                result.lyrics.map((seg, idx) => (
+                    <p key={idx} style={{ 
+                        color: (currentTime >= seg.start && currentTime <= seg.end) ? '#fff' : '#555', 
+                        margin: '5px 0', 
+                        fontSize: '14px',
+                        fontWeight: (currentTime >= seg.start && currentTime <= seg.end) ? 'bold' : 'normal',
+                        transition: 'color 0.2s'
+                    }}>
+                        <span style={{ color: '#444', fontSize: '10px', marginRight: '5px' }}>[{seg.start.toFixed(1)}s]</span>
+                        {seg.text}
+                    </p>
+                ))
+            ) : (
+                <div style={{ fontSize: '12px', color: '#555', textAlign: 'center', marginTop: '20px' }}>
+                    {loading ? "Transcribing lyrics with Whisper..." : "No lyrics data"}
+                </div>
+            )}
           </div>
         </div>
 
         {/* Mixer */}
-        <div className="glass-panel">
+        <div className="glass-panel" style={{ paddingBottom: '4px' }}>
           <span className="section-title mb-2 text-center">STEM MIXER</span>
           <div className="mixer-grid">
-            {['DRUMS', 'BASS', 'OTHER', 'VOCALS'].map((stem) => (
+            {(['drums', 'bass', 'other', 'vocals'] as const).map((stem) => (
               <div key={stem} className="mixer-channel">
-                <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#888' }}>{stem}</span>
-                <input type="text" className="input-dark" defaultValue="80" style={{ width: '45px', textAlign: 'center', padding: '4px' }} />
+                <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#888' }}>{stem.toUpperCase()}</span>
                 <div className="vertical-slider-container">
-                  <input type="range" className="vertical-slider" min="0" max="100" defaultValue="80" />
+                  <input type="range" className="vertical-slider" min="0" max="100" value={volumes[stem]} onChange={e => setMixerVolume(stem, Number(e.target.value))} />
                 </div>
                 <div className="flex gap-1">
-                  <button className="toggle-btn toggle-mute">M</button>
-                  <button className="toggle-btn toggle-solo">S</button>
+                  <button className={`toggle-btn toggle-mute ${mutes[stem] ? 'active' : ''}`} onClick={() => toggleMute(stem)}>M</button>
+                  <button className={`toggle-btn toggle-solo ${solos[stem] ? 'active' : ''}`} onClick={() => toggleSolo(stem)}>S</button>
                 </div>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Transport (Play controls) */}
+        {/* Transport */}
         <div className="glass-panel" style={{ marginTop: 'auto' }}>
           <div className="flex items-center gap-2 mb-2">
-            <span style={{ fontSize: '12px', color: '#888', width: '40px' }}>00:00</span>
-            <input type="range" className="timeline-slider" min="0" max="100" defaultValue="0" />
-            <span style={{ fontSize: '12px', color: '#888', width: '40px', textAlign: 'right' }}>03:45</span>
+            <span style={{ fontSize: '12px', color: '#888', width: '40px' }}>{formatTime(currentTime)}</span>
+            <input type="range" className="timeline-slider" min="0" max={duration || 100} value={currentTime} onChange={e => seekTime(Number(e.target.value) - currentTime)} />
+            <span style={{ fontSize: '12px', color: '#888', width: '40px', textAlign: 'right' }}>{formatTime(duration)}</span>
           </div>
           <div className="flex justify-center items-center gap-2">
             <button className="btn-icon" style={{ fontSize: '20px' }}>🔁</button>
-            <button className="btn-icon" style={{ fontSize: '24px' }}>«</button>
-            <button 
-              className="btn-accent" 
-              style={{ width: '60px', height: '60px', borderRadius: '50%', fontSize: '24px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-              onClick={() => setIsPlaying(!isPlaying)}
-            >
+            <button className="btn-icon" style={{ fontSize: '24px' }} onClick={() => seekBack(-10)}>«</button>
+            <button className="btn-icon" style={{ fontSize: '16px', color: '#ff4444' }} onClick={skipToStart}>⏮</button>
+            <button className="btn-accent" style={{ width: '60px', height: '60px', borderRadius: '50%', fontSize: '24px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={handlePlayPause}>
               {isPlaying ? '⏸' : '▶'}
             </button>
-            <button className="btn-icon" style={{ fontSize: '24px' }}>»</button>
+            <button className="btn-icon" style={{ fontSize: '24px' }} onClick={() => seekTime(10)}>»</button>
             <button className="btn-primary ml-4">💾 EXPORT MIX</button>
           </div>
         </div>
       </div>
 
-      {/* COLUMN 4: SECTIONS & LYRICS */}
+      {/* COLUMN 4: SECTIONS */}
       <div className="col-sections">
-        {/* Sections */}
-        <div className="glass-panel" style={{ flex: 1, maxHeight: '50%' }}>
+        <div className="glass-panel" style={{ flex: 1 }}>
           <div className="flex justify-between items-center mb-2">
             <span className="section-title" style={{ marginBottom: 0 }}>SONG STRUCTURE</span>
           </div>
           <div style={{ overflowY: 'auto', flex: 1, paddingRight: '5px' }}>
             {structure?.sections ? (
                 structure.sections.map((sec, idx) => (
-                    <div key={idx} className="glass-panel-inner mb-1 flex justify-between items-center cursor-pointer hover:border-cyan">
+                    <div key={idx} className="glass-panel-inner mb-1 flex justify-between items-center cursor-pointer hover:border-cyan" onClick={() => seekTime(sec.start - currentTime)}>
                         <span style={{ color: 'white', fontWeight: 'bold', fontSize: '12px' }}>{sec.label}</span>
-                        <span style={{ color: 'var(--neon-cyan)', fontSize: '10px' }}>
-                            {Math.floor(sec.start / 60)}:{(sec.start % 60).toFixed(0).padStart(2, '0')}
-                        </span>
+                        <span style={{ color: 'var(--neon-cyan)', fontSize: '10px' }}>{formatTime(sec.start)}</span>
                     </div>
                 ))
             ) : (
@@ -335,30 +467,7 @@ export default function App() {
             )}
           </div>
         </div>
-        
-        {/* Lyrics */}
-        <div className="glass-panel" style={{ flex: 1 }}>
-          <div className="flex justify-between items-center mb-2">
-            <span className="section-title" style={{ marginBottom: 0 }}>LYRICS</span>
-            <button className="btn-icon">📝</button>
-          </div>
-          <div style={{ overflowY: 'auto', flex: 1, paddingRight: '5px' }}>
-            {result?.lyrics ? (
-                result.lyrics.map((seg, idx) => (
-                    <p key={idx} style={{ color: '#fff', margin: '5px 0', fontSize: '14px' }}>
-                        <span style={{ color: '#555', fontSize: '10px', marginRight: '5px' }}>[{seg.start.toFixed(1)}s]</span>
-                        {seg.text}
-                    </p>
-                ))
-            ) : (
-                <div style={{ fontSize: '12px', color: '#555', textAlign: 'center', marginTop: '20px' }}>
-                    {loading ? "Transcribing lyrics..." : "No lyrics data"}
-                </div>
-            )}
-          </div>
-        </div>
       </div>
-
     </div>
   );
 }
