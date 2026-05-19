@@ -23,9 +23,7 @@ if (usesPortBinding)
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowWeb", policy =>
-        policy.WithOrigins(
-            "https://ai-music-workstation.vercel.app",
-            "http://localhost:5173")
+        policy.AllowAnyOrigin()
         .AllowAnyMethod()
         .AllowAnyHeader());
 });
