@@ -628,49 +628,74 @@ async def import_url(request: ImportUrlRequest):
             except Exception as e:
                 log_step(f"⚠️ Could not get YouTube title: {e}")
 
-        # 1. Download with yt-dlp (run as a python module to guarantee environment safety)
+        # 1. Download with yt-dlp
+        import glob
         unique_id = uuid.uuid4().hex[:8]
         output_template = os.path.join(UPLOAD_DIR, f"dl_{unique_id}.%(ext)s")
-        download_target = f"ytsearch1:{spotify_query}" if is_spotify else url
-        cmd = [
-            sys.executable,
-            "-m",
-            "yt_dlp",
-            "--no-playlist",
-            "--extractor-retries", "3",
-            "--socket-timeout", "30",
-            "-x",  # extract audio
-            "--audio-format", "mp3",
-            "--audio-quality", "0",
-            "-o", output_template,
-        ]
-        
-        # Check if local cookies.txt exists and is not stale (< 7 days old)
-        cookies_path = os.path.join(BASE_DIR, "cookies.txt")
-        if os.path.exists(cookies_path):
-            cookies_age_days = (time.time() - os.path.getmtime(cookies_path)) / 86400
-            if cookies_age_days < 7:
-                cmd.extend(["--cookies", cookies_path])
-                log_step(f"🍪 Using cookies.txt (age: {cookies_age_days:.1f} days)")
-            else:
-                log_step(f"⚠️ cookies.txt is {cookies_age_days:.1f} days old — skipping (re-export from browser to fix YouTube bot detection)")
-            
-        cmd.append(download_target)
-        log_step(f"⬇️ Running yt-dlp: {' '.join(cmd)}")
+
+        def build_yt_dlp_cmd(target: str, use_cookies: bool = True) -> list:
+            base = [
+                sys.executable, "-m", "yt_dlp",
+                "--no-playlist",
+                "--extractor-retries", "2",
+                "--socket-timeout", "30",
+                "-x",
+                "--audio-format", "mp3",
+                "--audio-quality", "0",
+                "-o", output_template,
+            ]
+            if use_cookies:
+                cookies_path = os.path.join(BASE_DIR, "cookies.txt")
+                if os.path.exists(cookies_path):
+                    cookies_age_days = (time.time() - os.path.getmtime(cookies_path)) / 86400
+                    if cookies_age_days < 7:
+                        base.extend(["--cookies", cookies_path])
+                        log_step(f"🍪 Using cookies.txt (age: {cookies_age_days:.1f} days)")
+            base.append(target)
+            return base
+
         dl_start = now()
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=300
-        )
-        if result.returncode != 0:
-            log_step(f"❌ yt-dlp failed: {result.stderr}")
-            raise RuntimeError(f"yt-dlp failed: {result.stderr[:500]}")
+        file_path = None
+
+        if is_spotify:
+            # SoundCloud search — no bot detection on datacenter IPs, no auth needed
+            sc_target = f"scsearch1:{spotify_query}"
+            log_step(f"🎵 Searching SoundCloud: {spotify_query}")
+            cmd = build_yt_dlp_cmd(sc_target, use_cookies=False)
+            log_step(f"⬇️ Running yt-dlp (SoundCloud): {' '.join(cmd)}")
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+            if result.returncode != 0:
+                log_step(f"⚠️ SoundCloud search failed, trying YouTube: {result.stderr[:300]}")
+                yt_target = f"ytsearch1:{spotify_query}"
+                cmd = build_yt_dlp_cmd(yt_target, use_cookies=True)
+                log_step(f"⬇️ Fallback to YouTube: {' '.join(cmd)}")
+                result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+                if result.returncode != 0:
+                    log_step(f"❌ Both SoundCloud and YouTube failed: {result.stderr}")
+                    raise RuntimeError(f"Download failed (SoundCloud + YouTube both blocked): {result.stderr[:400]}")
+        else:
+            # Direct YouTube URL: try YouTube first, fall back to SoundCloud title search
+            log_step(f"⬇️ Attempting direct YouTube download: {url}")
+            cmd = build_yt_dlp_cmd(url, use_cookies=True)
+            log_step(f"⬇️ Running yt-dlp (YouTube direct): {' '.join(cmd)}")
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+            if result.returncode != 0 and ("Sign in" in result.stderr or "bot" in result.stderr.lower()):
+                log_step("⚠️ YouTube bot detection triggered — falling back to SoundCloud search")
+                sc_query = f"{artist} - {title}" if title != "Unknown Track" else url
+                sc_target = f"scsearch1:{sc_query}"
+                cmd = build_yt_dlp_cmd(sc_target, use_cookies=False)
+                log_step(f"⬇️ Fallback SoundCloud search: {sc_query}")
+                result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+                if result.returncode != 0:
+                    log_step(f"❌ SoundCloud fallback also failed: {result.stderr}")
+                    raise RuntimeError(f"Download failed: {result.stderr[:400]}")
+            elif result.returncode != 0:
+                log_step(f"❌ yt-dlp failed: {result.stderr}")
+                raise RuntimeError(f"yt-dlp failed: {result.stderr[:500]}")
+
         log_step(f"✅ yt-dlp done ({elapsed(dl_start)}s)")
 
         # Find the downloaded file
-        import glob
         candidates = glob.glob(os.path.join(UPLOAD_DIR, f"dl_{unique_id}.*"))
         if not candidates:
             raise RuntimeError("yt-dlp produced no output file")
