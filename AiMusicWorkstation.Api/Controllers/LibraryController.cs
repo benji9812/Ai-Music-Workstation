@@ -21,6 +21,28 @@ public class LibraryController : ControllerBase
     [HttpGet("db-check")]
     public async Task<IActionResult> DbCheck([FromServices] AiMusicWorkstationDbContext context)
     {
+        string connectionString = "";
+        string sanitizedConnString = "";
+        try
+        {
+            connectionString = context.Database.GetConnectionString() ?? "";
+            sanitizedConnString = connectionString;
+            try
+            {
+                var cb = new NpgsqlConnectionStringBuilder(connectionString);
+                if (!string.IsNullOrEmpty(cb.Password)) cb.Password = "***";
+                sanitizedConnString = cb.ConnectionString;
+            }
+            catch (Exception pex)
+            {
+                sanitizedConnString = $"[Parse Error: {pex.Message}] Raw: {connectionString}";
+            }
+        }
+        catch (Exception ex)
+        {
+            sanitizedConnString = $"[GetConnectionString Error: {ex.Message}]";
+        }
+
         try
         {
             var canConnect = await context.Database.CanConnectAsync();
@@ -39,16 +61,6 @@ public class LibraryController : ControllerBase
                 tableStatus = $"Error: {ex.Message}";
             }
 
-            var connectionString = context.Database.GetConnectionString() ?? "";
-            var sanitizedConnString = connectionString;
-            try
-            {
-                var cb = new NpgsqlConnectionStringBuilder(connectionString);
-                if (!string.IsNullOrEmpty(cb.Password)) cb.Password = "***";
-                sanitizedConnString = cb.ConnectionString;
-            }
-            catch {}
-
             return Ok(new {
                 canConnect,
                 tableStatus,
@@ -64,7 +76,8 @@ public class LibraryController : ControllerBase
             return StatusCode(500, new {
                 error = ex.Message,
                 stackTrace = ex.StackTrace,
-                innerError = ex.InnerException?.Message
+                innerError = ex.InnerException?.Message,
+                sanitizedConnectionString = sanitizedConnString
             });
         }
     }
