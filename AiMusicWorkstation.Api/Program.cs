@@ -64,6 +64,9 @@ builder.Services.AddHttpClient<PythonEngineClient>((sp, client) =>
     client.Timeout = cfg.Timeout;
 });
 
+builder.Services.AddScoped<AiMusicWorkstation.Domain.Repositories.ILibraryRepository, LibraryRepository>();
+builder.Services.AddSingleton<SmartImporter>();
+
 var app = builder.Build();
 
 // OpenAPI + Scalar UI (gäller alla miljöer, inte bara Development)
