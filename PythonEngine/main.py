@@ -497,6 +497,109 @@ async def structure(request: StructureRequest):
         log_step(f"⚠️ /structure misslyckades: {e}")
         raise HTTPException(status_code=500, detail=f"Structure analysis failed: {str(e)}")
 
+class ImportUrlRequest(BaseModel):
+    url: str
+
+@app.post("/import-url")
+async def import_url(request: ImportUrlRequest):
+    """Download audio from YouTube/Spotify URL via yt-dlp, then run full analysis."""
+    total_start = now()
+    file_path = None
+    try:
+        ensure_runtime_dirs()
+        log_step(f"📥 /import-url request: {request.url}")
+
+        # 1. Download with yt-dlp
+        unique_id = uuid.uuid4().hex[:8]
+        output_template = os.path.join(UPLOAD_DIR, f"dl_{unique_id}.%(ext)s")
+        cmd = [
+            "yt-dlp",
+            "--no-playlist",
+            "-x",  # extract audio
+            "--audio-format", "mp3",
+            "--audio-quality", "0",
+            "-o", output_template,
+            request.url,
+        ]
+        log_step(f"⬇️ Running yt-dlp: {' '.join(cmd)}")
+        dl_start = now()
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=300
+        )
+        if result.returncode != 0:
+            log_step(f"❌ yt-dlp failed: {result.stderr}")
+            raise RuntimeError(f"yt-dlp failed: {result.stderr[:500]}")
+        log_step(f"✅ yt-dlp done ({elapsed(dl_start)}s)")
+
+        # Find the downloaded file
+        import glob
+        candidates = glob.glob(os.path.join(UPLOAD_DIR, f"dl_{unique_id}.*"))
+        if not candidates:
+            raise RuntimeError("yt-dlp produced no output file")
+        file_path = candidates[0]
+        log_step(f"📁 Downloaded file: {file_path}")
+
+        # 2. Run full analysis (same as /analyze)
+        load_start = now()
+        y_audio, sr = librosa.load(
+            file_path,
+            sr=AUDIO_LOAD_SR,
+            mono=AUDIO_LOAD_MONO,
+            duration=AUDIO_ANALYZE_DURATION
+        )
+        log_step(f"🎵 Audio loaded ({elapsed(load_start)}s)")
+
+        bpm = detect_bpm_robust(y_audio, sr)
+        time_signature = detect_time_signature(y_audio, sr, bpm)
+        log_step(f"🥁 BPM: {bpm}, Time sig: {time_signature}/4")
+
+        key = detect_key(y_audio, sr)
+        log_step(f"🎹 Key: {key}")
+
+        chords = get_chords(file_path)
+        log_step(f"🎸 Chords: {len(chords)} detected")
+
+        demucs_start = now()
+        stems_folder, drums_path, bass_path, other_path, vocals_path = run_demucs(file_path)
+        log_step(f"🎚️ Demucs done ({elapsed(demucs_start)}s)")
+
+        lyrics = []
+        try:
+            clean_vocals = prepare_vocals_for_whisper(vocals_path)
+            lyrics = transcribe_with_groq(clean_vocals)
+            if clean_vocals != vocals_path:
+                cleanup_file(clean_vocals)
+            log_step(f"🗣️ Lyrics: {len(lyrics)} segments")
+        except Exception as e:
+            log_step(f"⚠️ Lyrics transcription failed: {e}")
+
+        # Cleanup downloaded file
+        cleanup_file(file_path)
+
+        log_step(f"✅ /import-url complete in {elapsed(total_start)}s")
+        return {
+            "status": "success",
+            "bpm": bpm,
+            "key": key,
+            "time_signature": time_signature,
+            "chords": chords,
+            "lyrics": lyrics,
+            "stems_path": stems_folder or "",
+            "original_path": "",
+            "duration_seconds": elapsed(total_start),
+            "analysis_window_seconds": AUDIO_ANALYZE_DURATION
+        }
+    except Exception as e:
+        print("\n============== Traceback ==============")
+        print(traceback.format_exc())
+        print("============== End Traceback ==============")
+        if file_path:
+            cleanup_file(file_path)
+        raise HTTPException(status_code=500, detail=f"Import-url failed: {str(e)}")
+
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))

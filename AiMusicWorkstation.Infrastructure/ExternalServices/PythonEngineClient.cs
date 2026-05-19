@@ -40,6 +40,14 @@ public class PythonEngineClient
         return await response.Content.ReadAsStringAsync();
     }
 
+    public async Task<string> ImportUrlAsync(string url)
+    {
+        if (!await _manager.EnsureRunningAsync())
+            return "{\"status\":\"error\",\"message\":\"Python engine not reachable\"}";
+        var response = await _client.PostAsJsonAsync("import-url", new { url });
+        return await response.Content.ReadAsStringAsync();
+    }
+
     public Task<bool> IsHealthyAsync() => _manager.IsHealthyAsync();
 
     private static async Task<MultipartFormDataContent> BuildMultipartAsync(IFormFile file)
