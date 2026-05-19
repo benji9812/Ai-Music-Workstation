@@ -129,12 +129,27 @@ export default function App() {
               body: JSON.stringify({ url: urlInput }),
           });
           
-          const data = await resp.json();
+          const text = await resp.text();
+          if (!text) {
+              setError(`Server returned empty response (HTTP ${resp.status})`);
+              setLoading(false);
+              return;
+          }
+          
+          let data;
+          try {
+              data = JSON.parse(text);
+          } catch {
+              setError(`Server error (HTTP ${resp.status}): ${text.substring(0, 200)}`);
+              setLoading(false);
+              return;
+          }
+          
           if (!resp.ok || data.error) {
-              setError(data.error || data.detail || resp.statusText);
+              setError(data.error || data.message || data.detail || resp.statusText);
           } else {
               setResult(data);
-              fetchLibrary(); // Refresh library after import
+              fetchLibrary();
           }
       } catch (e: any) {
           setError("Network error: " + e.message);
