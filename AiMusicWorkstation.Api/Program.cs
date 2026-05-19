@@ -62,10 +62,30 @@ builder.Services.AddHttpClient<PythonEngineClient>((sp, client) =>
     client.Timeout = cfg.Timeout;
 });
 
-builder.Services.AddScoped<AiMusicWorkstation.Domain.Repositories.ILibraryRepository, LibraryRepository>();
+builder.Services.AddScoped<DbLibraryRepository>();
+builder.Services.AddScoped<AiMusicWorkstation.Domain.Repositories.ILibraryRepository>(sp =>
+    new LibraryRepository(
+        sp.GetRequiredService<DbLibraryRepository>(),
+        sp.GetRequiredService<ILogger<LibraryRepository>>()
+    ));
 builder.Services.AddSingleton<SmartImporter>();
 
 var app = builder.Build();
+
+// Apply pending migrations automatically on startup
+using (var scope = app.Services.CreateScope())
+{
+    try
+    {
+        var db = scope.ServiceProvider.GetRequiredService<AiMusicWorkstationDbContext>();
+        db.Database.Migrate();
+    }
+    catch (Exception ex)
+    {
+        var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "Failed to apply migrations on startup. Ensure the database connection string is correct and the database is accessible.");
+    }
+}
 
 // OpenAPI + Scalar UI (gäller alla miljöer, inte bara Development)
 app.MapOpenApi(); // exponerar /openapi/v1.json
