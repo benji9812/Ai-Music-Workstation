@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, UIEvent } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import './index.css';
 
 type LyricSegment = { start: number; end: number; text: string };
@@ -65,7 +65,6 @@ export default function App() {
   const [solos, setSolos] = useState({ drums: false, bass: false, other: false, vocals: false });
 
   // API Integration States
-  const [file, setFile] = useState<File | null>(null);
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [structure, setStructure] = useState<StructureResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -197,7 +196,7 @@ export default function App() {
       return () => clearInterval(interval);
   }, [isPlaying, result, autoScrollLyrics, metronomeEnabled]);
 
-  const handleManualScroll = (e: UIEvent<HTMLDivElement>) => {
+  const handleManualScroll = (_e: React.UIEvent<HTMLDivElement>) => {
       // If user scrolls manually, disable auto-scroll temporarily
       setAutoScrollLyrics(false);
       // Re-enable after 3 seconds of no scrolling
@@ -243,7 +242,6 @@ export default function App() {
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     if (f && (f.type === "audio/mpeg" || f.name.endsWith(".mp3") || f.type.includes("audio/"))) {
-        setFile(f);
         analyzeFile(f);
     } else {
         setError("Please select a valid Audio file.");
@@ -525,7 +523,7 @@ export default function App() {
           </div>
           <div className="flex justify-center items-center gap-2">
             <button className="btn-icon" style={{ fontSize: '20px' }}>🔁</button>
-            <button className="btn-icon" style={{ fontSize: '24px' }} onClick={() => seekBack(-10)}>«</button>
+            <button className="btn-icon" style={{ fontSize: '24px' }} onClick={() => seekTime(-10)}>«</button>
             <button className="btn-icon" style={{ fontSize: '16px', color: '#ff4444' }} onClick={skipToStart}>⏮</button>
             <button className="btn-accent" style={{ width: '60px', height: '60px', borderRadius: '50%', fontSize: '24px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={handlePlayPause}>
               {isPlaying ? '⏸' : '▶'}
@@ -544,7 +542,7 @@ export default function App() {
           </div>
           <div style={{ overflowY: 'auto', flex: 1, paddingRight: '5px' }}>
             {structure?.sections ? (
-                structure.sections.map((sec, idx) => (
+                structure.sections.map((sec: Section, idx: number) => (
                     <div key={idx} className="glass-panel-inner mb-1 flex justify-between items-center cursor-pointer hover:border-cyan" onClick={() => seekTime(sec.start - currentTime)}>
                         <span style={{ color: 'white', fontWeight: 'bold', fontSize: '12px' }}>{sec.label}</span>
                         <span style={{ color: 'var(--neon-cyan)', fontSize: '10px' }}>{formatTime(sec.start)}</span>
