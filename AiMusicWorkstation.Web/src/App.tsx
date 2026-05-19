@@ -335,12 +335,6 @@ export default function App() {
 
   return (
     <div className="app-container">
-      {/* Top Navigation / Toolbar */}
-      <div style={{ position: 'absolute', top: '15px', right: '20px', zIndex: 100, display: 'flex', gap: '10px' }}>
-         <button className={`btn-primary ${!showChords ? 'opacity-50' : ''}`} onClick={() => setShowChords(!showChords)}>🎹 Chords</button>
-         <button className={`btn-primary ${!showLyrics ? 'opacity-50' : ''}`} onClick={() => setShowLyrics(!showLyrics)}>🎤 Lyrics</button>
-         <button className={`btn-primary ${!showStructure ? 'opacity-50' : ''}`} onClick={() => setShowStructure(!showStructure)}>📑 Structure</button>
-      </div>
       
       {/* COLUMN 1: LIBRARY */}
       <div className="col-library">
@@ -417,7 +411,14 @@ export default function App() {
       <div className="col-main">
         {/* Header */}
         <div className="flex justify-between items-center" style={{ padding: '0 10px' }}>
-          <h1 className="neon-text-gradient m-0" style={{ fontSize: '24px' }}>AI MUSIC WORKSTATION</h1>
+          <div className="flex items-center gap-4">
+            <h1 className="neon-text-gradient m-0" style={{ fontSize: '24px' }}>AI MUSIC WORKSTATION</h1>
+            <div className="flex gap-2">
+               <button className={`btn-primary ${!showChords ? 'opacity-50' : ''}`} style={{ padding: '4px 8px', fontSize: '10px' }} onClick={() => setShowChords(!showChords)}>🎹 Chords</button>
+               <button className={`btn-primary ${!showLyrics ? 'opacity-50' : ''}`} style={{ padding: '4px 8px', fontSize: '10px' }} onClick={() => setShowLyrics(!showLyrics)}>🎤 Lyrics</button>
+               <button className={`btn-primary ${!showStructure ? 'opacity-50' : ''}`} style={{ padding: '4px 8px', fontSize: '10px' }} onClick={() => setShowStructure(!showStructure)}>📑 Structure</button>
+            </div>
+          </div>
           <div className="flex items-center gap-2">
             <span style={{ fontSize: '10px', fontWeight: 'bold', color: '#888' }}>MASTER VOL</span>
             <input type="range" min="0" max="100" value={masterVol} onChange={e => setMasterVol(Number(e.target.value))} style={{ width: '80px' }} />
