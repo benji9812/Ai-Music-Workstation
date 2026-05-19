@@ -30,6 +30,8 @@ load_dotenv(dotenv_path=BASE_DIR.parent / ".env")
 
 UPLOAD_DIR = os.path.join(BASE_DIR, "temp_uploads")
 OUT_DIR = os.path.join(BASE_DIR, "separated")
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+os.makedirs(OUT_DIR, exist_ok=True)
 os.environ["PATH"] += os.pathsep + str(BASE_DIR)
 
 NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'Bb', 'B']
