@@ -137,9 +137,27 @@ static string? NormalizeConnectionString(string? connectionString)
 
     var userInfo = uri.UserInfo.Split(':', 2);
 
+    var host = uri.Host;
+    try
+    {
+        var ipAddresses = System.Net.Dns.GetHostAddresses(host);
+        foreach (var ip in ipAddresses)
+        {
+            if (ip.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
+            {
+                host = ip.ToString();
+                break;
+            }
+        }
+    }
+    catch
+    {
+        // Fallback to original hostname if DNS resolution fails
+    }
+
     var builder = new NpgsqlConnectionStringBuilder
     {
-        Host = uri.Host,
+        Host = host,
         Port = uri.Port > 0 ? uri.Port : 5432,
         Database = uri.AbsolutePath.TrimStart('/'),
         Username = userInfo.Length > 0 ? Uri.UnescapeDataString(userInfo[0]) : string.Empty,
