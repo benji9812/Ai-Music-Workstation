@@ -178,23 +178,28 @@ static string? NormalizeConnectionString(string? connectionString)
         {
             var connBuilder = new NpgsqlConnectionStringBuilder(connectionString);
             var connHost = connBuilder.Host;
+            var connUsername = connBuilder.Username;
             if (!string.IsNullOrEmpty(connHost))
             {
-                var ipAddresses = System.Net.Dns.GetHostAddresses(connHost);
-                foreach (var ip in ipAddresses)
+                if (connHost.StartsWith("db.", StringComparison.OrdinalIgnoreCase) && connHost.EndsWith(".supabase.co", StringComparison.OrdinalIgnoreCase))
                 {
-                    if (ip.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
+                    var parts = connHost.Split('.');
+                    if (parts.Length == 4)
                     {
-                        connBuilder.Host = ip.ToString();
-                        break;
+                        var projectRef = parts[1];
+                        connBuilder.Host = "aws-0-eu-north-1.pooler.supabase.com";
+                        if (!string.IsNullOrEmpty(connUsername) && !connUsername.EndsWith("." + projectRef, StringComparison.OrdinalIgnoreCase))
+                        {
+                            connBuilder.Username = $"{connUsername}.{projectRef}";
+                        }
+                        return connBuilder.ConnectionString;
                     }
                 }
-                return connBuilder.ConnectionString;
             }
         }
         catch
         {
-            // Fallback to original connection string if parsing or DNS fails
+            // Fallback to original connection string if parsing fails
         }
         return connectionString;
     }
@@ -206,23 +211,21 @@ static string? NormalizeConnectionString(string? connectionString)
     }
 
     var userInfo = uri.UserInfo.Split(':', 2);
-
     var host = uri.Host;
-    try
+    var username = userInfo.Length > 0 ? Uri.UnescapeDataString(userInfo[0]) : string.Empty;
+
+    if (host.StartsWith("db.", StringComparison.OrdinalIgnoreCase) && host.EndsWith(".supabase.co", StringComparison.OrdinalIgnoreCase))
     {
-        var ipAddresses = System.Net.Dns.GetHostAddresses(host);
-        foreach (var ip in ipAddresses)
+        var parts = host.Split('.');
+        if (parts.Length == 4)
         {
-            if (ip.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
+            var projectRef = parts[1];
+            host = "aws-0-eu-north-1.pooler.supabase.com";
+            if (!string.IsNullOrEmpty(username) && !username.EndsWith("." + projectRef, StringComparison.OrdinalIgnoreCase))
             {
-                host = ip.ToString();
-                break;
+                username = $"{username}.{projectRef}";
             }
         }
-    }
-    catch
-    {
-        // Fallback to original hostname if DNS resolution fails
     }
 
     var builder = new NpgsqlConnectionStringBuilder
@@ -230,7 +233,7 @@ static string? NormalizeConnectionString(string? connectionString)
         Host = host,
         Port = uri.Port > 0 ? uri.Port : 5432,
         Database = uri.AbsolutePath.TrimStart('/'),
-        Username = userInfo.Length > 0 ? Uri.UnescapeDataString(userInfo[0]) : string.Empty,
+        Username = username,
         Password = userInfo.Length > 1 ? Uri.UnescapeDataString(userInfo[1]) : string.Empty,
         SslMode = SslMode.Require
     };
