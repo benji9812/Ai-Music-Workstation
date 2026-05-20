@@ -95,12 +95,21 @@ public class LibraryController : ControllerBase
     }
 
     [HttpDelete("projects/{id}")]
-    public async Task<IActionResult> DeleteProject(string id)
+    public async Task<IActionResult> DeleteProject(string id, [FromQuery] bool deleteFiles = true)
     {
         if (string.IsNullOrEmpty(id)) return BadRequest();
-        
+
+        var project = await _repository.GetByIdAsync(id);
+        if (project == null) return NotFound();
+
         await _repository.DeleteAsync(id);
         await _repository.SaveAsync();
+
+        if (deleteFiles)
+        {
+            var fileManager = HttpContext.RequestServices.GetRequiredService<AiMusicWorkstation.Domain.Services.IProjectFileManager>();
+            await fileManager.DeleteProjectFilesAsync(project);
+        }
         
         return Ok(new { status = "success" });
     }

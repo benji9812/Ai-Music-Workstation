@@ -112,6 +112,10 @@ body {
   margin-bottom: 10px;
 }
 
+.lyrics-container {
+  overflow-y: auto;
+}
+
 /* ====================
    Buttons
 ==================== */
@@ -131,6 +135,13 @@ body {
 .btn-primary:hover {
   background: rgba(0, 240, 255, 0.1);
   box-shadow: 0 0 12px rgba(0, 240, 255, 0.4);
+}
+
+.btn-active {
+  color: var(--neon-cyan);
+  background: rgba(0, 240, 255, 0.18);
+  border-color: var(--neon-cyan);
+  box-shadow: 0 0 12px rgba(0, 240, 255, 0.5), 0 0 24px rgba(0, 240, 255, 0.3);
 }
 
 .btn-accent {

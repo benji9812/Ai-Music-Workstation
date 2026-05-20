@@ -69,6 +69,7 @@ builder.Services.AddScoped<AiMusicWorkstation.Domain.Repositories.ILibraryReposi
         sp.GetRequiredService<ILogger<LibraryRepository>>()
     ));
 builder.Services.AddSingleton<SmartImporter>();
+builder.Services.AddScoped<AiMusicWorkstation.Domain.Services.IProjectFileManager, AiMusicWorkstation.Infrastructure.Services.ProjectFileManager>();
 
 var app = builder.Build();
 

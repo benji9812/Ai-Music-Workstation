@@ -30,9 +30,29 @@ type SongProject = {
     bpm: number;
     key: string;
     stemsPath: string;
+    originalPath?: string;
+    spotifyId?: string;
+    duration?: string;
+    timeSignature?: number;
+    dateAdded?: string;
+    groupName?: string;
+    isOfficialData?: boolean;
+    keySource?: number;
 };
 
 const API_URL = import.meta.env.VITE_API_URL ?? "";
+
+export const getActiveLyricIndex = (lyrics: LyricSegment[], current: number) => {
+    let activeIdx = lyrics.findIndex(l => l.start <= current && l.end >= current);
+    if (activeIdx === -1 && lyrics.length > 0 && current > lyrics[lyrics.length - 1].end) {
+        activeIdx = lyrics.length - 1;
+    }
+    return activeIdx;
+};
+
+export const onImportSuccess = (refreshLibrary: () => void) => {
+    refreshLibrary();
+};
 
 // --- Chord diagram data (root note → intervals shown as dots) ---
 const CHORD_INTERVALS: Record<string, number[]> = {
@@ -91,6 +111,15 @@ const playClick = () => {
     osc.stop(audioCtx.currentTime + 0.1);
 };
 
+export const __testHooks = {
+  refreshLibrary: () => {},
+  setStructure: (_structure: StructureResult | null) => {},
+  setDuration: (_duration: number) => {},
+  setDurationReady: (_ready: boolean) => {},
+  setResult: (_result: AnalysisResult | null) => {},
+  getCurrentTime: () => 0,
+};
+
 export default function App() {
   const [activeTab, setActiveTab] = useState<'chord' | 'scale'>('chord');
   
@@ -98,9 +127,11 @@ export default function App() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [durationReady, setDurationReady] = useState(false);
   
   const [metronomeEnabled, setMetronomeEnabled] = useState(false);
   const [countInEnabled, setCountInEnabled] = useState(false);
+  const [transposeEnabled, setTransposeEnabled] = useState(false);
   const [masterVol, setMasterVol] = useState(100);
   
   // Mixer states
@@ -125,6 +156,12 @@ export default function App() {
   const [urlInput, setUrlInput] = useState("");
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  __testHooks.setStructure = setStructure;
+  __testHooks.setDuration = setDuration;
+  __testHooks.setDurationReady = setDurationReady;
+  __testHooks.setResult = setResult;
+  __testHooks.getCurrentTime = () => stems.current.drums.currentTime;
+
   const fetchLibrary = async () => {
       try {
           const resp = await fetch(`${API_URL}/api/library/projects`);
@@ -135,18 +172,47 @@ export default function App() {
       } catch (e) {
           console.error("Failed to fetch library", e);
       }
-  };
+};
 
   useEffect(() => {
       fetchLibrary();
   }, []);
 
+  const refreshLibrary = () => {
+      fetchLibrary();
+  };
+  __testHooks.refreshLibrary = refreshLibrary;
+
   const deleteProject = async (id: string) => {
       try {
-          await fetch(`${API_URL}/api/library/projects/${id}`, { method: 'DELETE' });
-          fetchLibrary();
+          await fetch(`${API_URL}/api/library/projects/${id}?deleteFiles=true`, { method: 'DELETE' });
+          refreshLibrary();
       } catch (e) {
           console.error("Failed to delete project", e);
+      }
+  };
+
+  const editProject = async (project: SongProject) => {
+      const title = window.prompt("Update title", project.title)?.trim();
+      if (!title) return;
+      const artist = window.prompt("Update artist", project.artist)?.trim();
+      if (!artist) return;
+
+      const updatedProject = { ...project, title, artist };
+
+      try {
+          const resp = await fetch(`${API_URL}/api/library/projects/${project.id}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(updatedProject),
+          });
+          if (!resp.ok) {
+              console.error("Failed to update project", await resp.text());
+              return;
+          }
+          refreshLibrary();
+      } catch (e) {
+          console.error("Failed to update project", e);
       }
   };
 
@@ -157,7 +223,14 @@ export default function App() {
       stems.current.bass.src     = `${API_URL}/api/analysis/audio/${relPath}/bass.mp3`;
       stems.current.other.src    = `${API_URL}/api/analysis/audio/${relPath}/other.mp3`;
       stems.current.vocals.src   = `${API_URL}/api/analysis/audio/${relPath}/vocals.mp3`;
-      stems.current.drums.onloadedmetadata = () => setDuration(stems.current.drums.duration);
+      setDurationReady(false);
+      stems.current.drums.onloadedmetadata = () => {
+          setDuration(stems.current.drums.duration);
+          setDurationReady(true);
+          if (!isDragging) {
+              setSliderTime(0);
+          }
+      };
   };
 
   const loadProject = async (p: SongProject) => {
@@ -165,6 +238,7 @@ export default function App() {
       setResult({ bpm: p.bpm, key: p.key, title: p.title, artist: p.artist });
       setNowPlaying({ title: p.title, artist: p.artist });
       setCurrentTime(0);
+      setSliderTime(0);
       setIsPlaying(false);
       setStructure(null);
       try {
@@ -238,7 +312,7 @@ export default function App() {
                           if (structResp.ok && !structData.error) setStructure(structData);
                       } catch { /* optional */ }
 
-                      fetchLibrary();
+                      onImportSuccess(refreshLibrary);
 
                   } else if (statusData.status === 'error') {
                       clearInterval(pollRef.current!);
@@ -272,6 +346,9 @@ export default function App() {
   });
 
   const [autoScrollLyrics, setAutoScrollLyrics] = useState(true);
+  const [isDragging, setIsDragging] = useState(false);
+  const [sliderTime, setSliderTime] = useState(0);
+  const lastLyricIndexRef = useRef<number | null>(null);
 
   // Apply volumes and mutes/solos
   useEffect(() => {
@@ -294,11 +371,15 @@ export default function App() {
           if (isPlaying) {
               const current = stems.current.drums.currentTime;
               setCurrentTime(current);
+              if (!isDragging) {
+                  setSliderTime(current);
+              }
               
               if (result?.lyrics && autoScrollLyrics && lyricsScrollRef.current) {
-                  // Simple auto-scroll based on time
-                  const activeIdx = result.lyrics.findIndex(l => l.start <= current && l.end >= current);
-                  if (activeIdx !== -1) {
+                  const lyrics = result.lyrics;
+                  const activeIdx = getActiveLyricIndex(lyrics, current);
+                  if (activeIdx !== -1 && lastLyricIndexRef.current !== activeIdx) {
+                      lastLyricIndexRef.current = activeIdx;
                       const container = lyricsScrollRef.current;
                       const activeElem = container.children[activeIdx] as HTMLElement;
                       if (activeElem) {
@@ -317,7 +398,7 @@ export default function App() {
           }
       }, 100);
       return () => clearInterval(interval);
-  }, [isPlaying, result, autoScrollLyrics, metronomeEnabled]);
+  }, [isPlaying, result, autoScrollLyrics, metronomeEnabled, isDragging]);
 
   const handleManualScroll = (_e: React.UIEvent<HTMLDivElement>) => {
       // If user scrolls manually, disable auto-scroll temporarily
@@ -352,6 +433,7 @@ export default function App() {
   const skipToStart = () => {
       Object.values(stems.current).forEach(a => a.currentTime = 0);
       setCurrentTime(0);
+      setSliderTime(0);
       if (!isPlaying) handlePlayPause();
   };
 
@@ -359,7 +441,20 @@ export default function App() {
       Object.values(stems.current).forEach(a => {
           a.currentTime = Math.max(0, Math.min(a.currentTime + offset, duration));
       });
-      setCurrentTime(stems.current.drums.currentTime);
+      const updatedTime = stems.current.drums.currentTime;
+      setCurrentTime(updatedTime);
+      if (!isDragging) {
+          setSliderTime(updatedTime);
+      }
+  };
+
+  const jumpToTime = (time: number) => {
+      const clamped = Math.max(0, Math.min(time, duration));
+      Object.values(stems.current).forEach(a => {
+          a.currentTime = clamped;
+      });
+      setCurrentTime(clamped);
+      setSliderTime(clamped);
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -397,6 +492,8 @@ export default function App() {
           setResult(data);
           const fileName = selectedFile.name.replace(/\.[^.]+$/, '');
           setNowPlaying({ title: fileName, artist: 'Local Upload' });
+          setCurrentTime(0);
+          setSliderTime(0);
 
           // Load stems from proxy if available, else use local file
           if (data.stems_path) {
@@ -407,7 +504,14 @@ export default function App() {
               stems.current.bass.src    = objectUrl;
               stems.current.other.src   = objectUrl;
               stems.current.vocals.src  = objectUrl;
-              stems.current.drums.onloadedmetadata = () => setDuration(stems.current.drums.duration);
+              setDurationReady(false);
+              stems.current.drums.onloadedmetadata = () => {
+                  setDuration(stems.current.drums.duration);
+                  setDurationReady(true);
+                  if (!isDragging) {
+                      setSliderTime(0);
+                  }
+              };
           }
 
           const structResp = await fetch(`${API_URL}/api/analysis/structure`, {
@@ -418,7 +522,7 @@ export default function App() {
           const structData = await structResp.json();
           if (structResp.ok && !structData.error) setStructure(structData);
 
-          fetchLibrary();
+           onImportSuccess(refreshLibrary);
           
       } catch (e: any) {
           setError("Network error: " + e.message);
@@ -461,7 +565,7 @@ export default function App() {
                   alert(`Rescan: ${data.added} new stems added (${data.total} total)`);
                 } catch (e: any) { alert('Rescan failed: ' + e.message); }
               }}>🔍</button>
-              <button className="btn-icon" title="Refresh library" onClick={() => fetchLibrary()}>⟳</button>
+              <button className="btn-icon" title="Refresh library" onClick={fetchLibrary}>⟳</button>
             </div>
           </div>
           <input type="text" className="input-dark mb-2" placeholder="Search..." />
@@ -479,7 +583,7 @@ export default function App() {
                       <div style={{ color: '#aaa', fontSize: '11px', marginBottom: '4px' }}>{p.artist}</div>
                     </div>
                     <div className="flex flex-col gap-1">
-                        <button className="btn-icon" style={{ fontSize: '10px' }}>✏️</button>
+                        <button className="btn-icon" style={{ fontSize: '10px' }} onClick={(e) => { e.stopPropagation(); editProject(p); }}>✏️</button>
                         <button className="btn-icon" style={{ fontSize: '10px', color: '#ff4444' }} onClick={(e) => { e.stopPropagation(); deleteProject(p.id); }}>❌</button>
                     </div>
                   </div>
@@ -637,21 +741,30 @@ export default function App() {
         <div className="glass-panel flex justify-center items-center gap-4">
             <div className="flex items-center gap-2">
                 <span style={{ fontSize: '10px', fontWeight: 'bold', color: '#888' }}>TRANSPOSE</span>
-                <button className="btn-icon">− </button>
-                <span style={{ fontSize: '16px', fontWeight: 'bold', color: 'var(--neon-cyan)' }}>0</span>
-                <button className="btn-icon"> +</button>
+                 <button
+                   className={`btn-icon ${transposeEnabled ? 'btn-active' : ''}`}
+                   onClick={() => setTransposeEnabled(!transposeEnabled)}
+                   data-testid="transpose-toggle-minus"
+                 >− </button>
+                 <span style={{ fontSize: '16px', fontWeight: 'bold', color: 'var(--neon-cyan)' }}>0</span>
+                 <button
+                   className={`btn-icon ${transposeEnabled ? 'btn-active' : ''}`}
+                   onClick={() => setTransposeEnabled(!transposeEnabled)}
+                   data-testid="transpose-toggle-plus"
+                 > +</button>
             </div>
             <div className="flex items-center gap-2">
-                <button 
-                    className={`btn-primary ${countInEnabled ? 'active' : ''}`} 
-                    style={{ fontSize: '10px', padding: '4px 8px' }}
-                    onClick={() => setCountInEnabled(!countInEnabled)}
-                >Count In</button>
-                <button 
-                    className={`btn-primary ${metronomeEnabled ? 'active' : ''}`} 
-                    style={{ fontSize: '10px', padding: '4px 8px' }}
-                    onClick={() => setMetronomeEnabled(!metronomeEnabled)}
-                >🥁 Metro</button>
+                 <button 
+                     className={`btn-primary ${countInEnabled ? 'btn-active' : ''}`} 
+                     style={{ fontSize: '10px', padding: '4px 8px' }}
+                     onClick={() => setCountInEnabled(!countInEnabled)}
+                 >Count In</button>
+                 <button 
+                     className={`btn-primary ${metronomeEnabled ? 'btn-active' : ''}`} 
+                     style={{ fontSize: '10px', padding: '4px 8px' }}
+                     onClick={() => setMetronomeEnabled(!metronomeEnabled)}
+                     data-testid="metro-toggle"
+                 >🥁 Metro</button>
             </div>
         </div>
 
@@ -665,7 +778,8 @@ export default function App() {
           <div 
             ref={lyricsScrollRef}
             onScroll={handleManualScroll}
-            style={{ overflowY: 'auto', flex: 1, paddingRight: '5px' }}
+            className="lyrics-container"
+            style={{ flex: 1, paddingRight: '5px' }}
           >
             {result?.lyrics ? (
                 result.lyrics.map((seg, idx) => (
@@ -712,8 +826,26 @@ export default function App() {
         <div className="glass-panel" style={{ marginTop: 'auto' }}>
           <div className="flex items-center gap-2 mb-2">
             <span style={{ fontSize: '12px', color: '#888', width: '40px' }}>{formatTime(currentTime)}</span>
-            <input type="range" className="timeline-slider" min="0" max={duration || 100} value={currentTime} onChange={e => seekTime(Number(e.target.value) - currentTime)} />
-            <span style={{ fontSize: '12px', color: '#888', width: '40px', textAlign: 'right' }}>{formatTime(duration)}</span>
+            <input
+              type="range"
+              className="timeline-slider"
+              data-testid="timeline-slider"
+              min="0"
+              max={durationReady ? duration : 0}
+              value={isDragging ? sliderTime : currentTime}
+              onMouseDown={() => setIsDragging(true)}
+              onChange={e => {
+                const newTime = Number(e.target.value);
+                setSliderTime(newTime);
+                setIsDragging(false);
+                jumpToTime(newTime);
+              }}
+              onTouchStart={() => setIsDragging(true)}
+              onTouchEnd={() => setIsDragging(false)}
+            />
+            <span style={{ fontSize: '12px', color: '#888', width: '40px', textAlign: 'right' }}>
+              {durationReady ? formatTime(duration) : '--:--'}
+            </span>
           </div>
           <div className="flex justify-center items-center gap-2">
             <button className="btn-icon" style={{ fontSize: '20px' }}>🔁</button>
@@ -738,7 +870,16 @@ export default function App() {
           <div style={{ overflowY: 'auto', flex: 1, paddingRight: '5px' }}>
             {structure?.sections ? (
                 structure.sections.map((sec: Section, idx: number) => (
-                    <div key={idx} className="glass-panel-inner mb-1 flex justify-between items-center cursor-pointer hover:border-cyan" onClick={() => seekTime(sec.start - currentTime)}>
+                    <div
+                      key={idx}
+                      className="glass-panel-inner mb-1 flex justify-between items-center cursor-pointer hover:border-cyan"
+                      data-start={sec.start}
+                      onClick={e => {
+                        const target = e.currentTarget as HTMLDivElement;
+                        const start = Number(target.dataset.start ?? 0);
+                        jumpToTime(start);
+                      }}
+                    >
                         <span style={{ color: 'white', fontWeight: 'bold', fontSize: '12px' }}>{sec.label}</span>
                         <span style={{ color: 'var(--neon-cyan)', fontSize: '10px' }}>{formatTime(sec.start)}</span>
                     </div>
