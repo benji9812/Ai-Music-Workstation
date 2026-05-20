@@ -48,6 +48,22 @@ public class PythonEngineClient
         return await response.Content.ReadAsStringAsync();
     }
 
+    public async Task<string> StartImportJobAsync(string url)
+    {
+        if (!await _manager.EnsureRunningAsync())
+            return "{\"status\":\"error\",\"message\":\"Python engine not reachable\"}";
+        var response = await _client.PostAsJsonAsync("import-url-async", new { url });
+        return await response.Content.ReadAsStringAsync();
+    }
+
+    public async Task<string> GetJobStatusAsync(string jobId)
+    {
+        if (!await _manager.EnsureRunningAsync())
+            return "{\"status\":\"error\",\"message\":\"Python engine not reachable\"}";
+        var response = await _client.GetAsync($"job-status/{jobId}");
+        return await response.Content.ReadAsStringAsync();
+    }
+
     public Task<bool> IsHealthyAsync() => _manager.IsHealthyAsync();
 
     private static async Task<MultipartFormDataContent> BuildMultipartAsync(IFormFile file)

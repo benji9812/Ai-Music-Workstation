@@ -74,6 +74,18 @@ app.add_middleware(
 
 app.mount("/audio", StaticFiles(directory=OUT_DIR), name="audio")
 
+# --- Background job tracking ---
+import threading
+jobs: dict = {}  # job_id -> { status, stage, progress, result, error }
+
+def job_update(job_id: str, stage: str, progress: int = -1, status: str = "running"):
+    if job_id in jobs:
+        jobs[job_id]["stage"] = stage
+        jobs[job_id]["status"] = status
+        if progress >= 0:
+            jobs[job_id]["progress"] = progress
+        print(f"[job:{job_id}] {stage}", flush=True)
+
 def ensure_runtime_dirs():
     os.makedirs(UPLOAD_DIR, exist_ok=True)
     os.makedirs(OUT_DIR, exist_ok=True)
@@ -302,7 +314,7 @@ def get_chords(file_path: str):
             prev_chord = chord
     return chords
 
-def run_demucs(file_path: str):
+def run_demucs(file_path: str, job_id: str = None):
     cmd = [
         sys.executable,
         "-m",
@@ -316,29 +328,40 @@ def run_demucs(file_path: str):
     ]
     log_step(f"🎚️ Running Demucs: {' '.join(cmd)}")
     start = now()
-    result = subprocess.run(
+
+    process = subprocess.Popen(
         cmd,
-        capture_output=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
         text=True,
-        check=True,
-        timeout=DEMUCS_TIMEOUT_SECONDS
+        bufsize=1
     )
+
+    stderr_lines = []
+    for line in process.stdout:
+        line = line.rstrip()
+        stderr_lines.append(line)
+        log_step(line)
+        # Parse tqdm progress: looks like " 45%|████ | 86.8/193.0 [...]"
+        pct_match = re.search(r'(\d{1,3})%\|', line)
+        if pct_match and job_id:
+            pct = int(pct_match.group(1))
+            job_update(job_id, f"🎚️ Separating stems... {pct}%", progress=pct)
+
+    process.wait(timeout=DEMUCS_TIMEOUT_SECONDS)
+    if process.returncode != 0:
+        raise subprocess.CalledProcessError(process.returncode, cmd, "\n".join(stderr_lines))
+
     log_step(f"✅ Demucs klart på {elapsed(start)}s")
-    if result.stdout:
-        log_step("📤 Demucs stdout:")
-        log_step(result.stdout)
-    if result.stderr:
-        log_step("📥 Demucs stderr:")
-        log_step(result.stderr)
     folder_name = os.path.splitext(os.path.basename(file_path))[0]
     stems_folder = os.path.join(OUT_DIR, DEMUCS_MODEL, folder_name)
-    drums_path = os.path.join(stems_folder, "drums.mp3")
-    bass_path = os.path.join(stems_folder, "bass.mp3")
-    other_path = os.path.join(stems_folder, "other.mp3")
+    drums_path  = os.path.join(stems_folder, "drums.mp3")
+    bass_path   = os.path.join(stems_folder, "bass.mp3")
+    other_path  = os.path.join(stems_folder, "other.mp3")
     vocals_path = os.path.join(stems_folder, "vocals.mp3")
-    require_file(drums_path, "drums.mp3")
-    require_file(bass_path, "bass.mp3")
-    require_file(other_path, "other.mp3")
+    require_file(drums_path,  "drums.mp3")
+    require_file(bass_path,   "bass.mp3")
+    require_file(other_path,  "other.mp3")
     require_file(vocals_path, "vocals.mp3")
     return stems_folder, drums_path, bass_path, other_path, vocals_path
 
@@ -761,6 +784,190 @@ async def import_url(request: ImportUrlRequest):
         if file_path:
             cleanup_file(file_path)
         raise HTTPException(status_code=500, detail=f"Import-url failed: {str(e)}")
+
+
+class ImportUrlAsyncRequest(BaseModel):
+    url: str
+
+@app.post("/import-url-async")
+async def import_url_async(request: ImportUrlAsyncRequest):
+    """Start an async import job. Returns job_id immediately."""
+    job_id = uuid.uuid4().hex[:12]
+    jobs[job_id] = {
+        "status": "running",
+        "stage": "⏳ Starting...",
+        "progress": 0,
+        "result": None,
+        "error": None
+    }
+
+    def run_job():
+        import copy
+        # We reuse the same logic as import_url but update job state
+        file_path = None
+        total_start = now()
+        try:
+            ensure_runtime_dirs()
+            url = request.url
+            is_spotify = False
+            spotify_query = None
+            title = "Unknown Track"
+            artist = "Unknown Artist"
+
+            job_update(job_id, "🔍 Fetching track metadata...", progress=2)
+
+            if "spotify.com" in url.lower() and "/track/" in url.lower():
+                is_spotify = True
+                track_id_match = re.search(r"track/([a-zA-Z0-9]{22})", url)
+                if track_id_match:
+                    track_id = track_id_match.group(1)
+                else:
+                    clean_url = url.split("?")[0]
+                    track_id = clean_url.split("/")[-1]
+                try:
+                    import urllib.request
+                    from html import unescape
+                    req = urllib.request.Request(
+                        f"https://open.spotify.com/track/{track_id}",
+                        headers={"User-Agent": "Mozilla/5.0"}
+                    )
+                    with urllib.request.urlopen(req, timeout=10) as response:
+                        html = response.read().decode("utf-8")
+                    title_match = re.search(r"<title>(.*?)</title>", html, re.IGNORECASE)
+                    if title_match:
+                        page_title = unescape(title_match.group(1))
+                        match = re.search(r"^(.*?) - (?:song and lyrics|song|single|EP|album) by (.*?) \| Spotify$", page_title, re.IGNORECASE)
+                        if match:
+                            title = match.group(1).strip()
+                            artist = match.group(2).strip()
+                            spotify_query = f"{artist} - {title} audio"
+                    if not spotify_query:
+                        og_title_m = re.search(r'<meta[^>]+property=["\']og:title["\'][^>]+content=["\'](.*?)["\']', html)
+                        og_desc_m  = re.search(r'<meta[^>]+property=["\']og:description["\'][^>]+content=["\'](.*?)["\']', html)
+                        if og_title_m and og_desc_m:
+                            parts = unescape(og_desc_m.group(1)).split(" · ")
+                            artist = parts[0].strip()
+                            title  = unescape(og_title_m.group(1)).strip()
+                            spotify_query = f"{artist} - {title} audio"
+                except Exception as e:
+                    log_step(f"⚠️ Spotify metadata scraping failed: {e}")
+                if not spotify_query:
+                    jobs[job_id]["status"] = "error"
+                    jobs[job_id]["error"] = "Could not resolve Spotify track metadata."
+                    return
+
+            job_update(job_id, f"⬇️ Downloading: {artist} - {title}...", progress=8)
+
+            import glob as glob_mod
+            unique_id = uuid.uuid4().hex[:8]
+            output_template = os.path.join(UPLOAD_DIR, f"dl_{unique_id}.%(ext)s")
+
+            def build_cmd(target, use_cookies=True):
+                c = [sys.executable, "-m", "yt_dlp", "--no-playlist",
+                     "--extractor-retries", "2", "--socket-timeout", "30",
+                     "-x", "--audio-format", "mp3", "--audio-quality", "0",
+                     "-o", output_template]
+                if use_cookies:
+                    cp = os.path.join(BASE_DIR, "cookies.txt")
+                    if os.path.exists(cp) and (time.time() - os.path.getmtime(cp)) / 86400 < 7:
+                        c.extend(["--cookies", cp])
+                c.append(target)
+                return c
+
+            dl_start = now()
+            if is_spotify:
+                sc_target = f"scsearch1:{spotify_query}"
+                r = subprocess.run(build_cmd(sc_target, False), capture_output=True, text=True, timeout=300)
+                if r.returncode != 0:
+                    r = subprocess.run(build_cmd(f"ytsearch1:{spotify_query}"), capture_output=True, text=True, timeout=300)
+                    if r.returncode != 0:
+                        raise RuntimeError(f"Download failed: {r.stderr[:300]}")
+            else:
+                r = subprocess.run(build_cmd(url), capture_output=True, text=True, timeout=300)
+                if r.returncode != 0 and ("Sign in" in r.stderr or "bot" in r.stderr.lower()):
+                    sc_q = f"{artist} - {title}" if title != "Unknown Track" else url
+                    r = subprocess.run(build_cmd(f"scsearch1:{sc_q}", False), capture_output=True, text=True, timeout=300)
+                    if r.returncode != 0:
+                        raise RuntimeError(f"Download failed: {r.stderr[:300]}")
+                elif r.returncode != 0:
+                    raise RuntimeError(f"yt-dlp failed: {r.stderr[:400]}")
+
+            log_step(f"✅ Download done ({elapsed(dl_start)}s)")
+            candidates = glob_mod.glob(os.path.join(UPLOAD_DIR, f"dl_{unique_id}.*"))
+            if not candidates:
+                raise RuntimeError("yt-dlp produced no output file")
+            file_path = candidates[0]
+
+            job_update(job_id, "🎵 Analyzing audio (BPM, Key, Chords)...", progress=15)
+            y_audio, sr = librosa.load(file_path, sr=AUDIO_LOAD_SR, mono=AUDIO_LOAD_MONO, duration=AUDIO_ANALYZE_DURATION)
+            bpm = detect_bpm_robust(y_audio, sr)
+            time_signature = detect_time_signature(y_audio, sr, bpm)
+            job_update(job_id, f"🥁 BPM: {bpm}  Key: detecting...", progress=25)
+            key = detect_key(y_audio, sr)
+            job_update(job_id, f"🎸 Detecting chords...", progress=35)
+            chords = get_chords(file_path)
+            job_update(job_id, f"🎚️ Separating stems (Demucs) — this takes 3-5 min...", progress=40)
+            stems_folder, drums_path, bass_path, other_path, vocals_path = run_demucs(file_path, job_id)
+
+            job_update(job_id, "🗣️ Transcribing lyrics...", progress=95)
+            lyrics = []
+            try:
+                clean_vocals = prepare_vocals_for_whisper(vocals_path)
+                lyrics = transcribe_with_groq(clean_vocals)
+                if clean_vocals != vocals_path:
+                    cleanup_file(clean_vocals)
+            except Exception as e:
+                log_step(f"⚠️ Lyrics transcription failed: {e}")
+
+            cleanup_file(file_path)
+
+            result = {
+                "status": "success",
+                "title": title,
+                "artist": artist,
+                "bpm": bpm,
+                "key": key,
+                "time_signature": time_signature,
+                "chords": chords,
+                "lyrics": lyrics,
+                "stems_path": stems_folder or "",
+                "original_path": "",
+                "duration_seconds": elapsed(total_start),
+                "analysis_window_seconds": AUDIO_ANALYZE_DURATION
+            }
+            jobs[job_id]["result"] = result
+            jobs[job_id]["status"] = "done"
+            jobs[job_id]["stage"] = "✅ Done!"
+            jobs[job_id]["progress"] = 100
+            log_step(f"✅ Job {job_id} complete in {elapsed(total_start)}s")
+
+        except Exception as e:
+            log_step(f"❌ Job {job_id} failed: {e}")
+            if file_path:
+                cleanup_file(file_path)
+            jobs[job_id]["status"] = "error"
+            jobs[job_id]["error"] = str(e)
+            jobs[job_id]["stage"] = f"❌ Failed: {str(e)[:100]}"
+
+    t = threading.Thread(target=run_job, daemon=True)
+    t.start()
+    return {"job_id": job_id, "status": "started"}
+
+
+@app.get("/job-status/{job_id}")
+async def job_status(job_id: str):
+    """Poll status of a background import job."""
+    if job_id not in jobs:
+        raise HTTPException(status_code=404, detail="Job not found")
+    job = jobs[job_id]
+    return {
+        "job_id": job_id,
+        "status": job["status"],
+        "stage": job["stage"],
+        "progress": job.get("progress", 0),
+        "result": job.get("result"),
+        "error": job.get("error")
+    }
 
 
 if __name__ == "__main__":

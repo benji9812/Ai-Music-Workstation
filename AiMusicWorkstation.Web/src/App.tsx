@@ -119,9 +119,11 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [nowPlaying, setNowPlaying] = useState<{ title: string; artist: string } | null>(null);
+  const [importProgress, setImportProgress] = useState<{ stage: string; progress: number } | null>(null);
   
   const [projects, setProjects] = useState<SongProject[]>([]);
   const [urlInput, setUrlInput] = useState("");
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchLibrary = async () => {
       try {
@@ -180,49 +182,82 @@ export default function App() {
       if (!urlInput) return;
       setLoading(true);
       setError(null);
+      setImportProgress({ stage: '⏳ Starting import...', progress: 0 });
+
       try {
-          const resp = await fetch(`${API_URL}/api/import/youtube`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
+          // Start the async job (returns immediately with job_id)
+          const startResp = await fetch(`${API_URL}/api/import/start`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ url: urlInput }),
           });
-          
-          const text = await resp.text();
-          if (!text) { setError(`Server returned empty response (HTTP ${resp.status})`); setLoading(false); return; }
-          
-          let data: AnalysisResult;
-          try { data = JSON.parse(text); }
-          catch { setError(`Server error (HTTP ${resp.status}): ${text.substring(0, 200)}`); setLoading(false); return; }
-          
-          if (!resp.ok || data.error) {
-              setError((data as any).error || (data as any).message || (data as any).detail || resp.statusText);
-          } else {
-              setResult(data);
-              const trackTitle = data.title || 'Unknown Track';
-              const trackArtist = data.artist || 'Unknown Artist';
-              setNowPlaying({ title: trackTitle, artist: trackArtist });
-              setUrlInput('');
-
-              // Load stems audio
-              if (data.stems_path) loadStemsFromPath(data.stems_path);
-
-              // Fetch song structure
-              try {
-                  const structResp = await fetch(`${API_URL}/api/analysis/structure`, {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ artist: trackArtist, title: trackTitle, duration: 180 }),
-                  });
-                  const structData = await structResp.json();
-                  if (structResp.ok && !structData.error) setStructure(structData);
-              } catch { /* structure is optional */ }
-
-              fetchLibrary();
+          const startData = await startResp.json();
+          if (!startResp.ok || startData.status === 'error') {
+              setError(startData.message || 'Failed to start import');
+              setLoading(false);
+              setImportProgress(null);
+              return;
           }
+
+          const jobId: string = startData.job_id;
+
+          // Poll every 2 seconds
+          if (pollRef.current) clearInterval(pollRef.current);
+          pollRef.current = setInterval(async () => {
+              try {
+                  const statusResp = await fetch(`${API_URL}/api/import/status/${jobId}`);
+                  const statusData = await statusResp.json();
+
+                  setImportProgress({
+                      stage: statusData.stage || '...',
+                      progress: statusData.progress ?? 0,
+                  });
+
+                  if (statusData.status === 'done' && statusData.result) {
+                      clearInterval(pollRef.current!);
+                      pollRef.current = null;
+                      setLoading(false);
+                      setImportProgress(null);
+
+                      const data: AnalysisResult = statusData.result;
+                      setResult(data);
+                      const trackTitle  = data.title  || 'Unknown Track';
+                      const trackArtist = data.artist || 'Unknown Artist';
+                      setNowPlaying({ title: trackTitle, artist: trackArtist });
+                      setUrlInput('');
+
+                      if (data.stems_path) loadStemsFromPath(data.stems_path);
+
+                      try {
+                          const structResp = await fetch(`${API_URL}/api/analysis/structure`, {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ artist: trackArtist, title: trackTitle, duration: 180 }),
+                          });
+                          const structData = await structResp.json();
+                          if (structResp.ok && !structData.error) setStructure(structData);
+                      } catch { /* optional */ }
+
+                      fetchLibrary();
+
+                  } else if (statusData.status === 'error') {
+                      clearInterval(pollRef.current!);
+                      pollRef.current = null;
+                      setError(statusData.error || 'Import failed');
+                      setLoading(false);
+                      setImportProgress(null);
+                  }
+              } catch (pollErr: any) {
+                  // Network glitch — keep polling
+                  console.warn('Poll error (will retry):', pollErr.message);
+              }
+          }, 2000);
+
       } catch (e: any) {
-          setError("Network error: " + e.message);
+          setError('Network error: ' + e.message);
+          setLoading(false);
+          setImportProgress(null);
       }
-      setLoading(false);
   };
   
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -533,20 +568,42 @@ export default function App() {
           </div>
         ) : (
           <div className="glass-panel">
-            <div className="flex gap-2 mb-2">
-              <input
-                type="text" className="input-dark"
-                placeholder="Paste YouTube or Spotify Link here..."
-                value={urlInput}
-                onChange={(e) => setUrlInput(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleYoutubeImport()}
-              />
-              <button className="btn-accent" style={{ background: 'rgba(255,0,0,0.1)', color: '#ff4444', borderColor: '#ff4444' }} onClick={handleYoutubeImport} disabled={loading}>⬇ DOWNLOAD</button>
-            </div>
-            <input type="file" accept="audio/*" ref={fileInputRef} onChange={handleFileSelect} style={{ display: 'none' }} />
-            <button className="btn-primary" style={{ padding: '12px', width: '100%' }} onClick={triggerFileInput} disabled={loading}>
-              {loading ? '⚡ ANALYZING WITH AI... (Separating Stems & Transcribing)' : '📂 OPEN LOCAL AUDIO FILE'}
-            </button>
+            {importProgress ? (
+              /* Live progress bar while importing */
+              <div style={{ padding: '8px 0' }}>
+                <div style={{ display:'flex', justifyContent:'space-between', marginBottom: 6 }}>
+                  <span style={{ fontSize: 12, color: 'var(--neon-cyan)', fontWeight:'bold' }}>{importProgress.stage}</span>
+                  <span style={{ fontSize: 12, color: '#aaa' }}>{importProgress.progress}%</span>
+                </div>
+                <div style={{ background: 'rgba(255,255,255,0.08)', borderRadius: 4, height: 8, overflow:'hidden' }}>
+                  <div style={{
+                    height: '100%',
+                    width: `${importProgress.progress}%`,
+                    background: 'linear-gradient(90deg, var(--neon-cyan), var(--neon-magenta))',
+                    borderRadius: 4,
+                    transition: 'width 0.6s ease'
+                  }} />
+                </div>
+                <div style={{ fontSize: 10, color: '#555', marginTop: 4, textAlign:'center' }}>This may take 4-6 minutes (Demucs stem separation)</div>
+              </div>
+            ) : (
+              <>
+                <div className="flex gap-2 mb-2">
+                  <input
+                    type="text" className="input-dark"
+                    placeholder="Paste YouTube or Spotify Link here..."
+                    value={urlInput}
+                    onChange={(e) => setUrlInput(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleYoutubeImport()}
+                  />
+                  <button className="btn-accent" style={{ background: 'rgba(255,0,0,0.1)', color: '#ff4444', borderColor: '#ff4444' }} onClick={handleYoutubeImport} disabled={loading}>⬇ DOWNLOAD</button>
+                </div>
+                <input type="file" accept="audio/*" ref={fileInputRef} onChange={handleFileSelect} style={{ display: 'none' }} />
+                <button className="btn-primary" style={{ padding: '12px', width: '100%' }} onClick={triggerFileInput} disabled={loading}>
+                  {loading ? '⚡ ANALYZING WITH AI...' : '📂 OPEN LOCAL AUDIO FILE'}
+                </button>
+              </>
+            )}
           </div>
         )}
 
