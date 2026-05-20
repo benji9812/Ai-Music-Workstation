@@ -970,6 +970,33 @@ async def job_status(job_id: str):
     }
 
 
+@app.get("/rescan-stems")
+async def rescan_stems():
+    """Scan the stems output directory for all valid stem folders."""
+    stems_base = os.path.join(OUT_DIR, DEMUCS_MODEL)
+    if not os.path.isdir(stems_base):
+        return {"stems": []}
+    
+    found = []
+    for folder_name in os.listdir(stems_base):
+        folder_path = os.path.join(stems_base, folder_name)
+        if not os.path.isdir(folder_path):
+            continue
+        drums  = os.path.join(folder_path, "drums.mp3")
+        bass   = os.path.join(folder_path, "bass.mp3")
+        other  = os.path.join(folder_path, "other.mp3")
+        vocals = os.path.join(folder_path, "vocals.mp3")
+        if all(os.path.isfile(f) for f in [drums, bass, other, vocals]):
+            found.append({
+                "folder_name": folder_name,
+                "stems_path": folder_path,
+                "title": folder_name.replace("dl_", "").replace("_", " "),
+            })
+    
+    log_step(f"🔍 Rescan found {len(found)} stem folders in {stems_base}")
+    return {"stems": found}
+
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     uvicorn.run("main:app", host="0.0.0.0", port=port)

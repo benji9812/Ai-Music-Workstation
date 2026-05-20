@@ -452,7 +452,17 @@ export default function App() {
         <div className="glass-panel" style={{ flex: 1 }}>
           <div className="flex justify-between items-center mb-2">
             <span className="section-title" style={{ marginBottom: 0 }}>LIBRARY</span>
-            <button className="btn-icon">⟳</button>
+            <div className="flex gap-1">
+              <button className="btn-icon" title="Rescan orphaned stems" onClick={async () => {
+                try {
+                  const resp = await fetch(`${API_URL}/api/library/rescan-stems`, { method: 'POST' });
+                  const data = await resp.json();
+                  if (data.added > 0) fetchLibrary();
+                  alert(`Rescan: ${data.added} new stems added (${data.total} total)`);
+                } catch (e: any) { alert('Rescan failed: ' + e.message); }
+              }}>🔍</button>
+              <button className="btn-icon" title="Refresh library" onClick={() => fetchLibrary()}>⟳</button>
+            </div>
           </div>
           <input type="text" className="input-dark mb-2" placeholder="Search..." />
           <div className="flex gap-1 mb-2">

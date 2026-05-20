@@ -64,6 +64,14 @@ public class PythonEngineClient
         return await response.Content.ReadAsStringAsync();
     }
 
+    public async Task<string> RescanStemsAsync()
+    {
+        if (!await _manager.EnsureRunningAsync())
+            return "{\"stems\":[]}";
+        var response = await _client.GetAsync("rescan-stems");
+        return await response.Content.ReadAsStringAsync();
+    }
+
     public Task<bool> IsHealthyAsync() => _manager.IsHealthyAsync();
 
     private static async Task<MultipartFormDataContent> BuildMultipartAsync(IFormFile file)

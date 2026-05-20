@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using AiMusicWorkstation.Infrastructure.Persistence;
 using AiMusicWorkstation.Infrastructure.ExternalServices;
+using System.Text.Json;
 using Npgsql;
 
 namespace AiMusicWorkstation.Api.Controllers;
@@ -113,5 +114,66 @@ public class LibraryController : ControllerBase
         await _repository.SaveAsync();
         
         return Ok(new { status = "success" });
+    }
+
+    [HttpPost("rescan-stems")]
+    public async Task<IActionResult> RescanStems(
+        [FromServices] PythonEngineClient pythonClient,
+        [FromServices] ILogger<LibraryController> logger)
+    {
+        try
+        {
+            var json = await pythonClient.RescanStemsAsync();
+            using var doc = JsonDocument.Parse(json);
+            var stemsArr = doc.RootElement.GetProperty("stems");
+
+            // Get all existing stems paths from DB
+            var existing = await _repository.GetAllAsync();
+            var existingPaths = new HashSet<string>(
+                existing.Where(p => !string.IsNullOrEmpty(p.StemsPath))
+                        .Select(p => p.StemsPath),
+                StringComparer.OrdinalIgnoreCase);
+
+            int added = 0;
+            foreach (var stem in stemsArr.EnumerateArray())
+            {
+                var stemsPath = stem.GetProperty("stems_path").GetString() ?? "";
+                if (string.IsNullOrEmpty(stemsPath) || existingPaths.Contains(stemsPath))
+                    continue;
+
+                var folderName = stem.GetProperty("folder_name").GetString() ?? "Unknown";
+                var title = stem.TryGetProperty("title", out var tp) ? tp.GetString() : folderName;
+
+                var project = new SongProject
+                {
+                    Id            = Guid.NewGuid().ToString(),
+                    Title         = title ?? folderName,
+                    Artist        = "Unknown Artist",
+                    Bpm           = 120,
+                    Key           = "C",
+                    StemsPath     = stemsPath,
+                    OriginalPath  = "",
+                    Duration      = TimeSpan.FromMinutes(3),
+                    TimeSignature = 4,
+                    Genre         = "Uncategorized",
+                    DateAdded     = DateTime.Now,
+                    KeySource     = KeySource.Generated
+                };
+
+                await _repository.AddAsync(project);
+                existingPaths.Add(stemsPath);
+                added++;
+                logger.LogInformation("Rescan: added orphaned stems '{Title}' from {Path}", title, stemsPath);
+            }
+
+            if (added > 0) await _repository.SaveAsync();
+
+            return Ok(new { status = "success", added, total = existingPaths.Count });
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Rescan stems failed");
+            return StatusCode(500, new { status = "error", message = ex.Message });
+        }
     }
 }
