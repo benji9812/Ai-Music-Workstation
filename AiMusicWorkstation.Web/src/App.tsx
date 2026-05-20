@@ -30,14 +30,6 @@ type SongProject = {
     bpm: number;
     key: string;
     stemsPath: string;
-    originalPath?: string;
-    spotifyId?: string;
-    duration?: string;
-    timeSignature?: number;
-    dateAdded?: string;
-    groupName?: string;
-    isOfficialData?: boolean;
-    keySource?: number;
 };
 
 const API_URL = import.meta.env.VITE_API_URL ?? "";
@@ -156,11 +148,6 @@ export default function App() {
   const [urlInput, setUrlInput] = useState("");
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  __testHooks.setStructure = setStructure;
-  __testHooks.setDuration = setDuration;
-  __testHooks.setDurationReady = setDurationReady;
-  __testHooks.setResult = setResult;
-  __testHooks.getCurrentTime = () => stems.current.drums.currentTime;
 
   const fetchLibrary = async () => {
       try {
@@ -312,7 +299,7 @@ export default function App() {
                           if (structResp.ok && !structData.error) setStructure(structData);
                       } catch { /* optional */ }
 
-                      onImportSuccess(refreshLibrary);
+                      refreshLibrary();
 
                   } else if (statusData.status === 'error') {
                       clearInterval(pollRef.current!);
@@ -377,7 +364,10 @@ export default function App() {
               
               if (result?.lyrics && autoScrollLyrics && lyricsScrollRef.current) {
                   const lyrics = result.lyrics;
-                  const activeIdx = getActiveLyricIndex(lyrics, current);
+                  let activeIdx = lyrics.findIndex(l => l.start <= current && l.end >= current);
+                  if (activeIdx === -1 && lyrics.length > 0 && current > lyrics[lyrics.length - 1].end) {
+                      activeIdx = lyrics.length - 1;
+                  }
                   if (activeIdx !== -1 && lastLyricIndexRef.current !== activeIdx) {
                       lastLyricIndexRef.current = activeIdx;
                       const container = lyricsScrollRef.current;
@@ -522,7 +512,7 @@ export default function App() {
           const structData = await structResp.json();
           if (structResp.ok && !structData.error) setStructure(structData);
 
-           onImportSuccess(refreshLibrary);
+           refreshLibrary();
           
       } catch (e: any) {
           setError("Network error: " + e.message);
