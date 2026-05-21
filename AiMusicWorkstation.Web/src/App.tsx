@@ -218,6 +218,52 @@ const scheduleMetroClick = (startTime: number, isAccent: boolean) => {
   osc.stop(startTime + 0.05);
 };
 
+// ── WAV encoder ──────────────────────────────────────────────────────────
+// Converts a rendered AudioBuffer into a 16-bit PCM WAV ArrayBuffer.
+function encodeWav(buffer: AudioBuffer): ArrayBuffer {
+  const numChannels = buffer.numberOfChannels;
+  const sampleRate = buffer.sampleRate;
+  const numFrames = buffer.length;
+  const bytesPerSample = 2; // 16-bit
+  const dataLength = numFrames * numChannels * bytesPerSample;
+  const wavBuf = new ArrayBuffer(44 + dataLength);
+  const view = new DataView(wavBuf);
+
+  const str = (offset: number, s: string) => {
+    for (let i = 0; i < s.length; i++)
+      view.setUint8(offset + i, s.charCodeAt(i));
+  };
+
+  str(0, "RIFF");
+  view.setUint32(4, 36 + dataLength, true);
+  str(8, "WAVE");
+  str(12, "fmt ");
+  view.setUint32(16, 16, true); // PCM chunk size
+  view.setUint16(20, 1, true); // PCM format
+  view.setUint16(22, numChannels, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * numChannels * bytesPerSample, true);
+  view.setUint16(32, numChannels * bytesPerSample, true);
+  view.setUint16(34, 16, true);
+  str(36, "data");
+  view.setUint32(40, dataLength, true);
+
+  let offset = 44;
+  for (let i = 0; i < numFrames; i++) {
+    for (let ch = 0; ch < numChannels; ch++) {
+      const sample = Math.max(-1, Math.min(1, buffer.getChannelData(ch)[i]));
+      view.setInt16(
+        offset,
+        sample < 0 ? sample * 0x8000 : sample * 0x7fff,
+        true,
+      );
+      offset += 2;
+    }
+  }
+  return wavBuf;
+}
+// ─────────────────────────────────────────────────────────────────────────
+
 export const __testHooks = {
   refreshLibrary: () => {},
   setStructure: (_structure: StructureResult | null) => {},
@@ -278,6 +324,7 @@ export default function App() {
   // can show a skeleton and the global "ready" state waits for it.
   const [isStructureLoading, setIsStructureLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
   const [nowPlaying, setNowPlaying] = useState<{
     title: string;
     artist: string;
@@ -950,6 +997,90 @@ export default function App() {
   const toggleSolo = (stem: keyof typeof solos) => {
     setSolos((prev) => ({ ...prev, [stem]: !prev[stem] }));
   };
+
+  // ── Export Mix ────────────────────────────────────────────────────────────
+  const handleExportMix = async () => {
+    if (!durationReady || duration <= 0) {
+      alert("Load a song before exporting.");
+      return;
+    }
+    if (isExporting) return;
+    setIsExporting(true);
+    try {
+      const stemKeys = ["drums", "bass", "other", "vocals"] as const;
+      const anySolo = Object.values(solos).some((s) => s);
+
+      // Decode each stem's MP3 into an AudioBuffer via a temporary AudioContext
+      const decodingCtx = new AudioContext();
+      const decoded = await Promise.all(
+        stemKeys.map(async (k) => {
+          const src = stems.current[k].src;
+          if (!src) return null;
+          try {
+            const resp = await fetch(src);
+            if (!resp.ok) return null;
+            const ab = await resp.arrayBuffer();
+            return decodingCtx.decodeAudioData(ab);
+          } catch {
+            return null;
+          }
+        }),
+      );
+      await decodingCtx.close();
+
+      const validBuffers = decoded.filter(Boolean) as AudioBuffer[];
+      if (validBuffers.length === 0) {
+        alert("No audio data available to export.");
+        return;
+      }
+
+      const maxLength = Math.max(...validBuffers.map((b) => b.length));
+      const sampleRate = validBuffers[0].sampleRate;
+
+      // Render the mix offline
+      const offlineCtx = new OfflineAudioContext(2, maxLength, sampleRate);
+
+      stemKeys.forEach((k, i) => {
+        const buf = decoded[i];
+        if (!buf) return;
+
+        let vol = (volumes[k] / 100) * (masterVol / 100);
+        if (mutes[k]) vol = 0;
+        if (anySolo && !solos[k]) vol = 0;
+        vol = Math.max(0, Math.min(1, vol));
+
+        const source = offlineCtx.createBufferSource();
+        source.buffer = buf;
+
+        const gain = offlineCtx.createGain();
+        gain.gain.value = vol;
+
+        source.connect(gain);
+        gain.connect(offlineCtx.destination);
+        source.start(0);
+      });
+
+      const rendered = await offlineCtx.startRendering();
+      const wavArrayBuffer = encodeWav(rendered);
+
+      const blob = new Blob([wavArrayBuffer], { type: "audio/wav" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      const trackName = nowPlaying
+        ? `${nowPlaying.artist} - ${nowPlaying.title}`
+        : "mix";
+      a.href = url;
+      a.download = `${trackName}.wav`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("[ExportMix]", err);
+      alert("Export failed. See console for details.");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+  // ─────────────────────────────────────────────────────────────────────────
 
   const updateTranspose = (delta: number) => {
     setTransposeSteps((prev) => {
@@ -1903,7 +2034,25 @@ export default function App() {
             >
               »
             </button>
-            <button className="btn-primary ml-4">💾 EXPORT MIX</button>
+            <button
+              className="btn-primary ml-4"
+              onClick={handleExportMix}
+              disabled={isExporting || !durationReady}
+              title={
+                !durationReady ? "Load a song first" : "Export stems as WAV mix"
+              }
+              style={{
+                opacity: isExporting || !durationReady ? 0.6 : 1,
+                cursor: isExporting
+                  ? "wait"
+                  : !durationReady
+                    ? "not-allowed"
+                    : "pointer",
+                minWidth: "120px",
+              }}
+            >
+              {isExporting ? "⏳ Exporting…" : "💾 EXPORT MIX"}
+            </button>
           </div>
         </div>
       </div>
