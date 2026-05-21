@@ -564,7 +564,10 @@ export default function App() {
   };
   // ────────────────────────────────────────────────────────────────────────
 
-  const [autoScrollLyrics, setAutoScrollLyrics] = useState(true);
+  const isManualScrollRef = useRef<boolean>(false);
+  const manualScrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
   const [isDragging, setIsDragging] = useState(false);
   const [sliderTime, setSliderTime] = useState(0);
   const lastLyricIndexRef = useRef<number | null>(null);
@@ -685,7 +688,11 @@ export default function App() {
           setSliderTime(safeCurrent);
         }
 
-        if (result?.lyrics && autoScrollLyrics && lyricsScrollRef.current) {
+        if (
+          result?.lyrics &&
+          !isManualScrollRef.current &&
+          lyricsScrollRef.current
+        ) {
           const lyrics = result.lyrics;
           let activeIdx = lyrics.findIndex(
             (l) => l.start <= current && l.end >= current,
@@ -712,13 +719,17 @@ export default function App() {
       }
     }, 100);
     return () => clearInterval(interval);
-  }, [isPlaying, result, autoScrollLyrics, isDragging]);
+  }, [isPlaying, result, isDragging]);
 
   const handleManualScroll = (_e: React.UIEvent<HTMLDivElement>) => {
-    // If user scrolls manually, disable auto-scroll temporarily
-    setAutoScrollLyrics(false);
-    // Re-enable after 3 seconds of no scrolling
-    setTimeout(() => setAutoScrollLyrics(true), 3000);
+    isManualScrollRef.current = true;
+    if (manualScrollTimeoutRef.current !== null) {
+      clearTimeout(manualScrollTimeoutRef.current);
+    }
+    manualScrollTimeoutRef.current = setTimeout(() => {
+      isManualScrollRef.current = false;
+      manualScrollTimeoutRef.current = null;
+    }, 3000);
   };
 
   const handlePlayPause = async () => {
