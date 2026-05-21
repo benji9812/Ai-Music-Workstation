@@ -201,6 +201,9 @@ export default function App() {
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [structure, setStructure] = useState<StructureResult | null>(null);
   const [loading, setLoading] = useState(false);
+  // Tracks the async structure fetch independently so the Song Structure panel
+  // can show a skeleton and the global "ready" state waits for it.
+  const [isStructureLoading, setIsStructureLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [nowPlaying, setNowPlaying] = useState<{
     title: string;
@@ -319,6 +322,7 @@ export default function App() {
     setSliderTime(0);
     setIsPlaying(false);
     setStructure(null);
+    setIsStructureLoading(true);
     try {
       const structResp = await fetch(`${API_URL}/api/analysis/structure`, {
         method: "POST",
@@ -333,6 +337,8 @@ export default function App() {
       if (structResp.ok && !structData.error) setStructure(structData);
     } catch {
       /* structure is optional */
+    } finally {
+      setIsStructureLoading(false);
     }
   };
 
@@ -388,6 +394,7 @@ export default function App() {
 
             if (data.stems_path) loadStemsFromPath(data.stems_path);
 
+            setIsStructureLoading(true);
             try {
               const structResp = await fetch(
                 `${API_URL}/api/analysis/structure`,
@@ -405,6 +412,8 @@ export default function App() {
               if (structResp.ok && !structData.error) setStructure(structData);
             } catch {
               /* optional */
+            } finally {
+              setIsStructureLoading(false);
             }
 
             refreshLibrary();
@@ -664,17 +673,24 @@ export default function App() {
         stems.current.vocals.src = objectUrl;
       }
 
-      const structResp = await fetch(`${API_URL}/api/analysis/structure`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          artist: "Local Upload",
-          title: fileName,
-          duration: 180,
-        }),
-      });
-      const structData = await structResp.json();
-      if (structResp.ok && !structData.error) setStructure(structData);
+      setIsStructureLoading(true);
+      try {
+        const structResp = await fetch(`${API_URL}/api/analysis/structure`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            artist: "Local Upload",
+            title: fileName,
+            duration: 180,
+          }),
+        });
+        const structData = await structResp.json();
+        if (structResp.ok && !structData.error) setStructure(structData);
+      } catch {
+        /* structure is optional */
+      } finally {
+        setIsStructureLoading(false);
+      }
 
       refreshLibrary();
     } catch (e: any) {
@@ -1010,7 +1026,7 @@ export default function App() {
         )}
 
         {/* Import Section — collapses to Now Playing bar when a song is loaded */}
-        {nowPlaying && !loading ? (
+        {nowPlaying && !loading && !isStructureLoading ? (
           <div
             className="glass-panel"
             style={{
@@ -1447,7 +1463,17 @@ export default function App() {
               </span>
             </div>
             <div style={{ overflowY: "auto", flex: 1, paddingRight: "5px" }}>
-              {structure?.sections ? (
+              {isStructureLoading ? (
+                // Skeleton rows while structure is being fetched
+                <div className="structure-skeleton">
+                  {["60%", "45%", "70%", "50%", "65%", "40%"].map((w, i) => (
+                    <div key={i} className="structure-skeleton-row">
+                      <div className="skeleton-bar" style={{ width: w }} />
+                      <div className="skeleton-bar" style={{ width: "28px" }} />
+                    </div>
+                  ))}
+                </div>
+              ) : structure?.sections ? (
                 structure.sections.map((sec: Section, idx: number) => (
                   <div
                     key={idx}
@@ -1484,7 +1510,7 @@ export default function App() {
                     marginTop: "20px",
                   }}
                 >
-                  {loading ? "Analyzing structure..." : "No structure data"}
+                  No structure data
                 </div>
               )}
             </div>
