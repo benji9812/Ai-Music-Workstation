@@ -44,11 +44,11 @@ public class ImportController : ControllerBase
                 var root = doc.RootElement;
                 if (root.TryGetProperty("status", out var statusProp) && statusProp.GetString() == "success")
                 {
-                    string title = root.TryGetProperty("title", out var titleProp) && titleProp.ValueKind != JsonValueKind.Null ? titleProp.GetString() : "Unknown Track";
-                    string artist = root.TryGetProperty("artist", out var artistProp) && artistProp.ValueKind != JsonValueKind.Null ? artistProp.GetString() : "Unknown Artist";
+                    string title = root.TryGetProperty("title", out var titleProp) && titleProp.ValueKind != JsonValueKind.Null ? titleProp.GetString() ?? "Unknown Track" : "Unknown Track";
+                    string artist = root.TryGetProperty("artist", out var artistProp) && artistProp.ValueKind != JsonValueKind.Null ? artistProp.GetString() ?? "Unknown Artist" : "Unknown Artist";
                     double bpm = root.TryGetProperty("bpm", out var bpmProp) ? bpmProp.GetDouble() : 120.0;
-                    string key = root.TryGetProperty("key", out var keyProp) && keyProp.ValueKind != JsonValueKind.Null ? keyProp.GetString() : "C";
-                    string stemsPath = root.TryGetProperty("stems_path", out var stemsProp) && stemsProp.ValueKind != JsonValueKind.Null ? stemsProp.GetString() : "";
+                    string key = root.TryGetProperty("key", out var keyProp) && keyProp.ValueKind != JsonValueKind.Null ? keyProp.GetString() ?? "C" : "C";
+                    string stemsPath = root.TryGetProperty("stems_path", out var stemsProp) && stemsProp.ValueKind != JsonValueKind.Null ? stemsProp.GetString() ?? "" : "";
                     int timeSig = root.TryGetProperty("time_signature", out var timeSigProp) ? timeSigProp.GetInt32() : 4;
                     double durationSeconds = root.TryGetProperty("duration_seconds", out var durationProp) ? durationProp.GetDouble() : 180.0;
 
@@ -119,11 +119,11 @@ public class ImportController : ControllerBase
                 if (root.TryGetProperty("status", out var s) && s.GetString() == "done" &&
                     root.TryGetProperty("result", out var resultProp) && resultProp.ValueKind == JsonValueKind.Object)
                 {
-                    string title      = resultProp.TryGetProperty("title",  out var tp) && tp.ValueKind != JsonValueKind.Null ? tp.GetString() : "Unknown Track";
-                    string artist     = resultProp.TryGetProperty("artist", out var ap) && ap.ValueKind != JsonValueKind.Null ? ap.GetString() : "Unknown Artist";
+                    string title      = resultProp.TryGetProperty("title",  out var tp) && tp.ValueKind != JsonValueKind.Null ? tp.GetString() ?? "Unknown Track" : "Unknown Track";
+                    string artist     = resultProp.TryGetProperty("artist", out var ap) && ap.ValueKind != JsonValueKind.Null ? ap.GetString() ?? "Unknown Artist" : "Unknown Artist";
                     double bpm        = resultProp.TryGetProperty("bpm",    out var bp)  ? bp.GetDouble()  : 120.0;
-                    string key        = resultProp.TryGetProperty("key",    out var kp)  && kp.ValueKind != JsonValueKind.Null ? kp.GetString() : "C";
-                    string stemsPath  = resultProp.TryGetProperty("stems_path", out var sp) && sp.ValueKind != JsonValueKind.Null ? sp.GetString() : "";
+                    string key        = resultProp.TryGetProperty("key",    out var kp)  && kp.ValueKind != JsonValueKind.Null ? kp.GetString() ?? "C" : "C";
+                    string stemsPath  = resultProp.TryGetProperty("stems_path", out var sp) && sp.ValueKind != JsonValueKind.Null ? sp.GetString() ?? "" : "";
                     int    timeSig    = resultProp.TryGetProperty("time_signature", out var ts) ? ts.GetInt32() : 4;
                     double durationSec= resultProp.TryGetProperty("duration_seconds", out var ds) ? ds.GetDouble() : 180.0;
 
@@ -181,5 +181,5 @@ public class ImportController : ControllerBase
 
 public class ImportRequest
 {
-    public string Url { get; set; }
+    public string Url { get; set; } = string.Empty;
 }

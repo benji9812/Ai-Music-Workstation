@@ -1,24 +1,24 @@
-import uvicorn
-from dotenv import load_dotenv
-from pathlib import Path
-from functools import lru_cache
-from contextlib import asynccontextmanager
+import json
 import os
 import re
-import time
-import json
-import shutil
-import warnings
-import sys
 import subprocess
+import sys
+import threading
+import time
 import traceback
 import uuid
+import warnings
+from contextlib import asynccontextmanager
+from functools import lru_cache
+from pathlib import Path
+from typing import Optional
 
 import librosa
 import numpy as np
 import soundfile as sf
-
-from fastapi import FastAPI, UploadFile, File, HTTPException
+import uvicorn
+from dotenv import load_dotenv
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -36,7 +36,7 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 os.makedirs(OUT_DIR, exist_ok=True)
 os.environ["PATH"] += os.pathsep + str(BASE_DIR)
 
-NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'Bb', 'B']
+NOTES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "Bb", "B"]
 DEMUCS_MODEL = "htdemucs"
 DEMUCS_TIMEOUT_SECONDS = 900
 TARGET_AUDIO_SR = 44100
@@ -53,6 +53,7 @@ origins = [
     "http://localhost:5173",
 ]
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     ensure_runtime_dirs()
@@ -65,6 +66,7 @@ async def lifespan(app: FastAPI):
     yield
     print("🛑 AI Music Engine shutting down...", flush=True)
 
+
 app = FastAPI(title="AI Music Engine", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
@@ -76,8 +78,8 @@ app.add_middleware(
 app.mount("/audio", StaticFiles(directory=OUT_DIR), name="audio")
 
 # --- Background job tracking ---
-import threading
 jobs: dict = {}  # job_id -> { status, stage, progress, result, error }
+
 
 def job_update(job_id: str, stage: str, progress: int = -1, status: str = "running"):
     if job_id in jobs:
@@ -87,18 +89,23 @@ def job_update(job_id: str, stage: str, progress: int = -1, status: str = "runni
             jobs[job_id]["progress"] = progress
         print(f"[job:{job_id}] {stage}", flush=True)
 
+
 def ensure_runtime_dirs():
     os.makedirs(UPLOAD_DIR, exist_ok=True)
     os.makedirs(OUT_DIR, exist_ok=True)
 
+
 def now():
     return time.time()
+
 
 def elapsed(start):
     return round(time.time() - start, 2)
 
+
 def log_step(message: str):
     print(message, flush=True)
+
 
 def sanitize_filename(filename: str) -> str:
     if not filename:
@@ -111,6 +118,7 @@ def sanitize_filename(filename: str) -> str:
     unique = uuid.uuid4().hex[:8]
     return f"{name}_{unique}{ext}"
 
+
 def cleanup_file(path: str):
     try:
         if path and os.path.exists(path):
@@ -118,9 +126,11 @@ def cleanup_file(path: str):
     except Exception:
         pass
 
+
 def require_file(path: str, label: str):
     if not os.path.exists(path):
         raise RuntimeError(f"{label} saknas: {path}")
+
 
 def resample_mp3_to_target_sr(path: str, target_sr: int = TARGET_AUDIO_SR):
     temp_path = f"{path}.tmp.mp3"
@@ -177,12 +187,16 @@ def resample_mp3_to_target_sr(path: str, target_sr: int = TARGET_AUDIO_SR):
             "2",
             temp_mp3,
         ]
-        result = subprocess.run(fallback_cmd, capture_output=True, text=True, timeout=120)
+        result = subprocess.run(
+            fallback_cmd, capture_output=True, text=True, timeout=120
+        )
         if result.returncode != 0:
             log_step(f"⚠️ librosa fallback encode failed: {result.stderr[:200]}")
             return
         os.replace(temp_mp3, path)
-        log_step(f"✅ Resampled (librosa fallback) to {target_sr} Hz: {os.path.basename(path)}")
+        log_step(
+            f"✅ Resampled (librosa fallback) to {target_sr} Hz: {os.path.basename(path)}"
+        )
     except FileNotFoundError:
         log_step("⚠️ ffmpeg not found for fallback encode; skipping resample")
     except Exception as e:
@@ -191,9 +205,11 @@ def resample_mp3_to_target_sr(path: str, target_sr: int = TARGET_AUDIO_SR):
         cleanup_file(temp_wav)
         cleanup_file(temp_mp3)
 
+
 @app.get("/health")
 async def health():
     return {"status": "ok"}
+
 
 @app.get("/debug/env")
 async def debug_env():
@@ -206,25 +222,30 @@ async def debug_env():
         "out_dir_exists": os.path.exists(OUT_DIR),
         "audio_load_sr": AUDIO_LOAD_SR,
         "audio_analyze_duration": AUDIO_ANALYZE_DURATION,
-        "audio_chords_duration": AUDIO_CHORDS_DURATION
+        "audio_chords_duration": AUDIO_CHORDS_DURATION,
     }
+
 
 @lru_cache(maxsize=1)
 def get_gemini_client():
     from google import genai as google_genai
+
     api_key = os.getenv("GOOGLE_API_KEY")
     if not api_key:
         raise RuntimeError("GOOGLE_API_KEY saknas.")
     return google_genai.Client(api_key=api_key)
 
+
 @lru_cache(maxsize=1)
 def get_groq_client():
     from groq import Groq
+
     api_key = os.getenv("GROQ_API_KEY")
     if not api_key:
         raise RuntimeError("GROQ_API_KEY saknas.")
     log_step("✅ Groq Whisper Large v3 redo")
     return Groq(api_key=api_key)
+
 
 def prepare_vocals_for_whisper(vocals_path: str):
     try:
@@ -232,7 +253,7 @@ def prepare_vocals_for_whisper(vocals_path: str):
             vocals_path,
             sr=WHISPER_SR,
             mono=True,
-            duration=min(AUDIO_ANALYZE_DURATION, 30)
+            duration=min(AUDIO_ANALYZE_DURATION, 30),
         )
         y = y / (np.max(np.abs(y)) + 1e-6)
         temp_path = vocals_path.replace(".mp3", "_clean.wav")
@@ -242,6 +263,7 @@ def prepare_vocals_for_whisper(vocals_path: str):
         log_step(f"⚠️ prepare_vocals_for_whisper fallback: {e}")
         return vocals_path
 
+
 def transcribe_with_groq(audio_path: str):
     groq_client = get_groq_client()
     with open(audio_path, "rb") as f:
@@ -249,10 +271,10 @@ def transcribe_with_groq(audio_path: str):
             file=(os.path.basename(audio_path), f),
             model="whisper-large-v3",
             response_format="verbose_json",
-            language="en"
+            language="en",
         )
     segments = []
-    
+
     # Robustly convert response to dict/object access
     if isinstance(transcription, dict):
         raw_segments = transcription.get("segments")
@@ -271,25 +293,20 @@ def transcribe_with_groq(audio_path: str):
                 start = getattr(s, "start", 0.0)
                 end = getattr(s, "end", 0.0)
                 text = getattr(s, "text", "").strip()
-            segments.append({
-                "start": start,
-                "end": end,
-                "text": text
-            })
+            segments.append({"start": start, "end": end, "text": text})
     else:
-        segments.append({
-            "start": 0.0,
-            "end": 0.0,
-            "text": raw_text.strip() if raw_text else ""
-        })
+        segments.append(
+            {"start": 0.0, "end": 0.0, "text": raw_text.strip() if raw_text else ""}
+        )
     return segments
+
 
 def detect_bpm_robust(y, sr):
     duration = librosa.get_duration(y=y, sr=sr)
     segments = [
-        y[int(sr * duration * 0.10): int(sr * duration * 0.35)],
-        y[int(sr * duration * 0.35): int(sr * duration * 0.65)],
-        y[int(sr * duration * 0.65): int(sr * duration * 0.90)],
+        y[int(sr * duration * 0.10) : int(sr * duration * 0.35)],
+        y[int(sr * duration * 0.35) : int(sr * duration * 0.65)],
+        y[int(sr * duration * 0.65) : int(sr * duration * 0.90)],
     ]
     bpms = []
     for seg in segments:
@@ -306,6 +323,7 @@ def detect_bpm_robust(y, sr):
     while bpm < 60:
         bpm *= 2
     return round(bpm, 1)
+
 
 def detect_time_signature(y, sr, bpm):
     try:
@@ -327,52 +345,96 @@ def detect_time_signature(y, sr, bpm):
         log_step(f"⚠️ detect_time_signature fallback to 4/4: {e}")
         return 4
 
+
 def detect_key(y, sr):
     y_harmonic = librosa.effects.harmonic(y, margin=4)
     chroma = librosa.feature.chroma_cqt(y=y_harmonic, sr=sr)
     chroma_avg = np.mean(chroma, axis=1)
-    major_profile = [6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88]
-    minor_profile = [6.33, 2.68, 3.52, 5.38, 2.60, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17]
+    major_profile = [
+        6.35,
+        2.23,
+        3.48,
+        2.33,
+        4.38,
+        4.09,
+        2.52,
+        5.19,
+        2.39,
+        3.66,
+        2.29,
+        2.88,
+    ]
+    minor_profile = [
+        6.33,
+        2.68,
+        3.52,
+        5.38,
+        2.60,
+        3.53,
+        2.54,
+        4.75,
+        3.98,
+        2.69,
+        3.34,
+        3.17,
+    ]
+
     def correlations(profile):
         return [np.corrcoef(chroma_avg, np.roll(profile, i))[0, 1] for i in range(12)]
+
     major_corrs = correlations(major_profile)
     minor_corrs = correlations(minor_profile)
     if max(major_corrs) > max(minor_corrs):
         return NOTES[np.argmax(major_corrs)]
     return NOTES[np.argmax(minor_corrs)] + "m"
 
+
 def get_chords(file_path: str):
     y, sr = librosa.load(
         file_path,
         sr=AUDIO_LOAD_SR,
         mono=AUDIO_LOAD_MONO,
-        duration=AUDIO_CHORDS_DURATION
+        duration=AUDIO_CHORDS_DURATION,
     )
     y_harmonic = librosa.effects.harmonic(y, margin=4)
     chroma = librosa.feature.chroma_cqt(
-        y=y_harmonic,
-        sr=sr,
-        hop_length=512,
-        bins_per_octave=36
+        y=y_harmonic, sr=sr, hop_length=512, bins_per_octave=36
     )
+
     def classify_chord(c):
         best_score = -1
         best_chord = "C"
         for root in range(12):
             candidates = {
                 NOTES[root]: c[root % 12] + c[(root + 4) % 12] + c[(root + 7) % 12],
-                NOTES[root] + "m": c[root % 12] + c[(root + 3) % 12] + c[(root + 7) % 12],
-                NOTES[root] + "7": c[root % 12] + c[(root + 4) % 12] + c[(root + 7) % 12] + c[(root + 10) % 12] * 0.8,
-                NOTES[root] + "maj7": c[root % 12] + c[(root + 4) % 12] + c[(root + 7) % 12] + c[(root + 11) % 12] * 0.8,
-                NOTES[root] + "m7": c[root % 12] + c[(root + 3) % 12] + c[(root + 7) % 12] + c[(root + 10) % 12] * 0.8,
-                NOTES[root] + "sus2": c[root % 12] + c[(root + 2) % 12] + c[(root + 7) % 12],
-                NOTES[root] + "sus4": c[root % 12] + c[(root + 5) % 12] + c[(root + 7) % 12],
+                NOTES[root] + "m": c[root % 12]
+                + c[(root + 3) % 12]
+                + c[(root + 7) % 12],
+                NOTES[root] + "7": c[root % 12]
+                + c[(root + 4) % 12]
+                + c[(root + 7) % 12]
+                + c[(root + 10) % 12] * 0.8,
+                NOTES[root] + "maj7": c[root % 12]
+                + c[(root + 4) % 12]
+                + c[(root + 7) % 12]
+                + c[(root + 11) % 12] * 0.8,
+                NOTES[root] + "m7": c[root % 12]
+                + c[(root + 3) % 12]
+                + c[(root + 7) % 12]
+                + c[(root + 10) % 12] * 0.8,
+                NOTES[root] + "sus2": c[root % 12]
+                + c[(root + 2) % 12]
+                + c[(root + 7) % 12],
+                NOTES[root] + "sus4": c[root % 12]
+                + c[(root + 5) % 12]
+                + c[(root + 7) % 12],
             }
             for chord_name, score in candidates.items():
                 if score > best_score:
                     best_score = score
                     best_chord = chord_name
         return best_chord
+
     chords = []
     step = max(1, int(2.0 * sr / 512))
     prev_chord = None
@@ -384,7 +446,8 @@ def get_chords(file_path: str):
             prev_chord = chord
     return chords
 
-def run_demucs(file_path: str, job_id: str = None):
+
+def run_demucs(file_path: str, job_id: Optional[str] = None):
     cmd = [
         sys.executable,
         "-m",
@@ -400,44 +463,44 @@ def run_demucs(file_path: str, job_id: str = None):
     start = now()
 
     process = subprocess.Popen(
-        cmd,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-        bufsize=1
+        cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1
     )
 
     stderr_lines = []
+    assert process.stdout is not None
     for line in process.stdout:
         line = line.rstrip()
         stderr_lines.append(line)
         log_step(line)
         # Parse tqdm progress: looks like " 45%|████ | 86.8/193.0 [...]"
-        pct_match = re.search(r'(\d{1,3})%\|', line)
+        pct_match = re.search(r"(\d{1,3})%\|", line)
         if pct_match and job_id:
             pct = int(pct_match.group(1))
             job_update(job_id, f"🎚️ Separating stems... {pct}%", progress=pct)
 
     process.wait(timeout=DEMUCS_TIMEOUT_SECONDS)
     if process.returncode != 0:
-        raise subprocess.CalledProcessError(process.returncode, cmd, "\n".join(stderr_lines))
+        raise subprocess.CalledProcessError(
+            process.returncode, cmd, "\n".join(stderr_lines)
+        )
 
     log_step(f"✅ Demucs klart på {elapsed(start)}s")
     folder_name = os.path.splitext(os.path.basename(file_path))[0]
     stems_folder = os.path.join(OUT_DIR, DEMUCS_MODEL, folder_name)
-    drums_path  = os.path.join(stems_folder, "drums.mp3")
-    bass_path   = os.path.join(stems_folder, "bass.mp3")
-    other_path  = os.path.join(stems_folder, "other.mp3")
+    drums_path = os.path.join(stems_folder, "drums.mp3")
+    bass_path = os.path.join(stems_folder, "bass.mp3")
+    other_path = os.path.join(stems_folder, "other.mp3")
     vocals_path = os.path.join(stems_folder, "vocals.mp3")
-    require_file(drums_path,  "drums.mp3")
-    require_file(bass_path,   "bass.mp3")
-    require_file(other_path,  "other.mp3")
+    require_file(drums_path, "drums.mp3")
+    require_file(bass_path, "bass.mp3")
+    require_file(other_path, "other.mp3")
     require_file(vocals_path, "vocals.mp3")
     resample_mp3_to_target_sr(drums_path)
     resample_mp3_to_target_sr(bass_path)
     resample_mp3_to_target_sr(other_path)
     resample_mp3_to_target_sr(vocals_path)
     return stems_folder, drums_path, bass_path, other_path, vocals_path
+
 
 @app.post("/analyze-only")
 async def analyze_only(file: UploadFile = File(...)):
@@ -454,7 +517,10 @@ async def analyze_only(file: UploadFile = File(...)):
         contents = await file.read()
         if len(contents) > 6 * 1024 * 1024:
             log_step("❌ File too large for analyze-only (max 6MB)")
-            raise HTTPException(status_code=413, detail="File too large (max 6MB allowed on free hosting).")
+            raise HTTPException(
+                status_code=413,
+                detail="File too large (max 6MB allowed on free hosting).",
+            )
         with open(file_path, "wb") as f:
             f.write(contents)
         log_step(f"💾 Fil sparad: {file_path} ({elapsed(total_start)}s)")
@@ -463,9 +529,11 @@ async def analyze_only(file: UploadFile = File(...)):
             file_path,
             sr=AUDIO_LOAD_SR,
             mono=AUDIO_LOAD_MONO,
-            duration=AUDIO_ANALYZE_DURATION
+            duration=AUDIO_ANALYZE_DURATION,
         )
-        log_step(f"🎵 Audio laddad ({elapsed(load_start)}s), samples={len(y_audio)}, sr={sr}")
+        log_step(
+            f"🎵 Audio laddad ({elapsed(load_start)}s), samples={len(y_audio)}, sr={sr}"
+        )
         bpm_start = now()
         bpm = detect_bpm_robust(y_audio, sr)
         time_signature = detect_time_signature(y_audio, sr, bpm)
@@ -487,7 +555,7 @@ async def analyze_only(file: UploadFile = File(...)):
             "stems_path": "",
             "original_path": file_path,
             "duration_seconds": elapsed(total_start),
-            "analysis_window_seconds": AUDIO_ANALYZE_DURATION
+            "analysis_window_seconds": AUDIO_ANALYZE_DURATION,
         }
     except HTTPException:
         raise
@@ -526,7 +594,7 @@ async def analyze(file: UploadFile = File(...)):
             file_path,
             sr=AUDIO_LOAD_SR,
             mono=AUDIO_LOAD_MONO,
-            duration=AUDIO_ANALYZE_DURATION
+            duration=AUDIO_ANALYZE_DURATION,
         )
         log_step(f"🎵 Audio laddad ({elapsed(load_start)}s)")
 
@@ -541,7 +609,9 @@ async def analyze(file: UploadFile = File(...)):
         log_step(f"🎸 Ackord: {len(chords)} detekterade")
 
         demucs_start = now()
-        stems_folder, drums_path, bass_path, other_path, vocals_path = run_demucs(file_path)
+        stems_folder, drums_path, bass_path, other_path, vocals_path = run_demucs(
+            file_path
+        )
         log_step(f"🎚️ Demucs klart ({elapsed(demucs_start)}s)")
 
         lyrics = []
@@ -565,7 +635,7 @@ async def analyze(file: UploadFile = File(...)):
             "stems_path": stems_folder or "",
             "original_path": file_path,
             "duration_seconds": elapsed(total_start),
-            "analysis_window_seconds": AUDIO_ANALYZE_DURATION
+            "analysis_window_seconds": AUDIO_ANALYZE_DURATION,
         }
     except HTTPException:
         raise
@@ -601,10 +671,9 @@ async def structure(request: StructureRequest):
             "Only return valid JSON, no extra text."
         )
         response = gemini.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=prompt
+            model="gemini-2.5-flash", contents=prompt
         )
-        raw = response.text.strip()
+        raw = (response.text or "").strip()
         # Strip markdown code fences if present
         if raw.startswith("```"):
             raw = re.sub(r"^```[a-z]*\n?", "", raw)
@@ -613,10 +682,14 @@ async def structure(request: StructureRequest):
         return {"status": "success", "sections": sections}
     except Exception as e:
         log_step(f"⚠️ /structure misslyckades: {e}")
-        raise HTTPException(status_code=500, detail=f"Structure analysis failed: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Structure analysis failed: {str(e)}"
+        )
+
 
 class ImportUrlRequest(BaseModel):
     url: str
+
 
 @app.post("/import-url")
 async def import_url(request: ImportUrlRequest):
@@ -643,42 +716,59 @@ async def import_url(request: ImportUrlRequest):
             else:
                 clean_url = url.split("?")[0]
                 track_id = clean_url.split("/")[-1]
-            
+
             # Scrape Spotify page for metadata
             try:
                 import urllib.request
                 from html import unescape
+
                 req = urllib.request.Request(
                     f"https://open.spotify.com/track/{track_id}",
-                    headers={"User-Agent": "Mozilla/5.0"}
+                    headers={"User-Agent": "Mozilla/5.0"},
                 )
                 with urllib.request.urlopen(req, timeout=10) as response:
                     html = response.read().decode("utf-8")
-                
+
                 title_match = re.search(r"<title>(.*?)</title>", html, re.IGNORECASE)
                 if title_match:
                     page_title = unescape(title_match.group(1))
                     # Expected format: "Face Down - song and lyrics by The Red Jumpsuit Apparatus | Spotify"
-                    match = re.search(r"^(.*?) - (?:song and lyrics|song|single|EP|album) by (.*?) \| Spotify$", page_title, re.IGNORECASE)
+                    match = re.search(
+                        r"^(.*?) - (?:song and lyrics|song|single|EP|album) by (.*?) \| Spotify$",
+                        page_title,
+                        re.IGNORECASE,
+                    )
                     if match:
                         title = match.group(1).strip()
                         artist = match.group(2).strip()
                         spotify_query = f"{artist} - {title} audio"
                         log_step(f"✅ Scraped Spotify Metadata: '{artist}' - '{title}'")
-                
+
                 # Fallback to OpenGraph metadata if page title format differs
                 if not spotify_query:
                     og_title = None
-                    title_meta = re.search(r'<meta[^>]+property=["\']og:title["\'][^>]+content=["\'](.*?)["\']', html)
+                    title_meta = re.search(
+                        r'<meta[^>]+property=["\']og:title["\'][^>]+content=["\'](.*?)["\']',
+                        html,
+                    )
                     if not title_meta:
-                        title_meta = re.search(r'<meta[^>]+content=["\'](.*?)["\'][^>]+property=["\']og:title["\']', html)
+                        title_meta = re.search(
+                            r'<meta[^>]+content=["\'](.*?)["\'][^>]+property=["\']og:title["\']',
+                            html,
+                        )
                     if title_meta:
                         og_title = unescape(title_meta.group(1))
 
                     og_desc = None
-                    desc_meta = re.search(r'<meta[^>]+property=["\']og:description["\'][^>]+content=["\'](.*?)["\']', html)
+                    desc_meta = re.search(
+                        r'<meta[^>]+property=["\']og:description["\'][^>]+content=["\'](.*?)["\']',
+                        html,
+                    )
                     if not desc_meta:
-                        desc_meta = re.search(r'<meta[^>]+content=["\'](.*?)["\'][^>]+property=["\']og:description["\']', html)
+                        desc_meta = re.search(
+                            r'<meta[^>]+content=["\'](.*?)["\'][^>]+property=["\']og:description["\']',
+                            html,
+                        )
                     if desc_meta:
                         og_desc = unescape(desc_meta.group(1))
 
@@ -688,7 +778,9 @@ async def import_url(request: ImportUrlRequest):
                             artist = parts[0].strip()
                             title = og_title.strip()
                             spotify_query = f"{artist} - {title} audio"
-                            log_step(f"✅ Scraped Spotify OG Metadata: '{artist}' - '{title}'")
+                            log_step(
+                                f"✅ Scraped Spotify OG Metadata: '{artist}' - '{title}'"
+                            )
             except Exception as e:
                 log_step(f"⚠️ Spotify metadata scraping failed: {e}")
 
@@ -706,12 +798,16 @@ async def import_url(request: ImportUrlRequest):
                     "--no-playlist",
                 ]
                 if os.path.exists(cookies_path):
-                    cookies_age_days = (time.time() - os.path.getmtime(cookies_path)) / 86400
+                    cookies_age_days = (
+                        time.time() - os.path.getmtime(cookies_path)
+                    ) / 86400
                     if cookies_age_days < 7:
                         info_cmd.extend(["--cookies", cookies_path])
                 info_cmd.append(url)
-                
-                title_result = subprocess.run(info_cmd, capture_output=True, text=True, timeout=20)
+
+                title_result = subprocess.run(
+                    info_cmd, capture_output=True, text=True, timeout=20
+                )
                 if title_result.returncode == 0 and title_result.stdout:
                     raw_title = title_result.stdout.strip()
                     if raw_title:
@@ -727,27 +823,39 @@ async def import_url(request: ImportUrlRequest):
 
         # 1. Download with yt-dlp
         import glob
+
         unique_id = uuid.uuid4().hex[:8]
         output_template = os.path.join(UPLOAD_DIR, f"dl_{unique_id}.%(ext)s")
 
         def build_yt_dlp_cmd(target: str, use_cookies: bool = True) -> list:
             base = [
-                sys.executable, "-m", "yt_dlp",
+                sys.executable,
+                "-m",
+                "yt_dlp",
                 "--no-playlist",
-                "--extractor-retries", "2",
-                "--socket-timeout", "30",
+                "--extractor-retries",
+                "2",
+                "--socket-timeout",
+                "30",
                 "-x",
-                "--audio-format", "mp3",
-                "--audio-quality", "0",
-                "-o", output_template,
+                "--audio-format",
+                "mp3",
+                "--audio-quality",
+                "0",
+                "-o",
+                output_template,
             ]
             if use_cookies:
                 cookies_path = os.path.join(BASE_DIR, "cookies.txt")
                 if os.path.exists(cookies_path):
-                    cookies_age_days = (time.time() - os.path.getmtime(cookies_path)) / 86400
+                    cookies_age_days = (
+                        time.time() - os.path.getmtime(cookies_path)
+                    ) / 86400
                     if cookies_age_days < 7:
                         base.extend(["--cookies", cookies_path])
-                        log_step(f"🍪 Using cookies.txt (age: {cookies_age_days:.1f} days)")
+                        log_step(
+                            f"🍪 Using cookies.txt (age: {cookies_age_days:.1f} days)"
+                        )
             base.append(target)
             return base
 
@@ -762,27 +870,39 @@ async def import_url(request: ImportUrlRequest):
             log_step(f"⬇️ Running yt-dlp (SoundCloud): {' '.join(cmd)}")
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
             if result.returncode != 0:
-                log_step(f"⚠️ SoundCloud search failed, trying YouTube: {result.stderr[:300]}")
+                log_step(
+                    f"⚠️ SoundCloud search failed, trying YouTube: {result.stderr[:300]}"
+                )
                 yt_target = f"ytsearch1:{spotify_query}"
                 cmd = build_yt_dlp_cmd(yt_target, use_cookies=True)
                 log_step(f"⬇️ Fallback to YouTube: {' '.join(cmd)}")
-                result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+                result = subprocess.run(
+                    cmd, capture_output=True, text=True, timeout=300
+                )
                 if result.returncode != 0:
                     log_step(f"❌ Both SoundCloud and YouTube failed: {result.stderr}")
-                    raise RuntimeError(f"Download failed (SoundCloud + YouTube both blocked): {result.stderr[:400]}")
+                    raise RuntimeError(
+                        f"Download failed (SoundCloud + YouTube both blocked): {result.stderr[:400]}"
+                    )
         else:
             # Direct YouTube URL: try YouTube first, fall back to SoundCloud title search
             log_step(f"⬇️ Attempting direct YouTube download: {url}")
             cmd = build_yt_dlp_cmd(url, use_cookies=True)
             log_step(f"⬇️ Running yt-dlp (YouTube direct): {' '.join(cmd)}")
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
-            if result.returncode != 0 and ("Sign in" in result.stderr or "bot" in result.stderr.lower()):
-                log_step("⚠️ YouTube bot detection triggered — falling back to SoundCloud search")
+            if result.returncode != 0 and (
+                "Sign in" in result.stderr or "bot" in result.stderr.lower()
+            ):
+                log_step(
+                    "⚠️ YouTube bot detection triggered — falling back to SoundCloud search"
+                )
                 sc_query = f"{artist} - {title}" if title != "Unknown Track" else url
                 sc_target = f"scsearch1:{sc_query}"
                 cmd = build_yt_dlp_cmd(sc_target, use_cookies=False)
                 log_step(f"⬇️ Fallback SoundCloud search: {sc_query}")
-                result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+                result = subprocess.run(
+                    cmd, capture_output=True, text=True, timeout=300
+                )
                 if result.returncode != 0:
                     log_step(f"❌ SoundCloud fallback also failed: {result.stderr}")
                     raise RuntimeError(f"Download failed: {result.stderr[:400]}")
@@ -805,7 +925,7 @@ async def import_url(request: ImportUrlRequest):
             file_path,
             sr=AUDIO_LOAD_SR,
             mono=AUDIO_LOAD_MONO,
-            duration=AUDIO_ANALYZE_DURATION
+            duration=AUDIO_ANALYZE_DURATION,
         )
         log_step(f"🎵 Audio loaded ({elapsed(load_start)}s)")
 
@@ -820,7 +940,9 @@ async def import_url(request: ImportUrlRequest):
         log_step(f"🎸 Chords: {len(chords)} detected")
 
         demucs_start = now()
-        stems_folder, drums_path, bass_path, other_path, vocals_path = run_demucs(file_path)
+        stems_folder, drums_path, bass_path, other_path, vocals_path = run_demucs(
+            file_path
+        )
         log_step(f"🎚️ Demucs done ({elapsed(demucs_start)}s)")
 
         lyrics = []
@@ -849,7 +971,7 @@ async def import_url(request: ImportUrlRequest):
             "stems_path": stems_folder or "",
             "original_path": "",
             "duration_seconds": elapsed(total_start),
-            "analysis_window_seconds": AUDIO_ANALYZE_DURATION
+            "analysis_window_seconds": AUDIO_ANALYZE_DURATION,
         }
     except Exception as e:
         print("\n============== Traceback ==============")
@@ -863,6 +985,7 @@ async def import_url(request: ImportUrlRequest):
 class ImportUrlAsyncRequest(BaseModel):
     url: str
 
+
 @app.post("/import-url-async")
 async def import_url_async(request: ImportUrlAsyncRequest):
     """Start an async import job. Returns job_id immediately."""
@@ -872,11 +995,10 @@ async def import_url_async(request: ImportUrlAsyncRequest):
         "stage": "⏳ Starting...",
         "progress": 0,
         "result": None,
-        "error": None
+        "error": None,
     }
 
     def run_job():
-        import copy
         # We reuse the same logic as import_url but update job state
         file_path = None
         total_start = now()
@@ -901,27 +1023,40 @@ async def import_url_async(request: ImportUrlAsyncRequest):
                 try:
                     import urllib.request
                     from html import unescape
+
                     req = urllib.request.Request(
                         f"https://open.spotify.com/track/{track_id}",
-                        headers={"User-Agent": "Mozilla/5.0"}
+                        headers={"User-Agent": "Mozilla/5.0"},
                     )
                     with urllib.request.urlopen(req, timeout=10) as response:
                         html = response.read().decode("utf-8")
-                    title_match = re.search(r"<title>(.*?)</title>", html, re.IGNORECASE)
+                    title_match = re.search(
+                        r"<title>(.*?)</title>", html, re.IGNORECASE
+                    )
                     if title_match:
                         page_title = unescape(title_match.group(1))
-                        match = re.search(r"^(.*?) - (?:song and lyrics|song|single|EP|album) by (.*?) \| Spotify$", page_title, re.IGNORECASE)
+                        match = re.search(
+                            r"^(.*?) - (?:song and lyrics|song|single|EP|album) by (.*?) \| Spotify$",
+                            page_title,
+                            re.IGNORECASE,
+                        )
                         if match:
                             title = match.group(1).strip()
                             artist = match.group(2).strip()
                             spotify_query = f"{artist} - {title} audio"
                     if not spotify_query:
-                        og_title_m = re.search(r'<meta[^>]+property=["\']og:title["\'][^>]+content=["\'](.*?)["\']', html)
-                        og_desc_m  = re.search(r'<meta[^>]+property=["\']og:description["\'][^>]+content=["\'](.*?)["\']', html)
+                        og_title_m = re.search(
+                            r'<meta[^>]+property=["\']og:title["\'][^>]+content=["\'](.*?)["\']',
+                            html,
+                        )
+                        og_desc_m = re.search(
+                            r'<meta[^>]+property=["\']og:description["\'][^>]+content=["\'](.*?)["\']',
+                            html,
+                        )
                         if og_title_m and og_desc_m:
                             parts = unescape(og_desc_m.group(1)).split(" · ")
                             artist = parts[0].strip()
-                            title  = unescape(og_title_m.group(1)).strip()
+                            title = unescape(og_title_m.group(1)).strip()
                             spotify_query = f"{artist} - {title} audio"
                 except Exception as e:
                     log_step(f"⚠️ Spotify metadata scraping failed: {e}")
@@ -933,17 +1068,34 @@ async def import_url_async(request: ImportUrlAsyncRequest):
             job_update(job_id, f"⬇️ Downloading: {artist} - {title}...", progress=8)
 
             import glob as glob_mod
+
             unique_id = uuid.uuid4().hex[:8]
             output_template = os.path.join(UPLOAD_DIR, f"dl_{unique_id}.%(ext)s")
 
             def build_cmd(target, use_cookies=True):
-                c = [sys.executable, "-m", "yt_dlp", "--no-playlist",
-                     "--extractor-retries", "2", "--socket-timeout", "30",
-                     "-x", "--audio-format", "mp3", "--audio-quality", "0",
-                     "-o", output_template]
+                c = [
+                    sys.executable,
+                    "-m",
+                    "yt_dlp",
+                    "--no-playlist",
+                    "--extractor-retries",
+                    "2",
+                    "--socket-timeout",
+                    "30",
+                    "-x",
+                    "--audio-format",
+                    "mp3",
+                    "--audio-quality",
+                    "0",
+                    "-o",
+                    output_template,
+                ]
                 if use_cookies:
                     cp = os.path.join(BASE_DIR, "cookies.txt")
-                    if os.path.exists(cp) and (time.time() - os.path.getmtime(cp)) / 86400 < 7:
+                    if (
+                        os.path.exists(cp)
+                        and (time.time() - os.path.getmtime(cp)) / 86400 < 7
+                    ):
                         c.extend(["--cookies", cp])
                 c.append(target)
                 return c
@@ -951,16 +1103,35 @@ async def import_url_async(request: ImportUrlAsyncRequest):
             dl_start = now()
             if is_spotify:
                 sc_target = f"scsearch1:{spotify_query}"
-                r = subprocess.run(build_cmd(sc_target, False), capture_output=True, text=True, timeout=300)
+                r = subprocess.run(
+                    build_cmd(sc_target, False),
+                    capture_output=True,
+                    text=True,
+                    timeout=300,
+                )
                 if r.returncode != 0:
-                    r = subprocess.run(build_cmd(f"ytsearch1:{spotify_query}"), capture_output=True, text=True, timeout=300)
+                    r = subprocess.run(
+                        build_cmd(f"ytsearch1:{spotify_query}"),
+                        capture_output=True,
+                        text=True,
+                        timeout=300,
+                    )
                     if r.returncode != 0:
                         raise RuntimeError(f"Download failed: {r.stderr[:300]}")
             else:
-                r = subprocess.run(build_cmd(url), capture_output=True, text=True, timeout=300)
-                if r.returncode != 0 and ("Sign in" in r.stderr or "bot" in r.stderr.lower()):
+                r = subprocess.run(
+                    build_cmd(url), capture_output=True, text=True, timeout=300
+                )
+                if r.returncode != 0 and (
+                    "Sign in" in r.stderr or "bot" in r.stderr.lower()
+                ):
                     sc_q = f"{artist} - {title}" if title != "Unknown Track" else url
-                    r = subprocess.run(build_cmd(f"scsearch1:{sc_q}", False), capture_output=True, text=True, timeout=300)
+                    r = subprocess.run(
+                        build_cmd(f"scsearch1:{sc_q}", False),
+                        capture_output=True,
+                        text=True,
+                        timeout=300,
+                    )
                     if r.returncode != 0:
                         raise RuntimeError(f"Download failed: {r.stderr[:300]}")
                 elif r.returncode != 0:
@@ -973,15 +1144,26 @@ async def import_url_async(request: ImportUrlAsyncRequest):
             file_path = candidates[0]
 
             job_update(job_id, "🎵 Analyzing audio (BPM, Key, Chords)...", progress=15)
-            y_audio, sr = librosa.load(file_path, sr=AUDIO_LOAD_SR, mono=AUDIO_LOAD_MONO, duration=AUDIO_ANALYZE_DURATION)
+            y_audio, sr = librosa.load(
+                file_path,
+                sr=AUDIO_LOAD_SR,
+                mono=AUDIO_LOAD_MONO,
+                duration=AUDIO_ANALYZE_DURATION,
+            )
             bpm = detect_bpm_robust(y_audio, sr)
             time_signature = detect_time_signature(y_audio, sr, bpm)
             job_update(job_id, f"🥁 BPM: {bpm}  Key: detecting...", progress=25)
             key = detect_key(y_audio, sr)
-            job_update(job_id, f"🎸 Detecting chords...", progress=35)
+            job_update(job_id, "🎸 Detecting chords...", progress=35)
             chords = get_chords(file_path)
-            job_update(job_id, f"🎚️ Separating stems (Demucs) — this takes 3-5 min...", progress=40)
-            stems_folder, drums_path, bass_path, other_path, vocals_path = run_demucs(file_path, job_id)
+            job_update(
+                job_id,
+                "🎚️ Separating stems (Demucs) — this takes 3-5 min...",
+                progress=40,
+            )
+            stems_folder, drums_path, bass_path, other_path, vocals_path = run_demucs(
+                file_path, job_id
+            )
 
             job_update(job_id, "🗣️ Transcribing lyrics...", progress=95)
             lyrics = []
@@ -1007,7 +1189,7 @@ async def import_url_async(request: ImportUrlAsyncRequest):
                 "stems_path": stems_folder or "",
                 "original_path": "",
                 "duration_seconds": elapsed(total_start),
-                "analysis_window_seconds": AUDIO_ANALYZE_DURATION
+                "analysis_window_seconds": AUDIO_ANALYZE_DURATION,
             }
             jobs[job_id]["result"] = result
             jobs[job_id]["status"] = "done"
@@ -1040,7 +1222,7 @@ async def job_status(job_id: str):
         "stage": job["stage"],
         "progress": job.get("progress", 0),
         "result": job.get("result"),
-        "error": job.get("error")
+        "error": job.get("error"),
     }
 
 
@@ -1050,23 +1232,25 @@ async def rescan_stems():
     stems_base = os.path.join(OUT_DIR, DEMUCS_MODEL)
     if not os.path.isdir(stems_base):
         return {"stems": []}
-    
+
     found = []
     for folder_name in os.listdir(stems_base):
         folder_path = os.path.join(stems_base, folder_name)
         if not os.path.isdir(folder_path):
             continue
-        drums  = os.path.join(folder_path, "drums.mp3")
-        bass   = os.path.join(folder_path, "bass.mp3")
-        other  = os.path.join(folder_path, "other.mp3")
+        drums = os.path.join(folder_path, "drums.mp3")
+        bass = os.path.join(folder_path, "bass.mp3")
+        other = os.path.join(folder_path, "other.mp3")
         vocals = os.path.join(folder_path, "vocals.mp3")
         if all(os.path.isfile(f) for f in [drums, bass, other, vocals]):
-            found.append({
-                "folder_name": folder_name,
-                "stems_path": folder_path,
-                "title": folder_name.replace("dl_", "").replace("_", " "),
-            })
-    
+            found.append(
+                {
+                    "folder_name": folder_name,
+                    "stems_path": folder_path,
+                    "title": folder_name.replace("dl_", "").replace("_", " "),
+                }
+            )
+
     log_step(f"🔍 Rescan found {len(found)} stem folders in {stems_base}")
     return {"stems": found}
 

@@ -11,13 +11,13 @@ namespace AiMusicWorkstation.Domain.Entities
     public class SongProject
     {
         public string Id { get; set; } = Guid.NewGuid().ToString();
-        public string Title { get; set; }
+        public string Title { get; set; } = string.Empty;
         public string Artist { get; set; } = "Unknown Artist";
         public double Bpm { get; set; }
-        public string Key { get; set; }
-        public string StemsPath { get; set; }
-        public string OriginalPath { get; set; }
-        public string SpotifyId { get; set; }
+        public string Key { get; set; } = string.Empty;
+        public string StemsPath { get; set; } = string.Empty;
+        public string OriginalPath { get; set; } = string.Empty;
+        public string SpotifyId { get; set; } = string.Empty;
         public TimeSpan Duration { get; set; }
         public string Genre { get; set; } = "Uncategorized";
         public string GroupName { get; set; } = "General";

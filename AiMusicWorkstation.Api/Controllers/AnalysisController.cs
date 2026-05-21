@@ -36,7 +36,7 @@ public class AnalysisController : ControllerBase
             return BadRequest(new { status = "error", message = "File missing" });
 
         string response = await _client.AnalyzeAsync(file);
-        
+
         try
         {
             using var doc = JsonDocument.Parse(response);
@@ -46,8 +46,8 @@ public class AnalysisController : ControllerBase
                 string title = Path.GetFileNameWithoutExtension(file.FileName);
                 string artist = "Local Upload";
                 double bpm = root.TryGetProperty("bpm", out var bpmProp) ? bpmProp.GetDouble() : 120.0;
-                string key = root.TryGetProperty("key", out var keyProp) && keyProp.ValueKind != JsonValueKind.Null ? keyProp.GetString() : "C";
-                string stemsPath = root.TryGetProperty("stems_path", out var stemsProp) && stemsProp.ValueKind != JsonValueKind.Null ? stemsProp.GetString() : "";
+                string key = root.TryGetProperty("key", out var keyProp) && keyProp.ValueKind != JsonValueKind.Null ? keyProp.GetString() ?? "C" : "C";
+                string stemsPath = root.TryGetProperty("stems_path", out var stemsProp) && stemsProp.ValueKind != JsonValueKind.Null ? stemsProp.GetString() ?? "" : "";
                 int timeSig = root.TryGetProperty("time_signature", out var timeSigProp) ? timeSigProp.GetInt32() : 4;
                 double durationSeconds = root.TryGetProperty("duration_seconds", out var durationProp) ? durationProp.GetDouble() : 180.0;
 
@@ -107,10 +107,10 @@ public class AnalysisController : ControllerBase
     {
         var client = clientFactory.CreateClient();
         var response = await client.GetAsync($"{config.BaseUrl.TrimEnd('/')}/audio/{path}", HttpCompletionOption.ResponseHeadersRead);
-        
+
         if (!response.IsSuccessStatusCode)
             return StatusCode((int)response.StatusCode, "Audio not found on Python engine.");
-            
+
         var stream = await response.Content.ReadAsStreamAsync();
         return File(stream, "audio/mpeg", enableRangeProcessing: true);
     }

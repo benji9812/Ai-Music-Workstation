@@ -1127,17 +1127,43 @@ export default function App() {
             <div className="flex gap-1">
               <button
                 className="btn-icon"
-                title="Rescan orphaned stems"
+                title={
+                  nowPlaying
+                    ? "Rescan orphaned stems"
+                    : "No song loaded — load a song first"
+                }
+                disabled={!nowPlaying}
                 onClick={async () => {
+                  if (!nowPlaying) {
+                    alert(
+                      "No song loaded. Please load a song before rescanning.",
+                    );
+                    return;
+                  }
                   try {
                     const resp = await fetch(
                       `${API_URL}/api/library/rescan-stems`,
                       { method: "POST" },
                     );
                     const data = await resp.json();
-                    if (data.added > 0) fetchLibrary();
+                    console.log("[Rescan] raw API response:", data);
+
+                    if (!resp.ok) {
+                      alert(
+                        `Rescan failed: ${data.message ?? `HTTP ${resp.status}`}`,
+                      );
+                      return;
+                    }
+
+                    const { added, total } = data as {
+                      added: number;
+                      total: number;
+                    };
+                    if (added > 0) fetchLibrary();
                     alert(
-                      `Rescan: ${data.added} new stems added (${data.total} total)`,
+                      added === 0
+                        ? `Rescan complete — no new stems found (${total} total in library)`
+                        : `Rescan: ${added} new stem${added !== 1 ? "s" : ""} added (${total} total)`,
                     );
                   } catch (e: any) {
                     alert("Rescan failed: " + e.message);
