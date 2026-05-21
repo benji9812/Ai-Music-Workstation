@@ -1,4 +1,5 @@
 import * as React from "react";
+import { PitchShift, getContext, start as toneStart } from "tone";
 import "./index.css";
 
 type LyricSegment = { start: number; end: number; text: string };
@@ -70,6 +71,53 @@ const CHORD_INTERVALS: Record<string, number[]> = {
   aug: [0, 4, 8],
 };
 const NOTES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "Bb", "B"];
+
+// ─── Transpose utilities ────────────────────────────────────────────────────
+const ENHARMONIC_MAP: Record<string, string> = {
+  Db: "C#",
+  Eb: "D#",
+  Gb: "F#",
+  Ab: "G#",
+  Bb: "A#",
+  Cb: "B",
+  Fb: "E",
+  "E#": "F",
+  "B#": "C",
+};
+const TRANSPOSE_SCALE = [
+  "C",
+  "C#",
+  "D",
+  "D#",
+  "E",
+  "F",
+  "F#",
+  "G",
+  "G#",
+  "A",
+  "A#",
+  "B",
+];
+function transposeNote(note: string, semitones: number): string {
+  if (semitones === 0) return note;
+  const n = ENHARMONIC_MAP[note] ?? note;
+  const idx = TRANSPOSE_SCALE.indexOf(n);
+  if (idx === -1) return note;
+  return TRANSPOSE_SCALE[(((idx + semitones) % 12) + 12) % 12];
+}
+function transposeChord(chord: string, semitones: number): string {
+  if (semitones === 0) return chord;
+  const { root, quality } = parseChord(chord);
+  return transposeNote(root, semitones) + quality;
+}
+function transposeKey(key: string, semitones: number): string {
+  if (!key || semitones === 0) return key;
+  const m = key.match(/^([A-G][#b]?)(.*)?$/);
+  if (!m) return key;
+  return transposeNote(m[1], semitones) + (m[2] ?? "");
+}
+// ────────────────────────────────────────────────────────────────────────────
+
 function parseChord(chord: string): { root: string; quality: string } {
   const match = chord.match(/^([A-G](?:#|b)?)(.*)?$/);
   if (!match) return { root: chord, quality: "" };
@@ -457,11 +505,47 @@ export default function App() {
 
   // Audio elements
   const stems = useRef({
-    drums: new Audio(),
-    bass: new Audio(),
-    other: new Audio(),
-    vocals: new Audio(),
+    drums: Object.assign(new Audio(), { crossOrigin: "anonymous" }),
+    bass: Object.assign(new Audio(), { crossOrigin: "anonymous" }),
+    other: Object.assign(new Audio(), { crossOrigin: "anonymous" }),
+    vocals: Object.assign(new Audio(), { crossOrigin: "anonymous" }),
   });
+
+  // ── Pitch-shift pipeline (Tone.js) ─────────────────────────────────────
+  const pitchShiftRef = useRef<PitchShift | null>(null);
+  const stemGainNodesRef = useRef<
+    Partial<Record<keyof typeof stems.current, GainNode>>
+  >({});
+  const audioPipelineInitializedRef = useRef(false);
+
+  const initAudioPipeline = () => {
+    if (audioPipelineInitializedRef.current) return;
+    audioPipelineInitializedRef.current = true; // Guard before any async yields
+    try {
+      const toneCtx = getContext().rawContext as AudioContext;
+      const ps = new PitchShift(transposeSteps);
+      ps.toDestination();
+      pitchShiftRef.current = ps;
+      (Object.keys(stems.current) as Array<keyof typeof stems.current>).forEach(
+        (k) => {
+          try {
+            const source = toneCtx.createMediaElementSource(stems.current[k]);
+            const gain = toneCtx.createGain();
+            stemGainNodesRef.current[k] = gain;
+            source.connect(gain);
+            // ps.input is a Tone.Gain wrapper; .input on that gives the native GainNode
+            gain.connect((ps as any).input.input as GainNode);
+          } catch (e) {
+            console.warn(`[PitchShift] stem "${k}" pipeline error:`, e);
+          }
+        },
+      );
+    } catch (e) {
+      console.warn("[PitchShift] initAudioPipeline error:", e);
+      audioPipelineInitializedRef.current = false; // Allow retry
+    }
+  };
+  // ────────────────────────────────────────────────────────────────────────
 
   const [autoScrollLyrics, setAutoScrollLyrics] = useState(true);
   const [isDragging, setIsDragging] = useState(false);
@@ -481,20 +565,32 @@ export default function App() {
     return durationGuardRef.current;
   };
 
-  // Apply volumes and mutes/solos
+  // Apply volumes and mutes/solos — uses GainNodes once the pipeline is live
   useEffect(() => {
     const anySolo = Object.values(solos).some((s) => s);
-    Object.keys(stems.current).forEach((key) => {
-      const k = key as keyof typeof stems.current;
-      const audio = stems.current[k];
+    (Object.keys(stems.current) as Array<keyof typeof stems.current>).forEach(
+      (k) => {
+        let vol = (volumes[k] / 100) * (masterVol / 100);
+        if (mutes[k]) vol = 0;
+        if (anySolo && !solos[k]) vol = 0;
+        vol = Math.min(Math.max(vol, 0), 1);
 
-      let targetVol = (volumes[k] / 100) * (masterVol / 100);
-      if (mutes[k]) targetVol = 0;
-      if (anySolo && !solos[k]) targetVol = 0;
-
-      audio.volume = Math.min(Math.max(targetVol, 0), 1);
-    });
+        const gainNode = stemGainNodesRef.current[k];
+        if (gainNode) {
+          gainNode.gain.value = vol;
+        } else {
+          stems.current[k].volume = vol;
+        }
+      },
+    );
   }, [volumes, mutes, solos, masterVol]);
+
+  // Update pitch shifter when transposeSteps changes
+  useEffect(() => {
+    if (pitchShiftRef.current) {
+      pitchShiftRef.current.pitch = transposeSteps;
+    }
+  }, [transposeSteps]);
 
   // Sync time
   useEffect(() => {
@@ -552,27 +648,31 @@ export default function App() {
     setTimeout(() => setAutoScrollLyrics(true), 3000);
   };
 
-  const handlePlayPause = () => {
+  const handlePlayPause = async () => {
     if (isPlaying) {
       Object.values(stems.current).forEach((a) => a.pause());
-    } else {
-      // Count-in logic
-      if (countInEnabled) {
-        let count = 0;
-        const interval = setInterval(() => {
-          playClick();
-          count++;
-          if (count >= 4) {
-            clearInterval(interval);
-            Object.values(stems.current).forEach((a) => a.play());
-            setIsPlaying(true);
-          }
-        }, 500);
-        return;
-      }
-      Object.values(stems.current).forEach((a) => a.play());
+      setIsPlaying(false);
+      return;
     }
-    setIsPlaying(!isPlaying);
+    // Resume Tone.js AudioContext (required by browser autoplay policy)
+    await toneStart();
+    initAudioPipeline();
+    // Count-in logic
+    if (countInEnabled) {
+      let count = 0;
+      const interval = setInterval(() => {
+        playClick();
+        count++;
+        if (count >= 4) {
+          clearInterval(interval);
+          Object.values(stems.current).forEach((a) => a.play());
+          setIsPlaying(true);
+        }
+      }, 500);
+      return;
+    }
+    Object.values(stems.current).forEach((a) => a.play());
+    setIsPlaying(true);
   };
 
   const skipToStart = () => {
@@ -926,12 +1026,13 @@ export default function App() {
                 {/* Active chord diagram */}
                 {result?.chords && result.chords.length > 0 ? (
                   <ChordDiagram
-                    chord={
+                    chord={transposeChord(
                       result.chords.reduce(
                         (best, ch) => (ch.time <= currentTime ? ch : best),
                         result.chords[0],
-                      ).chord
-                    }
+                      ).chord,
+                      transposeSteps,
+                    )}
                   />
                 ) : (
                   <div
@@ -985,7 +1086,7 @@ export default function App() {
                               color: isActive ? "var(--neon-cyan)" : "#888",
                             }}
                           >
-                            {ch.chord}
+                            {transposeChord(ch.chord, transposeSteps)}
                           </span>
                         </div>
                       );
@@ -1247,7 +1348,7 @@ export default function App() {
               className="highlight-cyan"
               style={{ fontSize: "40px", fontWeight: "bold" }}
             >
-              {result?.key ? result.key : "—"}
+              {result?.key ? transposeKey(result.key, transposeSteps) : "—"}
             </span>
           </div>
         </div>
