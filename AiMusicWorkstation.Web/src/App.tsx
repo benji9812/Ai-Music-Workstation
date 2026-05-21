@@ -194,6 +194,23 @@ const playClick = () => {
   osc.stop(audioCtx.currentTime + 0.1);
 };
 
+/**
+ * Schedules a single metronome click at an exact Web Audio clock time.
+ * Accent beat (beat 1 of each measure) uses a higher pitch (1200 Hz).
+ * All other beats use 880 Hz. Duration is 50 ms.
+ */
+const scheduleMetroClick = (startTime: number, isAccent: boolean) => {
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  osc.frequency.value = isAccent ? 1200 : 880;
+  gain.gain.setValueAtTime(isAccent ? 0.8 : 0.5, startTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.05);
+  osc.start(startTime);
+  osc.stop(startTime + 0.05);
+};
+
 export const __testHooks = {
   refreshLibrary: () => {},
   setStructure: (_structure: StructureResult | null) => {},
@@ -552,6 +569,15 @@ export default function App() {
   const [sliderTime, setSliderTime] = useState(0);
   const lastLyricIndexRef = useRef<number | null>(null);
   const durationGuardRef = useRef(0);
+
+  // ── Metronome scheduler refs ────────────────────────────────────────────
+  /** Web Audio clock time of the next beat to schedule */
+  const metroNextBeatTimeRef = useRef<number>(0);
+  /** Which beat within the measure we're on (0 = beat 1 accent) */
+  const metroBeatCountRef = useRef<number>(0);
+  /** setTimeout handle for the lookahead scheduler tick */
+  const metroSchedulerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // ────────────────────────────────────────────────────────────────────────
   const clampTime = (value: number, max: number) => {
     if (!Number.isFinite(value) || !Number.isFinite(max) || max <= 0) return 0;
     return Math.max(0, Math.min(value, max));
@@ -592,6 +618,61 @@ export default function App() {
     }
   }, [transposeSteps]);
 
+  // ── Metronome lookahead scheduler ───────────────────────────────────────
+  // Uses the Web Audio API clock (audioCtx.currentTime) for drift-free
+  // timing. A short setTimeout loop schedules oscillator nodes 100 ms ahead,
+  // which fully decouples click accuracy from JS timer jitter.
+  useEffect(() => {
+    // Stop any running scheduler before (re-)starting or disabling
+    if (metroSchedulerRef.current !== null) {
+      clearTimeout(metroSchedulerRef.current);
+      metroSchedulerRef.current = null;
+    }
+
+    if (!metronomeEnabled) return;
+
+    const bpm = result?.bpm ?? 120;
+    const beatsPerMeasure = result?.time_signature ?? 4;
+    const beatInterval = 60 / bpm; // seconds per beat
+
+    const SCHEDULE_AHEAD_SECS = 0.1; // how far ahead to schedule
+    const TICK_MS = 25; // scheduler poll interval
+
+    // Ensure the AudioContext is running (requires a prior user gesture)
+    if (audioCtx.state === "suspended") audioCtx.resume();
+
+    // Kick off the first beat slightly in the future so the first
+    // oscillator is always scheduled ahead of the current clock
+    metroNextBeatTimeRef.current = audioCtx.currentTime + 0.05;
+    metroBeatCountRef.current = 0;
+
+    const tick = () => {
+      // Schedule every beat that falls within the lookahead window
+      while (
+        metroNextBeatTimeRef.current <
+        audioCtx.currentTime + SCHEDULE_AHEAD_SECS
+      ) {
+        const isAccent = metroBeatCountRef.current === 0;
+        scheduleMetroClick(metroNextBeatTimeRef.current, isAccent);
+        metroNextBeatTimeRef.current += beatInterval;
+        metroBeatCountRef.current =
+          (metroBeatCountRef.current + 1) % beatsPerMeasure;
+      }
+      // Re-schedule this tick
+      metroSchedulerRef.current = setTimeout(tick, TICK_MS);
+    };
+
+    tick();
+
+    return () => {
+      if (metroSchedulerRef.current !== null) {
+        clearTimeout(metroSchedulerRef.current);
+        metroSchedulerRef.current = null;
+      }
+    };
+  }, [metronomeEnabled, result?.bpm, result?.time_signature]);
+  // ────────────────────────────────────────────────────────────────────────
+
   // Sync time
   useEffect(() => {
     const interval = setInterval(() => {
@@ -628,18 +709,10 @@ export default function App() {
             }
           }
         }
-
-        // Metronome logic
-        if (metronomeEnabled && result?.bpm) {
-          const beatInterval = 60 / result.bpm;
-          if (current % beatInterval < 0.1 && current % beatInterval > 0) {
-            // playClick(); // Basic implementation, needs tight scheduling in real app
-          }
-        }
       }
     }, 100);
     return () => clearInterval(interval);
-  }, [isPlaying, result, autoScrollLyrics, metronomeEnabled, isDragging]);
+  }, [isPlaying, result, autoScrollLyrics, isDragging]);
 
   const handleManualScroll = (_e: React.UIEvent<HTMLDivElement>) => {
     // If user scrolls manually, disable auto-scroll temporarily
