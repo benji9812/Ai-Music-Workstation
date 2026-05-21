@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import * as React from 'react';
 import './index.css';
 
 type LyricSegment = { start: number; end: number; text: string };
@@ -32,7 +32,7 @@ type SongProject = {
     stemsPath: string;
 };
 
-const API_URL = import.meta.env.VITE_API_URL ?? "";
+const API_URL = (globalThis as { VITE_API_URL?: string }).VITE_API_URL ?? "";
 
 export const getActiveLyricIndex = (lyrics: LyricSegment[], current: number) => {
     let activeIdx = lyrics.findIndex(l => l.start <= current && l.end >= current);
@@ -112,6 +112,8 @@ export const __testHooks = {
   getCurrentTime: () => 0,
 };
 
+const { useState, useRef, useEffect } = React;
+
 export default function App() {
   const [activeTab, setActiveTab] = useState<'chord' | 'scale'>('chord');
   
@@ -124,6 +126,7 @@ export default function App() {
   const [metronomeEnabled, setMetronomeEnabled] = useState(false);
   const [countInEnabled, setCountInEnabled] = useState(false);
   const [transposeEnabled, setTransposeEnabled] = useState(false);
+  const [transposeSteps, setTransposeSteps] = useState(0);
   const [masterVol, setMasterVol] = useState(100);
   
   // Mixer states
@@ -154,7 +157,8 @@ export default function App() {
           const resp = await fetch(`${API_URL}/api/library/projects`);
           if (resp.ok) {
               const data = await resp.json();
-              setProjects(data);
+              const normalized = Array.isArray(data) ? data : (data.projects ?? []);
+              setProjects(normalized);
           }
       } catch (e) {
           console.error("Failed to fetch library", e);
@@ -538,6 +542,14 @@ export default function App() {
       setSolos(prev => ({ ...prev, [stem]: !prev[stem] }));
   };
 
+  const updateTranspose = (delta: number) => {
+      setTransposeSteps(prev => {
+          const next = Math.max(-12, Math.min(12, prev + delta));
+          setTransposeEnabled(next !== 0);
+          return next;
+      });
+  };
+
   return (
     <div className="app-container">
       
@@ -643,9 +655,9 @@ export default function App() {
           <div className="flex items-center gap-4">
             <h1 className="neon-text-gradient m-0" style={{ fontSize: '24px' }}>AI MUSIC WORKSTATION</h1>
             <div className="flex gap-2">
-               <button className={`btn-primary ${!showChords ? 'opacity-50' : ''}`} style={{ padding: '4px 8px', fontSize: '10px' }} onClick={() => setShowChords(!showChords)}>🎹 Chords</button>
-               <button className={`btn-primary ${!showLyrics ? 'opacity-50' : ''}`} style={{ padding: '4px 8px', fontSize: '10px' }} onClick={() => setShowLyrics(!showLyrics)}>🎤 Lyrics</button>
-               <button className={`btn-primary ${!showStructure ? 'opacity-50' : ''}`} style={{ padding: '4px 8px', fontSize: '10px' }} onClick={() => setShowStructure(!showStructure)}>📑 Structure</button>
+               <button className={`btn-primary ${showChords ? 'active' : ''}`} style={{ padding: '4px 8px', fontSize: '10px' }} onClick={() => setShowChords(!showChords)}>🎹 Chords</button>
+               <button className={`btn-primary ${showLyrics ? 'active' : ''}`} style={{ padding: '4px 8px', fontSize: '10px' }} onClick={() => setShowLyrics(!showLyrics)}>🎤 Lyrics</button>
+               <button className={`btn-primary ${showStructure ? 'active' : ''}`} style={{ padding: '4px 8px', fontSize: '10px' }} onClick={() => setShowStructure(!showStructure)}>📑 Structure</button>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -730,27 +742,27 @@ export default function App() {
         {/* Transpose & Metronome (Like Desktop) */}
         <div className="glass-panel flex justify-center items-center gap-4">
             <div className="flex items-center gap-2">
-                <span style={{ fontSize: '10px', fontWeight: 'bold', color: '#888' }}>TRANSPOSE</span>
-                 <button
-                   className={`btn-icon ${transposeEnabled ? 'btn-active' : ''}`}
-                   onClick={() => setTransposeEnabled(!transposeEnabled)}
-                   data-testid="transpose-toggle-minus"
-                 >− </button>
-                 <span style={{ fontSize: '16px', fontWeight: 'bold', color: 'var(--neon-cyan)' }}>0</span>
-                 <button
-                   className={`btn-icon ${transposeEnabled ? 'btn-active' : ''}`}
-                   onClick={() => setTransposeEnabled(!transposeEnabled)}
-                   data-testid="transpose-toggle-plus"
-                 > +</button>
+                 <span style={{ fontSize: '10px', fontWeight: 'bold', color: '#888' }}>TRANSPOSE</span>
+                  <button
+                    className={`btn-icon ${transposeEnabled ? 'active' : ''}`}
+                    onClick={() => updateTranspose(-1)}
+                    data-testid="transpose-toggle-minus"
+                  >− </button>
+                  <span style={{ fontSize: '16px', fontWeight: 'bold', color: 'var(--neon-cyan)' }}>{transposeSteps}</span>
+                  <button
+                    className={`btn-icon ${transposeEnabled ? 'active' : ''}`}
+                    onClick={() => updateTranspose(1)}
+                    data-testid="transpose-toggle-plus"
+                  > +</button>
             </div>
             <div className="flex items-center gap-2">
-                 <button 
-                     className={`btn-primary ${countInEnabled ? 'btn-active' : ''}`} 
+                  <button 
+                      className={`btn-primary ${countInEnabled ? 'active' : ''}`} 
                      style={{ fontSize: '10px', padding: '4px 8px' }}
                      onClick={() => setCountInEnabled(!countInEnabled)}
                  >Count In</button>
                  <button 
-                     className={`btn-primary ${metronomeEnabled ? 'btn-active' : ''}`} 
+                      className={`btn-primary ${metronomeEnabled ? 'active' : ''}`} 
                      style={{ fontSize: '10px', padding: '4px 8px' }}
                      onClick={() => setMetronomeEnabled(!metronomeEnabled)}
                      data-testid="metro-toggle"
@@ -763,7 +775,6 @@ export default function App() {
         <div className="glass-panel" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
           <div className="flex justify-between items-center mb-2">
             <span className="section-title" style={{ marginBottom: 0 }}>LYRICS</span>
-            <button className="btn-icon">📝</button>
           </div>
           <div 
             ref={lyricsScrollRef}

@@ -4,11 +4,12 @@
     "target": "es2023",
     "lib": ["ES2023"],
     "module": "esnext",
-    "types": [ "vitest/globals", "node" ],
+    "moduleResolution": "bundler",
+    "types": [ "node" ],
+    "composite": true,
     "skipLibCheck": true,
 
     /* Bundler mode */
-    "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
     "moduleDetection": "force",
