@@ -7,11 +7,16 @@ type LyricSegment = { start: number; end: number; text: string };
 type ChordEntry = { time: number; chord: string };
 type Section = { label: string; start: number; end: number };
 
+type AnalysisSource = "spotify" | "analysis";
+
 type AnalysisResult = {
   bpm?: number;
+  bpmSource?: AnalysisSource;
   key?: string;
+  keySource?: AnalysisSource;
   chords?: ChordEntry[];
   time_signature?: number;
+  timeSigSource?: AnalysisSource;
   lyrics?: LyricSegment[];
   stems_path?: string;
   title?: string;
@@ -57,6 +62,20 @@ export const getActiveLyricIndex = (
 
 export const onImportSuccess = (refreshLibrary: () => void) => {
   refreshLibrary();
+};
+
+const renderSourceBadge = (source?: AnalysisSource) => {
+  if (!source) return null;
+  const isSpotify = source === "spotify";
+  return (
+    <span
+      className={`source-badge ${
+        isSpotify ? "source-badge--spotify" : "source-badge--analysis"
+      }`}
+    >
+      {isSpotify ? "Spotify" : "AI"}
+    </span>
+  );
 };
 
 // ─── Transpose utilities ────────────────────────────────────────────────────
@@ -1767,36 +1786,45 @@ export default function App() {
             style={{ flex: 1 }}
           >
             <span className="section-title">TEMPO</span>
-            <span
-              className="highlight-cyan"
-              style={{ fontSize: "40px", fontWeight: "bold" }}
-            >
-              {result?.bpm ? Math.round(result.bpm) : "—"}
-            </span>
+            <div className="analysis-value-row">
+              <span
+                className="highlight-cyan"
+                style={{ fontSize: "40px", fontWeight: "bold" }}
+              >
+                {result?.bpm ? Math.round(result.bpm) : "—"}
+              </span>
+              {renderSourceBadge(result?.bpmSource)}
+            </div>
           </div>
           <div
             className="glass-panel flex-col items-center justify-center"
             style={{ flex: 1 }}
           >
             <span className="section-title">TIME SIG</span>
-            <span
-              className="highlight-cyan"
-              style={{ fontSize: "40px", fontWeight: "bold" }}
-            >
-              {result?.time_signature ? `${result.time_signature}/4` : "—"}
-            </span>
+            <div className="analysis-value-row">
+              <span
+                className="highlight-cyan"
+                style={{ fontSize: "40px", fontWeight: "bold" }}
+              >
+                {result?.time_signature ? `${result.time_signature}/4` : "—"}
+              </span>
+              {renderSourceBadge(result?.timeSigSource)}
+            </div>
           </div>
           <div
             className="glass-panel flex-col items-center justify-center"
             style={{ flex: 1 }}
           >
             <span className="section-title">KEY</span>
-            <span
-              className="highlight-cyan"
-              style={{ fontSize: "40px", fontWeight: "bold" }}
-            >
-              {result?.key ? transposeKey(result.key, transposeSteps) : "—"}
-            </span>
+            <div className="analysis-value-row">
+              <span
+                className="highlight-cyan"
+                style={{ fontSize: "40px", fontWeight: "bold" }}
+              >
+                {result?.key ? transposeKey(result.key, transposeSteps) : "—"}
+              </span>
+              {renderSourceBadge(result?.keySource)}
+            </div>
           </div>
         </div>
 
