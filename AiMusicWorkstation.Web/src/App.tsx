@@ -32,7 +32,7 @@ type SongProject = {
     stemsPath: string;
 };
 
-const API_URL = (globalThis as { VITE_API_URL?: string }).VITE_API_URL ?? "";
+const API_URL = import.meta.env.VITE_API_URL || "https://aimusicworkstation-api-e5eyc7b2bgemh5en.swedencentral-01.azurewebsites.net";
 
 export const getActiveLyricIndex = (lyrics: LyricSegment[], current: number) => {
     let activeIdx = lyrics.findIndex(l => l.start <= current && l.end >= current);
