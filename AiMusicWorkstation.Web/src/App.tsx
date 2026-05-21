@@ -772,8 +772,8 @@ export default function App() {
       {/* COLUMN 1: LIBRARY */}
       <div className="col-library">
         <div className="glass-panel" style={{ flex: 1 }}>
-          <div className="flex justify-between items-center mb-2">
-            <span className="section-title" style={{ marginBottom: 0 }}>
+          <div className="panel-header">
+            <span className="section-title" style={{ margin: 0 }}>
               LIBRARY
             </span>
             <div className="flex gap-1">
@@ -1309,8 +1309,8 @@ export default function App() {
             className="glass-panel"
             style={{ flex: 1, display: "flex", flexDirection: "column" }}
           >
-            <div className="flex justify-between items-center mb-2">
-              <span className="section-title" style={{ marginBottom: 0 }}>
+            <div className="panel-header">
+              <span className="section-title" style={{ margin: 0 }}>
                 LYRICS
               </span>
             </div>
@@ -1370,7 +1370,14 @@ export default function App() {
 
         {/* Mixer */}
         <div className="glass-panel" style={{ paddingBottom: "4px" }}>
-          <span className="section-title mb-2 text-center">STEM MIXER</span>
+          <div className="panel-header">
+            <span
+              className="section-title"
+              style={{ margin: 0, width: "100%", textAlign: "center" }}
+            >
+              STEM MIXER
+            </span>
+          </div>
           <div className="mixer-grid">
             {(["drums", "bass", "other", "vocals"] as const).map((stem) => (
               <div key={stem} className="mixer-channel">
@@ -1498,8 +1505,8 @@ export default function App() {
       {showStructure && (
         <div className="col-sections">
           <div className="glass-panel" style={{ flex: 1 }}>
-            <div className="flex justify-between items-center mb-2">
-              <span className="section-title" style={{ marginBottom: 0 }}>
+            <div className="panel-header">
+              <span className="section-title" style={{ margin: 0 }}>
                 SONG STRUCTURE
               </span>
             </div>

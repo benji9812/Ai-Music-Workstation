@@ -1,16 +1,20 @@
 :root {
+    /* ── Surface hierarchy ─────────────────────────── */
+    --color-bg: #0f0f0f; /* page background  */
+    --color-surface: #1c1b19; /* panel background */
+    --color-surface-2: #22211f; /* panel header / inner card */
+    --color-border: rgba(255, 255, 255, 0.08); /* subtle panel edge */
+
+    /* ── Neon accents ───────────────────────────────── */
     --neon-cyan: #00f0ff;
     --neon-magenta: #ff00e6;
     --neon-yellow: #ffdd00;
     --neon-purple: #9d4edd;
 
-    --bg-color: #000000;
-    --glass-bg: linear-gradient(
-        180deg,
-        rgba(255, 255, 255, 0.055),
-        rgba(255, 255, 255, 0.02)
-    );
-    --glass-border: rgba(255, 255, 255, 0.1);
+    /* ── Legacy aliases (kept for backward-compat) ─── */
+    --bg-color: var(--color-bg);
+    --glass-bg: var(--color-surface);
+    --glass-border: var(--color-border);
     --glass-hover-border: rgba(0, 240, 255, 0.24);
 
     --text-main: #e5e5e5;
@@ -75,16 +79,15 @@ body {
    Components
 ==================== */
 .glass-panel {
-    background: var(--glass-bg);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    border: 1px solid var(--glass-border);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
     border-radius: 10px;
     padding: 15px;
     display: flex;
     flex-direction: column;
-    transition: all 0.3s ease;
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+    transition:
+        border-color 0.3s ease,
+        box-shadow 0.3s ease;
 }
 
 .glass-panel:hover {
@@ -93,9 +96,9 @@ body {
 }
 
 .glass-panel-inner {
-    background: rgba(0, 0, 0, 0.4);
+    background: var(--color-surface-2);
     border-radius: 6px;
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--color-border);
     padding: 10px;
 }
 
@@ -111,6 +114,27 @@ body {
     background-clip: text;
     font-weight: 800;
     letter-spacing: 1px;
+}
+
+/* Panel header bar — sits flush at the top of any .glass-panel */
+.panel-header {
+    background: var(--color-surface-2);
+    border-bottom: 1px solid var(--color-border);
+    border-radius: 9px 9px 0 0; /* 1 px less than the parent 10 px */
+    /* bleed to panel edges */
+    margin: -15px -15px 15px -15px;
+    padding: 8px 15px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 38px;
+}
+
+/* Convenience: when only one child, don't let it drift left */
+.panel-header > span:only-child,
+.panel-header > div:only-child {
+    width: 100%;
+    text-align: center;
 }
 
 .section-title {
@@ -231,8 +255,8 @@ body {
    Inputs
 ==================== */
 .input-dark {
-    background: rgba(0, 0, 0, 0.5);
-    border: 1px solid var(--glass-border);
+    background: var(--color-surface-2);
+    border: 1px solid var(--color-border);
     color: var(--text-main);
     padding: 8px 12px;
     border-radius: 6px;
@@ -271,10 +295,16 @@ body {
     appearance: none;
     width: 120px;
     height: 6px;
-    background: rgba(255, 255, 255, 0.1);
+    background: #3a3937;
     border-radius: 3px;
     outline: none;
     transform: rotate(-90deg);
+    accent-color: var(--neon-cyan);
+}
+.vertical-slider::-webkit-slider-runnable-track {
+    height: 6px;
+    background: #3a3937;
+    border-radius: 3px;
 }
 .vertical-slider::-webkit-slider-thumb {
     -webkit-appearance: none;
@@ -285,6 +315,7 @@ body {
     border-radius: 4px;
     cursor: pointer;
     box-shadow: 0 0 10px rgba(0, 240, 255, 0.5);
+    margin-top: -9px; /* (24px - 6px) / 2 to center thumb on track */
 }
 
 /* Horizontal timeline slider */
@@ -293,9 +324,16 @@ body {
     appearance: none;
     width: 100%;
     height: 6px;
-    background: rgba(255, 255, 255, 0.1);
+    background: #3a3937;
     border-radius: 3px;
     outline: none;
+    accent-color: var(--neon-magenta);
+    cursor: pointer;
+}
+.timeline-slider::-webkit-slider-runnable-track {
+    height: 6px;
+    background: #3a3937;
+    border-radius: 3px;
 }
 .timeline-slider::-webkit-slider-thumb {
     -webkit-appearance: none;
@@ -306,6 +344,7 @@ body {
     background: var(--neon-magenta);
     cursor: pointer;
     box-shadow: 0 0 10px rgba(255, 0, 230, 0.5);
+    margin-top: -4px; /* (14px - 6px) / 2 to center thumb on track */
 }
 
 /* ====================
