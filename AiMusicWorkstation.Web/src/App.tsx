@@ -29,6 +29,13 @@ type StructureResult = {
   error?: string;
 };
 
+type EditableSection = {
+  id: string;
+  label: string;
+  start: string;
+  end: string;
+};
+
 type SongProject = {
   id: string;
   title: string;
@@ -38,6 +45,308 @@ type SongProject = {
   key: string;
   stemsPath: string;
 };
+
+const formatTime = (sec: number) => {
+  if (!Number.isFinite(sec) || sec < 0) return "00:00";
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+};
+
+const parseTimeInput = (value: string) => {
+  const match = value.trim().match(/^(\d+):([0-5]\d)$/);
+  if (!match) return null;
+  const minutes = Number(match[1]);
+  const seconds = Number(match[2]);
+  return minutes * 60 + seconds;
+};
+
+const toEditableSections = (sections: Section[]) =>
+  sections.map((sec, idx) => ({
+    id: `${sec.label}-${sec.start}-${sec.end}-${idx}`,
+    label: sec.label,
+    start: formatTime(sec.start),
+    end: formatTime(sec.end),
+  }));
+
+const validateStructureEdits = (sections: EditableSection[]) => {
+  const parsed = sections.map((sec, idx) => {
+    const start = parseTimeInput(sec.start);
+    const end = parseTimeInput(sec.end);
+    return {
+      idx,
+      label: sec.label.trim() || `Section ${idx + 1}`,
+      start,
+      end,
+    };
+  });
+
+  for (const sec of parsed) {
+    if (sec.start === null || sec.end === null) {
+      return { error: `Invalid time for "${sec.label}". Use MM:SS.` };
+    }
+    if (sec.start < 0 || sec.end <= sec.start) {
+      return {
+        error: `Section "${sec.label}" must have a valid start/end time.`,
+      };
+    }
+  }
+
+  const sorted = [...parsed].sort((a, b) => (a.start ?? 0) - (b.start ?? 0));
+  for (let i = 1; i < sorted.length; i++) {
+    if ((sorted[i].start ?? 0) < (sorted[i - 1].end ?? 0)) {
+      return {
+        error: `Sections overlap (${sorted[i - 1].label} / ${sorted[i].label}).`,
+      };
+    }
+  }
+
+  return {
+    sections: parsed.map((sec) => ({
+      label: sec.label,
+      start: sec.start ?? 0,
+      end: sec.end ?? 0,
+    })),
+  };
+};
+
+type SongStructurePanelProps = {
+  structure: StructureResult | null;
+  isStructureLoading: boolean;
+  onJumpToTime: (time: number) => void;
+  onSaveSections: (sections: Section[]) => Promise<void>;
+};
+
+function SongStructurePanel({
+  structure,
+  isStructureLoading,
+  onJumpToTime,
+  onSaveSections,
+}: SongStructurePanelProps) {
+  const [isEditing, setIsEditing] = React.useState(false);
+  const [draftSections, setDraftSections] = React.useState<EditableSection[]>([]);
+  const [editError, setEditError] = React.useState<string | null>(null);
+  const [isSaving, setIsSaving] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!isEditing) {
+      setDraftSections(toEditableSections(structure?.sections ?? []));
+    }
+  }, [structure, isEditing]);
+
+  const toggleEdit = () => {
+    if (isEditing) {
+      setIsEditing(false);
+      setEditError(null);
+      setDraftSections(toEditableSections(structure?.sections ?? []));
+    } else {
+      setIsEditing(true);
+      setEditError(null);
+      setDraftSections(toEditableSections(structure?.sections ?? []));
+    }
+  };
+
+  const updateDraft = (index: number, patch: Partial<EditableSection>) => {
+    setDraftSections((prev) =>
+      prev.map((sec, idx) => (idx === index ? { ...sec, ...patch } : sec)),
+    );
+  };
+
+  const handleDelete = (index: number) => {
+    setDraftSections((prev) => prev.filter((_, idx) => idx !== index));
+  };
+
+  const handleAddSection = () => {
+    setDraftSections((prev) => {
+      const lastEnd =
+        prev.length > 0 ? parseTimeInput(prev[prev.length - 1].end) ?? 0 : 0;
+      const start = lastEnd;
+      const end = lastEnd + 10;
+      return [
+        ...prev,
+        {
+          id: `new-${Date.now()}-${prev.length}`,
+          label: `Section ${prev.length + 1}`,
+          start: formatTime(start),
+          end: formatTime(end),
+        },
+      ];
+    });
+  };
+
+  const handleSave = async () => {
+    setEditError(null);
+    const validation = validateStructureEdits(draftSections);
+    if (!validation.sections) {
+      setEditError(validation.error ?? "Invalid structure data.");
+      return;
+    }
+    setIsSaving(true);
+    try {
+      await onSaveSections(validation.sections);
+      setIsEditing(false);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <div className="glass-panel" style={{ flex: 1 }}>
+      <div className="panel-header">
+        <span className="section-title" style={{ margin: 0 }}>
+          SONG STRUCTURE
+        </span>
+        <div className="flex items-center gap-1">
+          {isEditing && (
+            <button
+              className="btn-primary"
+              style={{ padding: "4px 10px", fontSize: "10px" }}
+              onClick={handleSave}
+              disabled={isSaving}
+            >
+              {isSaving ? "Saving…" : "Save"}
+            </button>
+          )}
+          <button
+            className="toggle-btn"
+            data-active={isEditing ? "true" : "false"}
+            onClick={toggleEdit}
+            style={{ padding: "4px 10px", fontSize: "10px" }}
+          >
+            {isEditing ? "Done" : "Edit"}
+          </button>
+        </div>
+      </div>
+      <div style={{ overflowY: "auto", flex: 1, paddingRight: "5px" }}>
+        {isStructureLoading ? (
+          // Skeleton rows while structure is being fetched
+          <div className="structure-skeleton">
+            {["60%", "45%", "70%", "50%", "65%", "40%"].map((w, i) => (
+              <div key={i} className="structure-skeleton-row">
+                <div className="skeleton-bar" style={{ width: w }} />
+                <div className="skeleton-bar" style={{ width: "28px" }} />
+              </div>
+            ))}
+          </div>
+        ) : isEditing ? (
+          <>
+            {draftSections.length === 0 ? (
+              <div
+                style={{
+                  fontSize: "12px",
+                  color: "#777",
+                  textAlign: "center",
+                  marginTop: "16px",
+                }}
+              >
+                No sections yet
+              </div>
+            ) : (
+              draftSections.map((sec, idx) => (
+                <div
+                  key={sec.id}
+                  className="glass-panel-inner mb-1 flex flex-col gap-1"
+                >
+                  <div className="flex items-center gap-1 justify-between">
+                    <input
+                      className="input-dark"
+                      style={{ fontSize: "12px", padding: "6px 8px" }}
+                      value={sec.label}
+                      onChange={(e) =>
+                        updateDraft(idx, { label: e.target.value })
+                      }
+                      aria-label={`Section ${idx + 1} name`}
+                    />
+                    <button
+                      className="btn-icon"
+                      style={{ fontSize: "14px", color: "#ff4444" }}
+                      onClick={() => handleDelete(idx)}
+                      aria-label={`Delete section ${idx + 1}`}
+                    >
+                      🗑
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <input
+                      className="input-dark"
+                      style={{ width: "72px", fontSize: "11px", padding: "6px" }}
+                      value={sec.start}
+                      onChange={(e) =>
+                        updateDraft(idx, { start: e.target.value })
+                      }
+                      placeholder="MM:SS"
+                      aria-label={`Section ${idx + 1} start time`}
+                    />
+                    <span style={{ fontSize: "10px", color: "#777" }}>to</span>
+                    <input
+                      className="input-dark"
+                      style={{ width: "72px", fontSize: "11px", padding: "6px" }}
+                      value={sec.end}
+                      onChange={(e) => updateDraft(idx, { end: e.target.value })}
+                      placeholder="MM:SS"
+                      aria-label={`Section ${idx + 1} end time`}
+                    />
+                  </div>
+                </div>
+              ))
+            )}
+            <button
+              className="btn-primary mt-2"
+              style={{ width: "100%" }}
+              onClick={handleAddSection}
+            >
+              + Add Section
+            </button>
+            {editError && (
+              <div
+                style={{
+                  color: "#ff6666",
+                  fontSize: "11px",
+                  marginTop: "6px",
+                  textAlign: "center",
+                }}
+              >
+                ⚠️ {editError}
+              </div>
+            )}
+          </>
+        ) : structure?.sections ? (
+          structure.sections.map((sec: Section, idx: number) => (
+            <div
+              key={idx}
+              className="glass-panel-inner mb-1 flex justify-between items-center cursor-pointer hover:border-cyan"
+              onClick={() => onJumpToTime(parseFloat(String(sec.start)))}
+            >
+              <span
+                style={{
+                  color: "white",
+                  fontWeight: "bold",
+                  fontSize: "12px",
+                }}
+              >
+                {sec.label}
+              </span>
+              <span style={{ color: "var(--neon-cyan)", fontSize: "10px" }}>
+                {formatTime(sec.start)}
+              </span>
+            </div>
+          ))
+        ) : (
+          <div
+            style={{
+              fontSize: "12px",
+              color: "#555",
+              textAlign: "center",
+              marginTop: "20px",
+            }}
+          >
+            No structure data
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 const API_URL =
   import.meta.env.VITE_API_URL ||
@@ -348,6 +657,7 @@ export default function App() {
     title: string;
     artist: string;
   } | null>(null);
+  const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
   const [importProgress, setImportProgress] = useState<{
     stage: string;
     progress: number;
@@ -457,6 +767,7 @@ export default function App() {
     if (p.stemsPath) loadStemsFromPath(p.stemsPath);
     setResult({ bpm: p.bpm, key: p.key, title: p.title, artist: p.artist });
     setNowPlaying({ title: p.title, artist: p.artist });
+    setCurrentProjectId(p.id);
     setCurrentTime(0);
     setSliderTime(0);
     setIsPlaying(false);
@@ -529,6 +840,7 @@ export default function App() {
             const trackTitle = data.title || "Unknown Track";
             const trackArtist = data.artist || "Unknown Artist";
             setNowPlaying({ title: trackTitle, artist: trackArtist });
+            setCurrentProjectId(null);
             setUrlInput("");
 
             if (data.stems_path) loadStemsFromPath(data.stems_path);
@@ -870,6 +1182,28 @@ export default function App() {
     setSliderTime(clamped);
   };
 
+  const saveStructureSections = async (sections: Section[]) => {
+    setStructure({ sections });
+    if (!currentProjectId) return;
+    try {
+      const resp = await fetch(
+        `${API_URL}/api/songs/${currentProjectId}/structure`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sections }),
+        },
+      );
+      if (!resp.ok) {
+        console.error("Failed to save song structure", await resp.text());
+        alert("Saved locally, but failed to sync structure to the server.");
+      }
+    } catch (e) {
+      console.error("Failed to save song structure", e);
+      alert("Saved locally, but failed to sync structure to the server.");
+    }
+  };
+
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     if (
@@ -914,6 +1248,7 @@ export default function App() {
       setResult(data);
       const fileName = selectedFile.name.replace(/\.[^.]+$/, "");
       setNowPlaying({ title: fileName, artist: "Local Upload" });
+      setCurrentProjectId(null);
       setCurrentTime(0);
       setSliderTime(0);
 
@@ -1668,6 +2003,7 @@ export default function App() {
               style={{ fontSize: 11, color: "#aaa", whiteSpace: "nowrap" }}
               onClick={() => {
                 setNowPlaying(null);
+                setCurrentProjectId(null);
                 setResult(null);
                 setStructure(null);
                 setUrlInput("");
@@ -2114,60 +2450,12 @@ export default function App() {
       {/* COLUMN 4: SECTIONS */}
       {showStructure && (
         <div className="col-sections">
-          <div className="glass-panel" style={{ flex: 1 }}>
-            <div className="panel-header">
-              <span className="section-title" style={{ margin: 0 }}>
-                SONG STRUCTURE
-              </span>
-            </div>
-            <div style={{ overflowY: "auto", flex: 1, paddingRight: "5px" }}>
-              {isStructureLoading ? (
-                // Skeleton rows while structure is being fetched
-                <div className="structure-skeleton">
-                  {["60%", "45%", "70%", "50%", "65%", "40%"].map((w, i) => (
-                    <div key={i} className="structure-skeleton-row">
-                      <div className="skeleton-bar" style={{ width: w }} />
-                      <div className="skeleton-bar" style={{ width: "28px" }} />
-                    </div>
-                  ))}
-                </div>
-              ) : structure?.sections ? (
-                structure.sections.map((sec: Section, idx: number) => (
-                  <div
-                    key={idx}
-                    className="glass-panel-inner mb-1 flex justify-between items-center cursor-pointer hover:border-cyan"
-                    onClick={() => jumpToTime(parseFloat(String(sec.start)))}
-                  >
-                    <span
-                      style={{
-                        color: "white",
-                        fontWeight: "bold",
-                        fontSize: "12px",
-                      }}
-                    >
-                      {sec.label}
-                    </span>
-                    <span
-                      style={{ color: "var(--neon-cyan)", fontSize: "10px" }}
-                    >
-                      {formatTime(sec.start)}
-                    </span>
-                  </div>
-                ))
-              ) : (
-                <div
-                  style={{
-                    fontSize: "12px",
-                    color: "#555",
-                    textAlign: "center",
-                    marginTop: "20px",
-                  }}
-                >
-                  No structure data
-                </div>
-              )}
-            </div>
-          </div>
+          <SongStructurePanel
+            structure={structure}
+            isStructureLoading={isStructureLoading}
+            onJumpToTime={jumpToTime}
+            onSaveSections={saveStructureSections}
+          />
         </div>
       )}
     </div>
