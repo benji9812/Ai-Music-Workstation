@@ -582,8 +582,14 @@ export default function App() {
   };
 
   const jumpToTime = (time: number) => {
+    // Ensure the value is a real number even if the API returned a string
+    const parsed = parseFloat(String(time));
+    if (!Number.isFinite(parsed) || parsed < 0) return;
     const safeDuration = readDuration();
-    const clamped = clampTime(time, safeDuration);
+    // If duration is not yet known, skip the upper-bound clamp so the seek
+    // still reaches the requested position rather than being silently forced
+    // back to 0 by clampTime's `max <= 0` guard.
+    const clamped = safeDuration > 0 ? clampTime(parsed, safeDuration) : parsed;
     Object.values(stems.current).forEach((a) => {
       a.currentTime = clamped;
     });
@@ -1478,12 +1484,7 @@ export default function App() {
                   <div
                     key={idx}
                     className="glass-panel-inner mb-1 flex justify-between items-center cursor-pointer hover:border-cyan"
-                    data-start={sec.start}
-                    onClick={(e) => {
-                      const target = e.currentTarget as HTMLDivElement;
-                      const start = Number(target.dataset.start ?? 0);
-                      jumpToTime(start);
-                    }}
+                    onClick={() => jumpToTime(parseFloat(String(sec.start)))}
                   >
                     <span
                       style={{
