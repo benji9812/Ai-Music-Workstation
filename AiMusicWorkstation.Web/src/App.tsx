@@ -105,6 +105,78 @@ function transposeKey(key: string, semitones: number): string {
 }
 // ────────────────────────────────────────────────────────────────────────────
 
+// ─── Scale utilities ───────────────────────────────────────────────────────
+const MAJOR_SCALE_INTERVALS = [0, 2, 4, 5, 7, 9, 11];
+const MINOR_SCALE_INTERVALS = [0, 2, 3, 5, 7, 8, 10];
+
+/**
+ * Returns the 7 note names for a given root + scale type, shifted by semitoneOffset.
+ * semitoneOffset is applied to the root so the scale tracks transpose.
+ */
+function getScale(
+  root: string,
+  type: "major" | "minor",
+  semitoneOffset: number,
+): string[] {
+  const intervals =
+    type === "major" ? MAJOR_SCALE_INTERVALS : MINOR_SCALE_INTERVALS;
+  const normalised = ENHARMONIC_MAP[root] ?? root;
+  const rootIdx = TRANSPOSE_SCALE.indexOf(normalised);
+  if (rootIdx === -1) return [];
+  const shiftedRoot = (((rootIdx + semitoneOffset) % 12) + 12) % 12;
+  return intervals.map((iv) => TRANSPOSE_SCALE[(shiftedRoot + iv) % 12]);
+}
+
+/** Parse a key string like "Am", "F# minor", "C major", "Bb" etc. */
+function parseKey(key: string): { root: string; type: "major" | "minor" } {
+  if (!key) return { root: "C", type: "major" };
+  const m = key.match(/^([A-G][#b]?)(.*)/);
+  if (!m) return { root: "C", type: "major" };
+  const root = m[1];
+  const rest = m[2].toLowerCase().trim();
+  // "m", "min", "minor", or starts with "m " → minor  (exclude "maj"/"major")
+  const isMinor =
+    (rest === "m" ||
+      rest === "min" ||
+      rest.startsWith("minor") ||
+      rest.startsWith("m ")) &&
+    !rest.startsWith("maj");
+  return { root, type: isMinor ? "minor" : "major" };
+}
+
+/** Returns the TRANSPOSE_SCALE note names that make up a chord (triad/7th). */
+function getChordNotes(chord: string): string[] {
+  const { root, quality } = parseChord(chord);
+  const normalised = ENHARMONIC_MAP[root] ?? root;
+  const rootIdx = TRANSPOSE_SCALE.indexOf(normalised);
+  if (rootIdx === -1) return [];
+  const q = quality.toLowerCase();
+  let intervals: number[];
+  if (q === "" || q === "maj") {
+    intervals = [0, 4, 7];
+  } else if (q === "m" || q === "min") {
+    intervals = [0, 3, 7];
+  } else if (q === "7") {
+    intervals = [0, 4, 7, 10];
+  } else if (q === "maj7") {
+    intervals = [0, 4, 7, 11];
+  } else if (q === "m7" || q === "min7") {
+    intervals = [0, 3, 7, 10];
+  } else if (q === "dim" || q === "°") {
+    intervals = [0, 3, 6];
+  } else if (q === "aug" || q === "+") {
+    intervals = [0, 4, 8];
+  } else if (q === "sus2") {
+    intervals = [0, 2, 7];
+  } else if (q === "sus4") {
+    intervals = [0, 5, 7];
+  } else {
+    intervals = [0, 4, 7]; // unknown → treat as major triad
+  }
+  return intervals.map((iv) => TRANSPOSE_SCALE[(rootIdx + iv) % 12]);
+}
+// ────────────────────────────────────────────────────────────────────────────
+
 function parseChord(chord: string): { root: string; quality: string } {
   const match = chord.match(/^([A-G](?:#|b)?)(.*)?$/);
   if (!match) return { root: chord, quality: "" };
@@ -887,6 +959,31 @@ export default function App() {
     });
   };
 
+  // ── Scale data (derived, recomputed on every render) ──────────────────────
+  const { root: _scaleRoot, type: _scaleType } = parseKey(result?.key ?? "");
+  const scaleNotes = getScale(_scaleRoot, _scaleType, transposeSteps);
+  const _activeChordRaw =
+    result?.chords && result.chords.length > 0
+      ? result.chords.reduce(
+          (best, ch) => (ch.time <= currentTime ? ch : best),
+          result.chords[0],
+        ).chord
+      : null;
+  const activeChordDisplay = _activeChordRaw
+    ? transposeChord(_activeChordRaw, transposeSteps)
+    : null;
+  const activeChordTones: Set<string> = activeChordDisplay
+    ? new Set(getChordNotes(activeChordDisplay))
+    : new Set();
+  const displayKey = result?.key
+    ? transposeKey(result.key, transposeSteps)
+    : null;
+  const _scaleDegreesLabel =
+    _scaleType === "major"
+      ? ["I", "II", "III", "IV", "V", "VI", "VII"]
+      : ["i", "ii", "♭III", "iv", "v", "♭VI", "♭VII"];
+  // ─────────────────────────────────────────────────────────────────────────
+
   return (
     <div className="app-container">
       {/* COLUMN 1: LIBRARY */}
@@ -1116,6 +1213,180 @@ export default function App() {
                     </div>
                   )}
                 </div>
+              </div>
+            )}
+
+            {activeTab === "scale" && (
+              <div className="flex flex-col" style={{ flex: 1, gap: 8 }}>
+                {/* Scale name header */}
+                <div
+                  className="glass-panel-inner text-center"
+                  style={{ padding: "8px 10px" }}
+                >
+                  <div
+                    style={{
+                      fontSize: "10px",
+                      color: "#888",
+                      letterSpacing: "2px",
+                      marginBottom: 4,
+                    }}
+                  >
+                    SCALE
+                  </div>
+                  {displayKey ? (
+                    <div
+                      style={{
+                        fontSize: "20px",
+                        fontWeight: "bold",
+                        color: "var(--neon-cyan)",
+                        letterSpacing: "1px",
+                      }}
+                    >
+                      {displayKey}
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: "13px", color: "#555" }}>
+                      Waiting for analysis…
+                    </div>
+                  )}
+                  {displayKey && (
+                    <div
+                      style={{
+                        fontSize: "10px",
+                        color: "#666",
+                        marginTop: 2,
+                      }}
+                    >
+                      {_scaleType === "major" ? "Major" : "Natural Minor"}
+                    </div>
+                  )}
+                </div>
+
+                {/* Note chips */}
+                {scaleNotes.length > 0 ? (
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(7, 1fr)",
+                      gap: 4,
+                    }}
+                  >
+                    {scaleNotes.map((note, i) => {
+                      const isChordTone = activeChordTones.has(note);
+                      return (
+                        <div
+                          key={i}
+                          style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            alignItems: "center",
+                            gap: 2,
+                            background: isChordTone
+                              ? "rgba(0,240,255,0.16)"
+                              : "rgba(255,255,255,0.04)",
+                            border: `1px solid ${
+                              isChordTone
+                                ? "var(--neon-cyan)"
+                                : "rgba(255,255,255,0.09)"
+                            }`,
+                            borderRadius: 6,
+                            padding: "7px 2px 5px",
+                            transition: "all 0.2s ease",
+                            boxShadow: isChordTone
+                              ? "0 0 8px rgba(0,240,255,0.3)"
+                              : "none",
+                          }}
+                        >
+                          <span
+                            style={{
+                              fontSize: "12px",
+                              fontWeight: "bold",
+                              color: isChordTone ? "var(--neon-cyan)" : "#ccc",
+                              lineHeight: 1,
+                            }}
+                          >
+                            {note}
+                          </span>
+                          <span
+                            style={{
+                              fontSize: "9px",
+                              color: isChordTone
+                                ? "rgba(0,240,255,0.6)"
+                                : "#444",
+                              fontStyle: "italic",
+                              lineHeight: 1,
+                            }}
+                          >
+                            {_scaleDegreesLabel[i]}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div
+                    style={{
+                      fontSize: "13px",
+                      color: "#555",
+                      textAlign: "center",
+                    }}
+                  >
+                    {result?.key ? "Unknown scale" : "Waiting for analysis…"}
+                  </div>
+                )}
+
+                {/* Active chord tones */}
+                {activeChordDisplay && (
+                  <div
+                    className="glass-panel-inner text-center"
+                    style={{ padding: "6px 8px" }}
+                  >
+                    <div
+                      style={{
+                        fontSize: "10px",
+                        color: "#888",
+                        letterSpacing: "1px",
+                        marginBottom: 3,
+                      }}
+                    >
+                      ACTIVE CHORD
+                    </div>
+                    <div
+                      style={{
+                        fontSize: "18px",
+                        fontWeight: "bold",
+                        color: "var(--neon-yellow)",
+                      }}
+                    >
+                      {activeChordDisplay}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: "11px",
+                        color: "var(--neon-cyan)",
+                        marginTop: 3,
+                        letterSpacing: "1px",
+                      }}
+                    >
+                      {[...activeChordTones].join(" · ")}
+                    </div>
+                  </div>
+                )}
+
+                {/* Footer */}
+                {transposeSteps !== 0 && (
+                  <div
+                    style={{
+                      fontSize: "10px",
+                      color: "#555",
+                      textAlign: "center",
+                    }}
+                  >
+                    Transposed {transposeSteps > 0 ? "+" : ""}
+                    {transposeSteps} semitone
+                    {Math.abs(transposeSteps) !== 1 ? "s" : ""}
+                  </div>
+                )}
               </div>
             )}
           </div>
