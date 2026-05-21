@@ -34,10 +34,10 @@ public class ImportController : ControllerBase
         try
         {
             _logger.LogInformation("ImportFromUrl: delegating to Python Engine for {Url}", request.Url);
-            
+
             // Delegate everything to Python Engine (which has yt-dlp installed)
             var resultJson = await _pythonClient.ImportUrlAsync(request.Url);
-            
+
             try
             {
                 using var doc = JsonDocument.Parse(resultJson);
@@ -70,7 +70,7 @@ public class ImportController : ControllerBase
 
                     await _repository.AddAsync(project);
                     await _repository.SaveAsync();
-                    
+
                     _logger.LogInformation("Saved imported song project to database: {Title} ({Id})", project.Title, project.Id);
                 }
             }
@@ -78,7 +78,7 @@ public class ImportController : ControllerBase
             {
                 _logger.LogError(dbEx, "Failed to parse Python response or save SongProject to database");
             }
-            
+
             return Content(resultJson, "application/json");
         }
         catch (Exception ex)
@@ -127,8 +127,18 @@ public class ImportController : ControllerBase
                     int    timeSig    = resultProp.TryGetProperty("time_signature", out var ts) ? ts.GetInt32() : 4;
                     double durationSec= resultProp.TryGetProperty("duration_seconds", out var ds) ? ds.GetDouble() : 180.0;
 
-                    // Avoid duplicate saves — only save if no project with same stems path exists
+                    // Deduplicate: skip save if a record with the same stems path already exists
+                    // (handles concurrent polls delivering "done" at the same time).
+                    bool isDuplicate = false;
                     if (!string.IsNullOrEmpty(stemsPath))
+                    {
+                        var allProjects = await _repository.GetAllAsync();
+                        isDuplicate = allProjects.Any(p =>
+                            !string.IsNullOrEmpty(p.StemsPath) &&
+                            string.Equals(p.StemsPath, stemsPath, StringComparison.OrdinalIgnoreCase));
+                    }
+
+                    if (!isDuplicate)
                     {
                         var project = new SongProject
                         {
@@ -148,6 +158,10 @@ public class ImportController : ControllerBase
                         await _repository.AddAsync(project);
                         await _repository.SaveAsync();
                         _logger.LogInformation("Saved async imported project: {Title}", project.Title);
+                    }
+                    else
+                    {
+                        _logger.LogInformation("Skipped duplicate save for project: {Title} (stems path already exists)", title);
                     }
                 }
             }

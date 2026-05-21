@@ -394,6 +394,19 @@ export default function App() {
 
             if (data.stems_path) loadStemsFromPath(data.stems_path);
 
+            // Optimistically add the imported song to the library immediately
+            // so the user sees it without waiting for the fetchLibrary round-trip.
+            const optimisticProject: SongProject = {
+              id: `yt-${trackTitle}-${trackArtist}`,
+              title: trackTitle,
+              artist: trackArtist,
+              bpm: data.bpm ?? 0,
+              key: data.key ?? "",
+              stemsPath: data.stems_path ?? "",
+              genre: "Uncategorized",
+            };
+            setProjects((prev) => [optimisticProject, ...prev]);
+
             setIsStructureLoading(true);
             try {
               const structResp = await fetch(
@@ -416,6 +429,8 @@ export default function App() {
               setIsStructureLoading(false);
             }
 
+            // Sync with the real DB record (replaces the optimistic entry with
+            // the persisted one that has the correct id and full metadata).
             refreshLibrary();
           } else if (statusData.status === "error") {
             clearInterval(pollRef.current!);
@@ -617,6 +632,9 @@ export default function App() {
     setLoading(true);
     setError(null);
 
+    let analysisSucceeded = false;
+    let savedProject: SongProject | null = null;
+
     try {
       const form = new FormData();
       form.append("file", selectedFile);
@@ -628,9 +646,10 @@ export default function App() {
       });
 
       const data = await resp.json();
-      if (!resp.ok || data.error) {
-        setError(data.error || data.detail || resp.statusText);
-        setLoading(false);
+      // Treat both HTTP errors and Python-engine-level errors as failures.
+      // No setLoading(false) here — the finally block handles it.
+      if (!resp.ok || data.error || data.status === "error") {
+        setError(data.error || data.message || data.detail || resp.statusText);
         return;
       }
 
@@ -639,6 +658,20 @@ export default function App() {
       setNowPlaying({ title: fileName, artist: "Local Upload" });
       setCurrentTime(0);
       setSliderTime(0);
+
+      // Optimistically add the new song to the library so it appears immediately,
+      // before the fetchLibrary() round-trip completes.
+      savedProject = {
+        id: `local-${fileName}`,
+        title: fileName,
+        artist: "Local Upload",
+        bpm: data.bpm ?? 0,
+        key: data.key ?? "",
+        stemsPath: data.stems_path ?? "",
+        genre: "Uncategorized",
+      };
+      setProjects((prev) => [savedProject!, ...prev]);
+      analysisSucceeded = true;
 
       // Load stems from proxy if available, else use local file
       if (data.stems_path) {
@@ -697,12 +730,14 @@ export default function App() {
       } finally {
         setIsStructureLoading(false);
       }
-
-      refreshLibrary();
     } catch (e: any) {
       setError("Network error: " + e.message);
+    } finally {
+      // Always sync the library when analysis succeeded so the optimistic entry
+      // is replaced with the real DB record (correct id, bpm, key, etc.).
+      if (analysisSucceeded) refreshLibrary();
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const formatTime = (sec: number) => {
