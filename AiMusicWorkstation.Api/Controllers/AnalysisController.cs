@@ -64,7 +64,9 @@ public class AnalysisController : ControllerBase
                     TimeSignature = timeSig,
                     Genre = "Uncategorized",
                     DateAdded = DateTime.Now,
-                    KeySource = KeySource.Generated
+                    BpmSource = DataSource.Analysis,
+                    KeySource = DataSource.Analysis,
+                    TimeSigSource = DataSource.Analysis
                 };
 
                 await _repository.AddAsync(project);

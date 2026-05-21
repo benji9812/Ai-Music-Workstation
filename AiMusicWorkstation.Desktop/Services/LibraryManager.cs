@@ -24,8 +24,8 @@ namespace AiMusicWorkstation.Desktop.Services
                     string json = File.ReadAllText(_libraryFile);
                     Projects = JsonSerializer.Deserialize<List<SongProject>>(json) ?? new List<SongProject>();
 
-                    foreach (var p in Projects.Where(p => p.KeySource == KeySource.Unknown))
-                        p.KeySource = p.IsOfficialData ? KeySource.Metadata : KeySource.Generated;
+                    foreach (var p in Projects.Where(p => p.KeySource == DataSource.Unknown))
+                        p.KeySource = p.IsOfficialData ? DataSource.Spotify : DataSource.Analysis;
 
                     SaveLibrary();
                 }

@@ -1,4 +1,4 @@
-ï»¿using AiMusicWorkstation.Shared.Models;
+using AiMusicWorkstation.Shared.Models;
 using AiMusicWorkstation.Domain.Entities;
 using AiMusicWorkstation.Desktop.Services;
 using AiMusicWorkstation.Infrastructure.ExternalServices;
@@ -118,16 +118,16 @@ namespace AiMusicWorkstation.Desktop
         }
 
         // --- KEY BADGE ---
-        private void UpdateKeyBadge(KeySource source)
+        private void UpdateKeyBadge(DataSource source)
         {
-            OfficialBadge.Visibility = source == KeySource.Metadata
+            OfficialBadge.Visibility = source == DataSource.Spotify
                 ? Visibility.Visible : Visibility.Collapsed;
-            AiBadge.Visibility = source == KeySource.Generated || source == KeySource.Unknown
+            AiBadge.Visibility = source == DataSource.Analysis || source == DataSource.Unknown
                 ? Visibility.Visible : Visibility.Collapsed;
 
-            KeyOfficialBadge.Visibility = source == KeySource.Metadata
+            KeyOfficialBadge.Visibility = source == DataSource.Spotify
                 ? Visibility.Visible : Visibility.Collapsed;
-            KeyAiBadge.Visibility = source == KeySource.Generated || source == KeySource.Unknown
+            KeyAiBadge.Visibility = source == DataSource.Analysis || source == DataSource.Unknown
                 ? Visibility.Visible : Visibility.Collapsed;
         }
 
@@ -211,7 +211,7 @@ namespace AiMusicWorkstation.Desktop
 
                 bool isSpotify = !string.IsNullOrEmpty(spotifyUrl);
                 string genre = "Uncategorized";
-                var keySource = KeySource.Generated;
+                var keySource = DataSource.Analysis;
 
                 if (isSpotify)
                 {
@@ -222,7 +222,7 @@ namespace AiMusicWorkstation.Desktop
                     if (!string.IsNullOrEmpty(meta.Genre) && meta.Genre != "Uncategorized")
                     {
                         genre = meta.Genre;
-                        keySource = KeySource.Metadata;
+                        keySource = DataSource.Spotify;
                     }
                 }
 
@@ -316,7 +316,7 @@ namespace AiMusicWorkstation.Desktop
             VolDrums.Opacity = VolBass.Opacity = VolOther.Opacity = VolVocals.Opacity = 1.0;
         }
 
-        // --- IMPORT VISA/DÃ–LJ ---
+        // --- IMPORT VISA/DÖLJ ---
         private void HideImportSection()
         {
             ImportSection.Visibility = Visibility.Collapsed;
@@ -1090,7 +1090,7 @@ namespace AiMusicWorkstation.Desktop
             e.Handled = true;
         }
 
-        // --- VISA/DÃ–LJ LYRICS & ACKORD ---
+        // --- VISA/DÖLJ LYRICS & ACKORD ---
         private void ToggleChords_Click(object sender, RoutedEventArgs e)
         {
             ChordPanel.Visibility = ToggleChordsBtn.IsChecked == true
@@ -1214,3 +1214,8 @@ namespace AiMusicWorkstation.Desktop
         public UIElement? Diagram { get; set; }
     }
 }
+
+
+
+
+

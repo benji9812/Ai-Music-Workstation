@@ -14,8 +14,14 @@ namespace AiMusicWorkstation.Shared.Models
         [JsonPropertyName("bpm")]
         public double Bpm { get; set; }
 
+        [JsonPropertyName("bpm_source")]
+        public string BpmSource { get; set; } = "analysis";
+
         [JsonPropertyName("key")]
         public string Key { get; set; }
+
+        [JsonPropertyName("key_source")]
+        public string KeySource { get; set; } = "analysis";
 
         [JsonPropertyName("stems_path")]
         public string StemsPath { get; set; }
@@ -31,6 +37,9 @@ namespace AiMusicWorkstation.Shared.Models
 
         [JsonPropertyName("time_signature")]
         public int TimeSignature { get; set; } = 4;
+
+        [JsonPropertyName("time_sig_source")]
+        public string TimeSigSource { get; set; } = "analysis";
     }
 
     public class LyricSegment : INotifyPropertyChanged

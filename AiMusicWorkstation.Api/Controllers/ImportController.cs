@@ -65,7 +65,9 @@ public class ImportController : ControllerBase
                         TimeSignature = timeSig,
                         Genre = "Uncategorized",
                         DateAdded = DateTime.Now,
-                        KeySource = KeySource.Generated
+                        BpmSource = DataSource.Analysis,
+                        KeySource = DataSource.Analysis,
+                        TimeSigSource = DataSource.Analysis
                     };
 
                     await _repository.AddAsync(project);
@@ -153,7 +155,9 @@ public class ImportController : ControllerBase
                             TimeSignature = timeSig,
                             Genre         = "Uncategorized",
                             DateAdded     = DateTime.Now,
-                            KeySource     = KeySource.Generated
+                            BpmSource     = DataSource.Analysis,
+                            KeySource     = DataSource.Analysis,
+                            TimeSigSource = DataSource.Analysis
                         };
                         await _repository.AddAsync(project);
                         await _repository.SaveAsync();

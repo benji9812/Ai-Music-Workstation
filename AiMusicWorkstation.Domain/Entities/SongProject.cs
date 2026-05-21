@@ -1,11 +1,11 @@
 
 namespace AiMusicWorkstation.Domain.Entities
 {
-    public enum KeySource
+    public enum DataSource
     {
         Unknown,
-        Metadata,
-        Generated
+        Spotify,
+        Analysis
     }
 
     public class SongProject
@@ -24,7 +24,9 @@ namespace AiMusicWorkstation.Domain.Entities
         public DateTime DateAdded { get; set; } = DateTime.Now;
         public string DurationDisplay => Duration.ToString(@"mm\:ss");
         public bool IsOfficialData { get; set; }
-        public KeySource KeySource { get; set; } = KeySource.Unknown;
+        public DataSource BpmSource { get; set; } = DataSource.Unknown;
+        public DataSource KeySource { get; set; } = DataSource.Unknown;
+        public DataSource TimeSigSource { get; set; } = DataSource.Unknown;
         public int TimeSignature { get; set; } = 4;
     }
 }
