@@ -216,8 +216,9 @@ export default function App() {
       stems.current.vocals.src   = `${API_URL}/api/analysis/audio/${relPath}/vocals.mp3`;
       setDurationReady(false);
       stems.current.drums.onloadedmetadata = () => {
-          setDuration(stems.current.drums.duration);
-          setDurationReady(true);
+          const safeDuration = readDuration();
+          setDuration(safeDuration);
+          setDurationReady(safeDuration > 0);
           if (!isDragging) {
               setSliderTime(0);
           }
@@ -340,6 +341,19 @@ export default function App() {
   const [isDragging, setIsDragging] = useState(false);
   const [sliderTime, setSliderTime] = useState(0);
   const lastLyricIndexRef = useRef<number | null>(null);
+  const durationGuardRef = useRef(0);
+  const clampTime = (value: number, max: number) => {
+      if (!Number.isFinite(value) || !Number.isFinite(max) || max <= 0) return 0;
+      return Math.max(0, Math.min(value, max));
+  };
+  const readDuration = () => {
+      const rawDuration = stems.current.drums.duration;
+      if (Number.isFinite(rawDuration) && rawDuration > 0) {
+          durationGuardRef.current = rawDuration;
+          return rawDuration;
+      }
+      return durationGuardRef.current;
+  };
 
   // Apply volumes and mutes/solos
   useEffect(() => {
@@ -361,9 +375,11 @@ export default function App() {
       const interval = setInterval(() => {
           if (isPlaying) {
               const current = stems.current.drums.currentTime;
-              setCurrentTime(current);
+              const safeDuration = readDuration();
+              const safeCurrent = clampTime(current, safeDuration);
+              setCurrentTime(safeCurrent);
               if (!isDragging) {
-                  setSliderTime(current);
+                  setSliderTime(safeCurrent);
               }
               
               if (result?.lyrics && autoScrollLyrics && lyricsScrollRef.current) {
@@ -432,10 +448,11 @@ export default function App() {
   };
 
   const seekTime = (offset: number) => {
+      const safeDuration = readDuration();
       Object.values(stems.current).forEach(a => {
-          a.currentTime = Math.max(0, Math.min(a.currentTime + offset, duration));
+          a.currentTime = clampTime(a.currentTime + offset, safeDuration);
       });
-      const updatedTime = stems.current.drums.currentTime;
+      const updatedTime = clampTime(stems.current.drums.currentTime, safeDuration);
       setCurrentTime(updatedTime);
       if (!isDragging) {
           setSliderTime(updatedTime);
@@ -443,7 +460,8 @@ export default function App() {
   };
 
   const jumpToTime = (time: number) => {
-      const clamped = Math.max(0, Math.min(time, duration));
+      const safeDuration = readDuration();
+      const clamped = clampTime(time, safeDuration);
       Object.values(stems.current).forEach(a => {
           a.currentTime = clamped;
       });
@@ -500,8 +518,9 @@ export default function App() {
               stems.current.vocals.src  = objectUrl;
               setDurationReady(false);
               stems.current.drums.onloadedmetadata = () => {
-                  setDuration(stems.current.drums.duration);
-                  setDurationReady(true);
+                  const safeDuration = readDuration();
+                  setDuration(safeDuration);
+                  setDurationReady(safeDuration > 0);
                   if (!isDragging) {
                       setSliderTime(0);
                   }
@@ -525,6 +544,7 @@ export default function App() {
   };
 
   const formatTime = (sec: number) => {
+      if (!Number.isFinite(sec) || sec < 0) return "00:00";
       const m = Math.floor(sec / 60);
       const s = Math.floor(sec % 60);
       return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;

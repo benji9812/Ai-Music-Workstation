@@ -39,6 +39,7 @@ os.environ["PATH"] += os.pathsep + str(BASE_DIR)
 NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'Bb', 'B']
 DEMUCS_MODEL = "htdemucs"
 DEMUCS_TIMEOUT_SECONDS = 900
+TARGET_AUDIO_SR = 44100
 
 AUDIO_LOAD_SR = 22050
 AUDIO_LOAD_MONO = True
@@ -120,6 +121,75 @@ def cleanup_file(path: str):
 def require_file(path: str, label: str):
     if not os.path.exists(path):
         raise RuntimeError(f"{label} saknas: {path}")
+
+def resample_mp3_to_target_sr(path: str, target_sr: int = TARGET_AUDIO_SR):
+    temp_path = f"{path}.tmp.mp3"
+    cmd = [
+        "ffmpeg",
+        "-y",
+        "-i",
+        path,
+        "-ar",
+        str(target_sr),
+        "-ac",
+        "2",
+        "-codec:a",
+        "libmp3lame",
+        "-q:a",
+        "2",
+        temp_path,
+    ]
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+        if result.returncode != 0:
+            log_step(f"⚠️ ffmpeg resample failed: {result.stderr[:200]}")
+            raise RuntimeError("ffmpeg resample failed")
+        os.replace(temp_path, path)
+        log_step(f"✅ Resampled to {target_sr} Hz: {os.path.basename(path)}")
+        return
+    except FileNotFoundError:
+        log_step("⚠️ ffmpeg not found; falling back to librosa")
+    except Exception as e:
+        log_step(f"⚠️ ffmpeg resample error: {e}")
+    finally:
+        cleanup_file(temp_path)
+
+    temp_wav = f"{path}.tmp.wav"
+    temp_mp3 = f"{path}.tmp_fallback.mp3"
+    try:
+        y, _ = librosa.load(path, sr=target_sr, mono=False)
+        if y.ndim == 1:
+            y = np.expand_dims(y, axis=0)
+        y = np.transpose(y, (1, 0))
+        sf.write(temp_wav, y, target_sr)
+        fallback_cmd = [
+            "ffmpeg",
+            "-y",
+            "-i",
+            temp_wav,
+            "-ar",
+            str(target_sr),
+            "-ac",
+            "2",
+            "-codec:a",
+            "libmp3lame",
+            "-q:a",
+            "2",
+            temp_mp3,
+        ]
+        result = subprocess.run(fallback_cmd, capture_output=True, text=True, timeout=120)
+        if result.returncode != 0:
+            log_step(f"⚠️ librosa fallback encode failed: {result.stderr[:200]}")
+            return
+        os.replace(temp_mp3, path)
+        log_step(f"✅ Resampled (librosa fallback) to {target_sr} Hz: {os.path.basename(path)}")
+    except FileNotFoundError:
+        log_step("⚠️ ffmpeg not found for fallback encode; skipping resample")
+    except Exception as e:
+        log_step(f"⚠️ librosa fallback error: {e}")
+    finally:
+        cleanup_file(temp_wav)
+        cleanup_file(temp_mp3)
 
 @app.get("/health")
 async def health():
@@ -363,6 +433,10 @@ def run_demucs(file_path: str, job_id: str = None):
     require_file(bass_path,   "bass.mp3")
     require_file(other_path,  "other.mp3")
     require_file(vocals_path, "vocals.mp3")
+    resample_mp3_to_target_sr(drums_path)
+    resample_mp3_to_target_sr(bass_path)
+    resample_mp3_to_target_sr(other_path)
+    resample_mp3_to_target_sr(vocals_path)
     return stems_folder, drums_path, bass_path, other_path, vocals_path
 
 @app.post("/analyze-only")
