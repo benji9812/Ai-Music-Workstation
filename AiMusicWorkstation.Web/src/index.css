@@ -3,6 +3,7 @@
     --color-bg: #0f0f0f; /* page background  */
     --color-surface: #1c1b19; /* panel background */
     --color-surface-2: #22211f; /* panel header / inner card */
+    --color-surface-offset: rgba(255, 255, 255, 0.06); /* inactive toggle bg */
     --color-border: rgba(255, 255, 255, 0.08); /* subtle panel edge */
 
     /* ── Neon accents ───────────────────────────────── */
@@ -10,6 +11,10 @@
     --neon-magenta: #ff00e6;
     --neon-yellow: #ffdd00;
     --neon-purple: #9d4edd;
+
+    /* ── Semantic aliases ───────────────────────────── */
+    --color-primary: var(--neon-cyan); /* active toggle / accent */
+    --color-text-muted: #888; /* inactive toggle label  */
 
     /* ── Legacy aliases (kept for backward-compat) ─── */
     --bg-color: var(--color-bg);
@@ -227,18 +232,95 @@ body {
     box-shadow: 0 0 10px rgba(0, 240, 255, 0.4);
 }
 
-/* Toggle Buttons (Mute/Solo) */
+/* ──────────────────────────────────────────────
+   Panel Toggle Toolbar
+────────────────────────────────────────────── */
+.panel-toggle-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    background: var(--color-surface-2);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+}
+
+/* ──────────────────────────────────────────────
+   Toggle Buttons — shared base
+────────────────────────────────────────────── */
 .toggle-btn {
     background: rgba(255, 255, 255, 0.05);
     border: 1px solid transparent;
     color: var(--text-muted);
-    border-radius: 4px;
+    border-radius: 6px;
     padding: 4px 10px;
     cursor: pointer;
     font-weight: bold;
     transition: all 0.2s;
 }
 
+/* data-active pattern ─────────────────────── */
+.toggle-btn[data-active="true"] {
+    background: var(--color-primary);
+    color: #000;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 10px rgba(0, 240, 255, 0.45);
+    opacity: 1;
+}
+
+.toggle-btn[data-active="false"] {
+    background: var(--color-surface-offset);
+    color: var(--color-text-muted);
+    border-color: transparent;
+    opacity: 0.72;
+}
+
+.toggle-btn[data-active="true"]:hover {
+    box-shadow: 0 0 16px rgba(0, 240, 255, 0.65);
+    opacity: 1;
+}
+
+.toggle-btn[data-active="false"]:hover {
+    opacity: 1;
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-muted);
+}
+
+/* Panel toggle buttons (Chords/Scale, Lyrics, Song Structure) */
+.panel-toggle-btn {
+    min-width: 44px;
+    min-height: 44px;
+    padding: 6px 16px;
+    font-size: 12px;
+    font-weight: 700;
+    border-radius: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    white-space: nowrap;
+}
+
+/* Transport toggle buttons (Count In, Metro, Repeat) */
+.transport-toggle-btn {
+    min-width: 44px;
+    min-height: 44px;
+    padding: 6px 14px;
+    font-size: 11px;
+    font-weight: 700;
+    border-radius: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    white-space: nowrap;
+}
+
+/* Mixer Mute / Solo — keep distinct colours */
 .toggle-mute.active {
     background: rgba(255, 0, 0, 0.2);
     border-color: #ff4444;
