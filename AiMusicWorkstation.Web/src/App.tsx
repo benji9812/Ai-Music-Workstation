@@ -1,6 +1,7 @@
 import * as React from "react";
 import { PitchShift, getContext, start as toneStart } from "tone";
 import "./index.css";
+import { ChordDiagram } from "./ChordDiagram";
 
 type LyricSegment = { start: number; end: number; text: string };
 type ChordEntry = { time: number; chord: string };
@@ -58,20 +59,6 @@ export const onImportSuccess = (refreshLibrary: () => void) => {
   refreshLibrary();
 };
 
-// --- Chord diagram data (root note → intervals shown as dots) ---
-const CHORD_INTERVALS: Record<string, number[]> = {
-  "": [0, 4, 7],
-  m: [0, 3, 7],
-  "7": [0, 4, 7, 10],
-  maj7: [0, 4, 7, 11],
-  m7: [0, 3, 7, 10],
-  sus2: [0, 2, 7],
-  sus4: [0, 5, 7],
-  dim: [0, 3, 6],
-  aug: [0, 4, 8],
-};
-const NOTES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "Bb", "B"];
-
 // ─── Transpose utilities ────────────────────────────────────────────────────
 const ENHARMONIC_MAP: Record<string, string> = {
   Db: "C#",
@@ -123,59 +110,7 @@ function parseChord(chord: string): { root: string; quality: string } {
   if (!match) return { root: chord, quality: "" };
   return { root: match[1], quality: match[2] || "" };
 }
-function ChordDiagram({ chord }: { chord: string }) {
-  const { root, quality } = parseChord(chord);
-  const rootIdx = NOTES.findIndex((n) => n === root);
-  const intervals = CHORD_INTERVALS[quality] ?? CHORD_INTERVALS[""];
-  const activeNotes = new Set(intervals.map((i) => (rootIdx + i) % 12));
-  return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        gap: 4,
-      }}
-    >
-      <div
-        style={{
-          fontSize: 28,
-          fontWeight: "bold",
-          color: "var(--neon-yellow)",
-        }}
-      >
-        {chord}
-      </div>
-      <div style={{ display: "flex", gap: 3 }}>
-        {NOTES.map((n, i) => (
-          <div
-            key={n}
-            style={{
-              width: 20,
-              height: 20,
-              borderRadius: "50%",
-              background: activeNotes.has(i)
-                ? "var(--neon-cyan)"
-                : "rgba(255,255,255,0.08)",
-              border: activeNotes.has(i)
-                ? "2px solid var(--neon-cyan)"
-                : "1px solid rgba(255,255,255,0.15)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 7,
-              color: activeNotes.has(i) ? "#000" : "#555",
-              fontWeight: "bold",
-              transition: "all 0.2s",
-            }}
-          >
-            {n}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
+// ChordDiagram is now imported from ./ChordDiagram (svguitar-based)
 
 // Web Audio Context for Metronome beep
 const audioCtx = new (
