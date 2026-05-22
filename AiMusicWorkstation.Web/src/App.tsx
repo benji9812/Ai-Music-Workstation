@@ -1118,6 +1118,25 @@ export default function App() {
     return () => clearInterval(interval);
   }, [isPlaying, result, isDragging]);
 
+  // Handle playback end (repeat and play/pause icon)
+  useEffect(() => {
+    const drums = stems.current.drums;
+    const handleEnded = () => {
+      if (repeatEnabled) {
+        Object.values(stems.current).forEach((a) => {
+          a.currentTime = 0;
+          a.play();
+        });
+      } else {
+        setIsPlaying(false);
+      }
+    };
+    drums.addEventListener("ended", handleEnded);
+    return () => {
+      drums.removeEventListener("ended", handleEnded);
+    };
+  }, [repeatEnabled]);
+
   const handleManualScroll = (_e: React.UIEvent<HTMLDivElement>) => {
     isManualScrollRef.current = true;
     if (manualScrollTimeoutRef.current !== null) {
@@ -2232,13 +2251,6 @@ export default function App() {
               data-testid="metro-toggle"
             >
               🥁 Metro
-            </button>
-            <button
-              className="toggle-btn transport-toggle-btn"
-              data-active={repeatEnabled ? "true" : "false"}
-              onClick={() => setRepeatEnabled(!repeatEnabled)}
-            >
-              🔁 Repeat
             </button>
           </div>
         </div>
