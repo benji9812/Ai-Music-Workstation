@@ -632,3 +632,7 @@ body {
 .text-center {
     text-align: center;
 }
+
+.cursor-pointer { cursor: pointer; }
+.hover\:border-cyan { transition: all 0.2s ease; }
+.hover\:border-cyan:hover { border-color: var(--neon-cyan); box-shadow: 0 0 10px rgba(0, 240, 255, 0.2); background: rgba(255, 255, 255, 0.03); }
