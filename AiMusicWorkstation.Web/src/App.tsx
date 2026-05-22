@@ -1487,16 +1487,18 @@ export default function App() {
   // ── Scale data (derived, recomputed on every render) ──────────────────────
   const { root: _scaleRoot, type: _scaleType } = parseKey(result?.key ?? "");
   const scaleNotes = getScale(_scaleRoot, _scaleType, transposeSteps);
-  const _activeChordRaw =
+  const activeChordIdx =
     result?.chords && result.chords.length > 0
       ? result.chords.reduce(
-          (best, ch) => (ch.time <= currentTime ? ch : best),
-          result.chords[0],
-        ).chord
+          (bestIdx, ch, idx) => (ch.time <= currentTime ? idx : bestIdx),
+          0,
+        )
+      : -1;
+
+  const activeChordDisplay =
+    activeChordIdx !== -1
+      ? transposeChord(result!.chords![activeChordIdx].chord, transposeSteps)
       : null;
-  const activeChordDisplay = _activeChordRaw
-    ? transposeChord(_activeChordRaw, transposeSteps)
-    : null;
   const activeChordTones: Set<string> = activeChordDisplay
     ? new Set(getChordNotes(activeChordDisplay))
     : new Set();
@@ -1686,16 +1688,58 @@ export default function App() {
             {activeTab === "chord" && (
               <div
                 className="flex flex-col items-center justify-center"
-                style={{ flex: 1, gap: 8 }}
+                style={{ flex: 1, gap: 12 }}
               >
+                {/* Rolling Chord Queue */}
+                <div
+                  className="glass-panel-inner w-full flex items-center justify-center gap-4"
+                  style={{ minHeight: "60px", overflow: "hidden" }}
+                >
+                  {result?.chords && activeChordIdx !== -1 ? (
+                    result.chords
+                      .slice(activeChordIdx, activeChordIdx + 5)
+                      .map((ch, i) => {
+                        const isActive = i === 0;
+                        return (
+                          <div
+                            key={i}
+                            style={{
+                              display: "flex",
+                              flexDirection: "column",
+                              alignItems: "center",
+                              opacity: isActive ? 1 : 0.4,
+                              transform: isActive ? "scale(1.2)" : "scale(1)",
+                              transition: "all 0.3s ease",
+                            }}
+                          >
+                            <span
+                              style={{
+                                fontSize: isActive ? "24px" : "16px",
+                                fontWeight: "bold",
+                                color: isActive ? "var(--neon-cyan)" : "white",
+                                textDecoration: isActive ? "underline" : "none",
+                                textUnderlineOffset: "4px",
+                              }}
+                            >
+                              {transposeChord(ch.chord, transposeSteps)}
+                            </span>
+                          </div>
+                        );
+                      })
+                  ) : (
+                    <div style={{ fontSize: "13px", color: "#555" }}>
+                      {result?.chords
+                        ? "Waiting for playback..."
+                        : "Waiting for analysis..."}
+                    </div>
+                  )}
+                </div>
+
                 {/* Active chord diagram */}
-                {result?.chords && result.chords.length > 0 ? (
+                {activeChordIdx !== -1 ? (
                   <ChordDiagram
                     chord={transposeChord(
-                      result.chords.reduce(
-                        (best, ch) => (ch.time <= currentTime ? ch : best),
-                        result.chords[0],
-                      ).chord,
+                      result!.chords![activeChordIdx].chord,
                       transposeSteps,
                     )}
                   />
@@ -1710,58 +1754,6 @@ export default function App() {
                     {result?.key ?? "—"}
                   </div>
                 )}
-                <div
-                  className="glass-panel-inner w-full text-center"
-                  style={{ maxHeight: "180px", overflowY: "auto" }}
-                >
-                  <div
-                    style={{
-                      color: "#888",
-                      fontSize: "12px",
-                      marginBottom: "4px",
-                    }}
-                  >
-                    Chord Timeline
-                  </div>
-                  {result?.chords ? (
-                    result.chords.map((ch, i) => {
-                      const isActive =
-                        currentTime >= ch.time &&
-                        (i === result.chords!.length - 1 ||
-                          currentTime < result.chords![i + 1].time);
-                      return (
-                        <div
-                          key={i}
-                          className="flex justify-between items-center mb-1 border-b border-gray-800 pb-1"
-                          style={{
-                            background: isActive
-                              ? "rgba(0,240,255,0.08)"
-                              : "transparent",
-                            borderRadius: 4,
-                            padding: "2px 4px",
-                          }}
-                        >
-                          <span style={{ fontSize: "11px", color: "#aaa" }}>
-                            {ch.time.toFixed(1)}s
-                          </span>
-                          <span
-                            style={{
-                              fontSize: "13px",
-                              fontWeight: "bold",
-                              color: isActive ? "var(--neon-cyan)" : "#888",
-                            }}
-                          >
-                            {transposeChord(ch.chord, transposeSteps)}
-                          </span>
-                        </div>
-                      );
-                    })
-                  ) : (
-                    <div style={{ fontSize: "13px", color: "#555" }}>
-                      Waiting for analysis...
-                    </div>
-                  )}
-                </div>
               </div>
             )}
 
