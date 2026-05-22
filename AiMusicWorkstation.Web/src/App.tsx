@@ -1668,18 +1668,6 @@ export default function App() {
       {showChords && (
         <div className="col-chords">
           <div className="glass-panel" style={{ flex: 1 }}>
-            <div
-              className="glass-panel-inner text-center mb-2"
-              style={{ borderBottom: "1px solid rgba(0,240,255,0.2)" }}
-            >
-              <span
-                className="highlight-cyan"
-                style={{ fontSize: "16px", fontWeight: "bold" }}
-              >
-                — — —
-              </span>
-            </div>
-
             <div className="flex gap-2 mb-2">
               <button
                 className={`btn-primary w-full ${activeTab === "chord" ? "active" : ""}`}
@@ -1719,7 +1707,7 @@ export default function App() {
                       color: "var(--neon-yellow)",
                     }}
                   >
-                    {result?.key ?? "Am"}
+                    {result?.key ?? "—"}
                   </div>
                 )}
                 <div
