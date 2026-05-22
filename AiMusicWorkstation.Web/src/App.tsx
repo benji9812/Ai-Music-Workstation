@@ -1110,8 +1110,12 @@ export default function App() {
             const container = lyricsScrollRef.current;
             const activeElem = container.children[activeIdx] as HTMLElement;
             if (activeElem) {
+              const scrollTarget =
+                activeElem.offsetTop -
+                container.clientHeight / 2 +
+                activeElem.clientHeight / 2;
               container.scrollTo({
-                top: activeElem.offsetTop - container.clientHeight / 2,
+                top: scrollTarget,
                 behavior: "smooth",
               });
             }
