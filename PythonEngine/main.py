@@ -796,8 +796,6 @@ async def import_url(request: ImportUrlRequest):
                     "yt_dlp",
                     "--get-title",
                     "--no-playlist",
-                    "--username", "oauth2",
-                    "--password", "",
                 ]
                 if os.path.exists(cookies_path):
                     cookies_age_days = (
@@ -845,9 +843,7 @@ async def import_url(request: ImportUrlRequest):
                 "--audio-quality",
                 "0",
                 "-o",
-                output_template,
-                "--username", "oauth2",   
-                "--password", "",         
+                output_template,       
             ]
             if use_cookies:
                 cookies_path = os.path.join(BASE_DIR, "cookies.txt")
