@@ -29,7 +29,7 @@ namespace AiMusicWorkstation.Desktop
 
         private readonly AiAnalysisOrchestrator _analysisOrchestrator;
         private StemPlayer _player = new StemPlayer();
-        private LibraryManager _library = new LibraryManager();
+        private LibraryManager _library;
         private SmartImporter _importer;
         private Metronome _metronome = new Metronome();
         private readonly SessionStorageService _sessionStorage = new SessionStorageService();
@@ -59,12 +59,14 @@ namespace AiMusicWorkstation.Desktop
             PlaybackViewModel? playbackViewModel = null,
             LibraryViewModel? libraryViewModel = null,
             MainWindowViewModel? mainWindowViewModel = null,
+            LibraryManager? libraryManager = null,
             AiAnalysisOrchestrator? analysisOrchestrator = null)
         {
             InitializeComponent();
 
             _playbackViewModel = playbackViewModel;
             _libraryViewModel = libraryViewModel;
+            _library = libraryManager ?? new LibraryManager();
 
             if (mainWindowViewModel != null)
                 DataContext = mainWindowViewModel;
