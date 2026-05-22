@@ -7,7 +7,10 @@ import librosa
 import soundfile as sf
 
 warnings.filterwarnings("ignore")
-sys.stdout.reconfigure(encoding='utf-8')
+# Safely call reconfigure if available (avoids static type checker error on TextIO)
+_reconf = getattr(sys.stdout, "reconfigure", None)
+if callable(_reconf):
+    _reconf(encoding='utf-8')
 
 # -------------------------------------------------------
 # Transponering — pitch shift via librosa
