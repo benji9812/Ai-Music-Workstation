@@ -177,4 +177,12 @@ public class ImportSongCommandHandlerTests
         }
         finally { File.Delete(tempFile); }
     }
+
+    [Fact]
+    public void SongProject_DefaultDateAdded_IsUtc()
+    {
+        var project = new SongProject();
+
+        Assert.Equal(DateTimeKind.Utc, project.DateAdded.Kind);
+    }
 }

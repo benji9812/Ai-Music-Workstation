@@ -21,7 +21,7 @@ namespace AiMusicWorkstation.Domain.Entities
         public TimeSpan Duration { get; set; }
         public string Genre { get; set; } = "Uncategorized";
         public string GroupName { get; set; } = "General";
-        public DateTime DateAdded { get; set; } = DateTime.Now;
+        public DateTime DateAdded { get; set; } = DateTime.UtcNow;
         public string DurationDisplay => Duration.ToString(@"mm\:ss");
         public bool IsOfficialData { get; set; }
         public DataSource BpmSource { get; set; } = DataSource.Unknown;

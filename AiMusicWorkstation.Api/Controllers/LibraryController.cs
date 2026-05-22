@@ -130,6 +130,7 @@ public class LibraryController : ControllerBase
         [FromServices] PythonEngineClient pythonClient,
         [FromServices] ILogger<LibraryController> logger)
     {
+        int added = 0;
         try
         {
             var json = await pythonClient.RescanStemsAsync();
@@ -143,7 +144,6 @@ public class LibraryController : ControllerBase
                         .Select(p => p.StemsPath),
                 StringComparer.OrdinalIgnoreCase);
 
-            int added = 0;
             foreach (var stem in stemsArr.EnumerateArray())
             {
                 var stemsPath = stem.GetProperty("stems_path").GetString() ?? "";
@@ -165,7 +165,7 @@ public class LibraryController : ControllerBase
                     Duration      = TimeSpan.FromMinutes(3),
                     TimeSignature = 4,
                     Genre         = "Uncategorized",
-                    DateAdded     = DateTime.Now,
+                    DateAdded     = DateTime.UtcNow,
                     BpmSource     = DataSource.Analysis,
                     KeySource     = DataSource.Analysis,
                     TimeSigSource = DataSource.Analysis
@@ -177,14 +177,44 @@ public class LibraryController : ControllerBase
                 logger.LogInformation("Rescan: added orphaned stems '{Title}' from {Path}", title, stemsPath);
             }
 
-            if (added > 0) await _repository.SaveAsync();
+            if (added > 0)
+            {
+                try
+                {
+                    await _repository.SaveAsync();
+                }
+                catch (DbUpdateException ex)
+                {
+                    var baseMessage = ex.GetBaseException().Message;
+                    logger.LogError(ex, "Rescan stems save failed after adding {Added} project(s). Root cause: {RootCause}", added, baseMessage);
+                    return StatusCode(500, new { status = "error", message = BuildRescanErrorMessage(ex) });
+                }
+            }
 
             return Ok(new { status = "success", added, total = existingPaths.Count });
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Rescan stems failed");
-            return StatusCode(500, new { status = "error", message = ex.Message });
+            logger.LogError(ex, "Rescan stems failed after adding {Added} project(s). Root cause: {RootCause}", added, ex.GetBaseException().Message);
+            return StatusCode(500, new { status = "error", message = BuildRescanErrorMessage(ex) });
         }
+    }
+
+    private static string BuildRescanErrorMessage(Exception exception)
+    {
+        var baseException = exception.GetBaseException();
+
+        if (baseException is PostgresException postgresException)
+        {
+            return postgresException.SqlState switch
+            {
+                PostgresErrorCodes.UniqueViolation => "Rescan failed: an orphaned stem with the same path already exists.",
+                PostgresErrorCodes.NotNullViolation => "Rescan failed: the database rejected a required field.",
+                PostgresErrorCodes.ForeignKeyViolation => "Rescan failed: a related record is missing.",
+                _ => $"Rescan failed: {postgresException.MessageText}"
+            };
+        }
+
+        return $"Rescan failed: {baseException.Message}";
     }
 }
