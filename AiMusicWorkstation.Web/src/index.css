@@ -51,11 +51,60 @@ body {
     gap: 10px;
 }
 
+.library-shell {
+    display: flex;
+    align-items: stretch;
+    gap: 8px;
+    transition: gap 0.25s ease;
+}
+
+.library-shell.is-collapsed {
+    gap: 0;
+}
+
+.library-toggle-btn {
+    background: var(--color-surface-2);
+    border: 1px solid var(--color-border);
+    color: var(--text-main);
+    width: 28px;
+    min-width: 28px;
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    transition:
+        color 0.2s ease,
+        border-color 0.2s ease,
+        box-shadow 0.2s ease,
+        background 0.2s ease;
+}
+
+.library-toggle-btn:hover {
+    color: var(--neon-cyan);
+    border-color: var(--glass-hover-border);
+    box-shadow: 0 0 12px rgba(0, 240, 255, 0.2);
+}
+
 .col-library {
     width: 240px;
     display: flex;
     flex-direction: column;
     gap: 10px;
+    overflow: hidden;
+    min-width: 0;
+    transition:
+        width 0.3s ease,
+        opacity 0.2s ease,
+        transform 0.3s ease;
+}
+
+.col-library.is-collapsed {
+    width: 0;
+    opacity: 0;
+    transform: translateX(-10px);
+    pointer-events: none;
 }
 
 .col-chords {

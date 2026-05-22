@@ -643,6 +643,7 @@ export default function App() {
   const [showChords, setShowChords] = useState(true);
   const [showLyrics, setShowLyrics] = useState(true);
   const [showStructure, setShowStructure] = useState(true);
+  const [showLibrary, setShowLibrary] = useState(true);
 
   // API Integration States
   const [result, setResult] = useState<AnalysisResult | null>(null);
@@ -1478,144 +1479,154 @@ export default function App() {
   return (
     <div className="app-container">
       {/* COLUMN 1: LIBRARY */}
-      <div className="col-library">
-        <div className="glass-panel" style={{ flex: 1 }}>
-          <div className="panel-header">
-            <span className="section-title" style={{ margin: 0 }}>
-              LIBRARY
-            </span>
-            <div className="flex gap-1">
-              <button
-                className="btn-icon"
-                title={
-                  nowPlaying
-                    ? "Rescan orphaned stems"
-                    : "No song loaded — load a song first"
-                }
-                disabled={!nowPlaying}
-                onClick={async () => {
-                  if (!nowPlaying) {
-                    alert(
-                      "No song loaded. Please load a song before rescanning.",
-                    );
-                    return;
+      <div className={`library-shell ${showLibrary ? "" : "is-collapsed"}`}>
+        <button
+          className="library-toggle-btn"
+          onClick={() => setShowLibrary((prev) => !prev)}
+          aria-label={showLibrary ? "Hide library panel" : "Show library panel"}
+          title={showLibrary ? "Hide library" : "Show library"}
+        >
+          {showLibrary ? "◀" : "▶"}
+        </button>
+        <div className={`col-library ${showLibrary ? "" : "is-collapsed"}`}>
+          <div className="glass-panel" style={{ flex: 1 }}>
+            <div className="panel-header">
+              <span className="section-title" style={{ margin: 0 }}>
+                LIBRARY
+              </span>
+              <div className="flex gap-1">
+                <button
+                  className="btn-icon"
+                  title={
+                    nowPlaying
+                      ? "Rescan orphaned stems"
+                      : "No song loaded — load a song first"
                   }
-                  try {
-                    const resp = await fetch(
-                      `${API_URL}/api/library/rescan-stems`,
-                      { method: "POST" },
-                    );
-                    const data = await resp.json();
-                    console.log("[Rescan] raw API response:", data);
-
-                    if (!resp.ok) {
+                  disabled={!nowPlaying}
+                  onClick={async () => {
+                    if (!nowPlaying) {
                       alert(
-                        `Rescan failed: ${data.message ?? `HTTP ${resp.status}`}`,
+                        "No song loaded. Please load a song before rescanning.",
                       );
                       return;
                     }
+                    try {
+                      const resp = await fetch(
+                        `${API_URL}/api/library/rescan-stems`,
+                        { method: "POST" },
+                      );
+                      const data = await resp.json();
+                      console.log("[Rescan] raw API response:", data);
 
-                    const { added, total } = data as {
-                      added: number;
-                      total: number;
-                    };
-                    if (added > 0) fetchLibrary();
-                    alert(
-                      added === 0
-                        ? `Rescan complete — no new stems found (${total} total in library)`
-                        : `Rescan: ${added} new stem${added !== 1 ? "s" : ""} added (${total} total)`,
-                    );
-                  } catch (e: any) {
-                    alert("Rescan failed: " + e.message);
-                  }
-                }}
-              >
-                🔍
-              </button>
-              <button
-                className="btn-icon"
-                title="Refresh library"
-                onClick={fetchLibrary}
-              >
-                ⟳
-              </button>
+                      if (!resp.ok) {
+                        alert(
+                          `Rescan failed: ${data.message ?? `HTTP ${resp.status}`}`,
+                        );
+                        return;
+                      }
+
+                      const { added, total } = data as {
+                        added: number;
+                        total: number;
+                      };
+                      if (added > 0) fetchLibrary();
+                      alert(
+                        added === 0
+                          ? `Rescan complete — no new stems found (${total} total in library)`
+                          : `Rescan: ${added} new stem${added !== 1 ? "s" : ""} added (${total} total)`,
+                      );
+                    } catch (e: any) {
+                      alert("Rescan failed: " + e.message);
+                    }
+                  }}
+                >
+                  🔍
+                </button>
+                <button
+                  className="btn-icon"
+                  title="Refresh library"
+                  onClick={fetchLibrary}
+                >
+                  ⟳
+                </button>
+              </div>
             </div>
-          </div>
-          <input
-            type="text"
-            className="input-dark mb-2"
-            placeholder="Search..."
-          />
-          <div className="flex gap-1 mb-2">
-            <select className="input-dark">
-              <option>Latest</option>
-              <option>A-Z</option>
-            </select>
-          </div>
-          <div style={{ overflowY: "auto", flex: 1, paddingRight: "5px" }}>
-            {projects.map((p) => (
-              <div
-                key={p.id}
-                className="glass-panel-inner mb-1 flex justify-between"
-                style={{ cursor: "pointer" }}
-                onClick={() => loadProject(p)}
-              >
-                <div>
-                  <div
-                    style={{
-                      color: "white",
-                      fontWeight: "bold",
-                      fontSize: "13px",
-                    }}
-                  >
-                    {p.title}
+            <input
+              type="text"
+              className="input-dark mb-2"
+              placeholder="Search..."
+            />
+            <div className="flex gap-1 mb-2">
+              <select className="input-dark">
+                <option>Latest</option>
+                <option>A-Z</option>
+              </select>
+            </div>
+            <div style={{ overflowY: "auto", flex: 1, paddingRight: "5px" }}>
+              {projects.map((p) => (
+                <div
+                  key={p.id}
+                  className="glass-panel-inner mb-1 flex justify-between"
+                  style={{ cursor: "pointer" }}
+                  onClick={() => loadProject(p)}
+                >
+                  <div>
+                    <div
+                      style={{
+                        color: "white",
+                        fontWeight: "bold",
+                        fontSize: "13px",
+                      }}
+                    >
+                      {p.title}
+                    </div>
+                    <div
+                      style={{
+                        color: "#aaa",
+                        fontSize: "11px",
+                        marginBottom: "4px",
+                      }}
+                    >
+                      {p.artist}
+                    </div>
                   </div>
-                  <div
-                    style={{
-                      color: "#aaa",
-                      fontSize: "11px",
-                      marginBottom: "4px",
-                    }}
-                  >
-                    {p.artist}
+                  <div className="flex flex-col gap-1">
+                    <button
+                      className="btn-icon"
+                      style={{ fontSize: "10px" }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        editProject(p);
+                      }}
+                    >
+                      ✏️
+                    </button>
+                    <button
+                      className="btn-icon"
+                      style={{ fontSize: "10px", color: "#ff4444" }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deleteProject(p.id);
+                      }}
+                    >
+                      ❌
+                    </button>
                   </div>
                 </div>
-                <div className="flex flex-col gap-1">
-                  <button
-                    className="btn-icon"
-                    style={{ fontSize: "10px" }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      editProject(p);
-                    }}
-                  >
-                    ✏️
-                  </button>
-                  <button
-                    className="btn-icon"
-                    style={{ fontSize: "10px", color: "#ff4444" }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      deleteProject(p.id);
-                    }}
-                  >
-                    ❌
-                  </button>
+              ))}
+              {projects.length === 0 && (
+                <div
+                  style={{
+                    color: "#aaa",
+                    fontSize: "11px",
+                    textAlign: "center",
+                    marginTop: "10px",
+                  }}
+                >
+                  Library is empty
                 </div>
-              </div>
-            ))}
-            {projects.length === 0 && (
-              <div
-                style={{
-                  color: "#aaa",
-                  fontSize: "11px",
-                  textAlign: "center",
-                  marginTop: "10px",
-                }}
-              >
-                Library is empty
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
       </div>
