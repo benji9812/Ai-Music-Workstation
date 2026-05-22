@@ -608,6 +608,7 @@ export default function App() {
 
   // Audio playback states
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isCountingIn, setIsCountingIn] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [durationReady, setDurationReady] = useState(false);
@@ -1022,6 +1023,9 @@ export default function App() {
   // Uses the Web Audio API clock (audioCtx.currentTime) for drift-free
   // timing. A short setTimeout loop schedules oscillator nodes 100 ms ahead,
   // which fully decouples click accuracy from JS timer jitter.
+  // Derived state to control metronome lifecycle
+  const isMetroActive = metronomeEnabled && (isPlaying || isCountingIn);
+
   useEffect(() => {
     // Stop any running scheduler before (re-)starting or disabling
     if (metroSchedulerRef.current !== null) {
@@ -1029,7 +1033,7 @@ export default function App() {
       metroSchedulerRef.current = null;
     }
 
-    if (!metronomeEnabled) return;
+    if (!isMetroActive) return;
 
     const bpm = result?.bpm ?? 120;
     const beatsPerMeasure = result?.time_signature ?? 4;
@@ -1070,7 +1074,7 @@ export default function App() {
         metroSchedulerRef.current = null;
       }
     };
-  }, [metronomeEnabled, result?.bpm, result?.time_signature]);
+  }, [isMetroActive, result?.bpm, result?.time_signature]);
   // ────────────────────────────────────────────────────────────────────────
 
   // Sync time
@@ -1162,17 +1166,23 @@ export default function App() {
     initAudioPipeline();
     // Count-in logic
     if (countInEnabled) {
+      setIsCountingIn(true);
+      const bpm = result?.bpm ?? 120;
+      const beatIntervalMs = (60 / bpm) * 1000;
       let count = 0;
       const interval = setInterval(() => {
-        playClick();
+        // If metronome is enabled, the scheduler handles clicks.
+        // Otherwise, we play a manual click for the count-in.
+        if (!metronomeEnabled) playClick();
         count++;
         if (count >= 4) {
           clearInterval(interval);
+          setIsCountingIn(false);
           syncStemsToTime(targetTime);
           Object.values(stems.current).forEach((a) => a.play());
           setIsPlaying(true);
         }
-      }, 500);
+      }, beatIntervalMs);
       return;
     }
     Object.values(stems.current).forEach((a) => a.play());
