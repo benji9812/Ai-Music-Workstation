@@ -2,7 +2,6 @@ import sys
 import json
 import os
 import warnings
-import numpy as np
 import librosa
 import soundfile as sf
 
