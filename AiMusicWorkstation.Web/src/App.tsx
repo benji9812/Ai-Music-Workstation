@@ -967,7 +967,8 @@ export default function App() {
   const metroSchedulerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // ────────────────────────────────────────────────────────────────────────
   const clampTime = (value: number, max: number) => {
-    if (!Number.isFinite(value) || !Number.isFinite(max) || max <= 0) return 0;
+    if (!Number.isFinite(value)) return 0;
+    if (!Number.isFinite(max) || max <= 0) return Math.max(0, value);
     return Math.max(0, Math.min(value, max));
   };
   const readDuration = () => {
@@ -977,6 +978,16 @@ export default function App() {
       return rawDuration;
     }
     return durationGuardRef.current;
+  };
+  const syncStemsToTime = (time: number) => {
+    const safeDuration = readDuration();
+    const clamped = clampTime(time, safeDuration);
+    Object.values(stems.current).forEach((a) => {
+      a.currentTime = clamped;
+    });
+    setCurrentTime(clamped);
+    setSliderTime(clamped);
+    return clamped;
   };
 
   // Apply volumes and mutes/solos — uses GainNodes once the pipeline is live
@@ -1123,6 +1134,9 @@ export default function App() {
       setIsPlaying(false);
       return;
     }
+    const targetTime = isDragging ? sliderTime : currentTime;
+    if (isDragging) setIsDragging(false);
+    syncStemsToTime(targetTime);
     // Resume Tone.js AudioContext (required by browser autoplay policy)
     await toneStart();
     initAudioPipeline();
@@ -1134,6 +1148,7 @@ export default function App() {
         count++;
         if (count >= 4) {
           clearInterval(interval);
+          syncStemsToTime(targetTime);
           Object.values(stems.current).forEach((a) => a.play());
           setIsPlaying(true);
         }
@@ -1145,25 +1160,19 @@ export default function App() {
   };
 
   const skipToStart = () => {
-    Object.values(stems.current).forEach((a) => (a.currentTime = 0));
-    setCurrentTime(0);
-    setSliderTime(0);
+    syncStemsToTime(0);
     if (!isPlaying) handlePlayPause();
   };
 
   const seekTime = (offset: number) => {
     const safeDuration = readDuration();
+    const baseTime = isDragging ? sliderTime : currentTime;
+    const updatedTime = clampTime(baseTime + offset, safeDuration);
     Object.values(stems.current).forEach((a) => {
-      a.currentTime = clampTime(a.currentTime + offset, safeDuration);
+      a.currentTime = updatedTime;
     });
-    const updatedTime = clampTime(
-      stems.current.drums.currentTime,
-      safeDuration,
-    );
     setCurrentTime(updatedTime);
-    if (!isDragging) {
-      setSliderTime(updatedTime);
-    }
+    setSliderTime(updatedTime);
   };
 
   const jumpToTime = (time: number) => {
@@ -1171,10 +1180,7 @@ export default function App() {
     const parsed = parseFloat(String(time));
     if (!Number.isFinite(parsed) || parsed < 0) return;
     const safeDuration = readDuration();
-    // If duration is not yet known, skip the upper-bound clamp so the seek
-    // still reaches the requested position rather than being silently forced
-    // back to 0 by clampTime's `max <= 0` guard.
-    const clamped = safeDuration > 0 ? clampTime(parsed, safeDuration) : parsed;
+    const clamped = clampTime(parsed, safeDuration);
     Object.values(stems.current).forEach((a) => {
       a.currentTime = clamped;
     });
@@ -2358,10 +2364,11 @@ export default function App() {
               max={durationReady ? duration : 0}
               value={isDragging ? sliderTime : currentTime}
               onMouseDown={() => setIsDragging(true)}
+              onMouseUp={() => setIsDragging(false)}
+              onMouseLeave={() => setIsDragging(false)}
               onChange={(e) => {
                 const newTime = Number(e.target.value);
                 setSliderTime(newTime);
-                setIsDragging(false);
                 jumpToTime(newTime);
               }}
               onTouchStart={() => setIsDragging(true)}
