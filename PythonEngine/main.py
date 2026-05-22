@@ -43,8 +43,8 @@ TARGET_AUDIO_SR = 44100
 
 AUDIO_LOAD_SR = 22050
 AUDIO_LOAD_MONO = True
-AUDIO_ANALYZE_DURATION = 45
-AUDIO_CHORDS_DURATION = 45
+AUDIO_ANALYZE_DURATION = None
+AUDIO_CHORDS_DURATION = None
 WHISPER_SR = 16000
 
 # --- CORS middleware for web frontend support ---
@@ -253,7 +253,7 @@ def prepare_vocals_for_whisper(vocals_path: str):
             vocals_path,
             sr=WHISPER_SR,
             mono=True,
-            duration=min(AUDIO_ANALYZE_DURATION, 30),
+            duration=AUDIO_ANALYZE_DURATION,
         )
         y = y / (np.max(np.abs(y)) + 1e-6)
         temp_path = vocals_path.replace(".mp3", "_clean.wav")
