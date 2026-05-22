@@ -1487,7 +1487,8 @@ export default function App() {
   // ── Scale data (derived, recomputed on every render) ──────────────────────
   const { root: _scaleRoot, type: _scaleType } = parseKey(result?.key ?? "");
   const scaleNotes = getScale(_scaleRoot, _scaleType, transposeSteps);
-  // Fallback: Ensure last chord remains active if analysis ends early`n  const activeChordIdx =
+  // Fallback: ensure last chord remains active if analysis ends early.
+  const activeChordIdx =
     result?.chords && result.chords.length > 0
       ? result.chords.reduce(
           (bestIdx, ch, idx) => (ch.time <= currentTime ? idx : bestIdx),
