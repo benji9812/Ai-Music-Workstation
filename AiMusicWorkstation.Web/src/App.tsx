@@ -1,5 +1,6 @@
 import * as React from "react";
 import { PitchShift, getContext, start as toneStart } from "tone";
+import { SpeedInsights } from "@vercel/speed-insights/react";
 import "./index.css";
 import { ChordDiagram } from "./ChordDiagram";
 
@@ -2483,6 +2484,7 @@ export default function App() {
           />
         </div>
       )}
+      <SpeedInsights />
     </div>
   );
 }
