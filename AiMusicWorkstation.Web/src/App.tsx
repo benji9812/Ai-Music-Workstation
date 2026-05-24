@@ -1290,113 +1290,145 @@ export default function App() {
   const analyzeFile = async (selectedFile: File) => {
     setLoading(true);
     setError(null);
+    // Start with a specific "uploading" state for clarity
+    setImportProgress({ stage: "⬆️ Uploading file...", progress: 0 });
 
     let analysisSucceeded = false;
-    let savedProject: SongProject | null = null;
 
     try {
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", `${API_URL}/api/analysis/analyze`, true);
+
+      // This is the key part for upload progress
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable) {
+          const percentComplete = Math.round(
+            (event.loaded / event.total) * 100,
+          );
+          setImportProgress({
+            stage: "⬆️ Uploading file...",
+            progress: percentComplete,
+          });
+        }
+      };
+
+      xhr.onload = async () => {
+        // Once uploaded, we move to the analysis stage
+        setImportProgress({ stage: "🤖 Analyzing...", progress: 100 });
+
+        if (xhr.status < 200 || xhr.status >= 300) {
+          let errorMsg = `Upload failed with status: ${xhr.status}`;
+          try {
+            const errData = JSON.parse(xhr.responseText);
+            errorMsg =
+              errData.error ||
+              errData.message ||
+              errData.detail ||
+              xhr.statusText;
+          } catch (e) {
+            // response is not json
+          }
+          setError(errorMsg);
+          analysisSucceeded = false;
+          return;
+        }
+
+        const data = JSON.parse(xhr.responseText);
+        if (data.error || data.status === "error") {
+          setError(data.error || data.message || "Analysis failed on server.");
+          analysisSucceeded = false;
+          return;
+        }
+
+        // From here, it's the same success logic as before
+        analysisSucceeded = true;
+        setResult(data);
+        const fileName = selectedFile.name.replace(/\.[^.]+$/, "");
+        setNowPlaying({ title: fileName, artist: "Local Upload" });
+        setCurrentProjectId(null);
+        setCurrentTime(0);
+        setSliderTime(0);
+
+        const savedProject: SongProject = {
+          id: `local-${fileName}`,
+          title: fileName,
+          artist: "Local Upload",
+          bpm: data.bpm ?? 0,
+          key: data.key ?? "",
+          stemsPath: data.stems_path ?? "",
+          genre: "Uncategorized",
+        };
+        setProjects((prev) => [savedProject, ...prev]);
+
+        if (data.stems_path) {
+          loadStemsFromPath(data.stems_path);
+        } else {
+          // This path for non-stem results seems unlikely with /analyze but is kept for safety
+          const objectUrl = URL.createObjectURL(selectedFile);
+          setDurationReady(false);
+          const localDrumsEl = stems.current.drums;
+          const onLocalMetadata = () => {
+            const rawDuration = localDrumsEl.duration;
+            if (Number.isFinite(rawDuration) && rawDuration > 0) {
+              durationGuardRef.current = rawDuration;
+              setDuration(rawDuration);
+              setDurationReady(true);
+            }
+            if (!isDragging) setSliderTime(0);
+            localDrumsEl.removeEventListener("loadedmetadata", onLocalMetadata);
+          };
+          localDrumsEl.addEventListener("loadedmetadata", onLocalMetadata);
+          stems.current.drums.src = objectUrl;
+          stems.current.bass.src = objectUrl;
+          stems.current.other.src = objectUrl;
+          stems.current.vocals.src = objectUrl;
+        }
+
+        setIsStructureLoading(true);
+        try {
+          const structResp = await fetch(`${API_URL}/api/analysis/structure`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              artist: "Local Upload",
+              title: fileName,
+              duration: 180, // Using a default, consider getting real duration
+            }),
+          });
+          const structData = await structResp.json();
+          if (structResp.ok && !structData.error) setStructure(structData);
+        } catch {
+          /* structure is optional */
+        } finally {
+          setIsStructureLoading(false);
+        }
+      };
+
+      xhr.onerror = () => {
+        setError("A network error occurred during the upload.");
+        analysisSucceeded = false;
+      };
+
+      // This part runs after the 'onload' and 'onerror' handlers are defined.
+      // It needs a final block to clean up state.
+      xhr.onloadend = () => {
+        if (analysisSucceeded) {
+          refreshLibrary();
+          setImportProgress(null); // Clear progress on success
+        } else {
+          // Also clear progress on failure, error is already set
+          setImportProgress(null);
+        }
+        setLoading(false);
+      };
+
       const form = new FormData();
       form.append("file", selectedFile);
-
-      // Using /analyze to actually get stems on the backend
-      const resp = await fetch(`${API_URL}/api/analysis/analyze`, {
-        method: "POST",
-        body: form,
-      });
-
-      const data = await resp.json();
-      // Treat both HTTP errors and Python-engine-level errors as failures.
-      // No setLoading(false) here — the finally block handles it.
-      if (!resp.ok || data.error || data.status === "error") {
-        setError(data.error || data.message || data.detail || resp.statusText);
-        return;
-      }
-
-      setResult(data);
-      const fileName = selectedFile.name.replace(/\.[^.]+$/, "");
-      setNowPlaying({ title: fileName, artist: "Local Upload" });
-      setCurrentProjectId(null);
-      setCurrentTime(0);
-      setSliderTime(0);
-
-      // Optimistically add the new song to the library so it appears immediately,
-      // before the fetchLibrary() round-trip completes.
-      savedProject = {
-        id: `local-${fileName}`,
-        title: fileName,
-        artist: "Local Upload",
-        bpm: data.bpm ?? 0,
-        key: data.key ?? "",
-        stemsPath: data.stems_path ?? "",
-        genre: "Uncategorized",
-      };
-      setProjects((prev) => [savedProject!, ...prev]);
-      analysisSucceeded = true;
-
-      // Load stems from proxy if available, else use local file
-      if (data.stems_path) {
-        loadStemsFromPath(data.stems_path);
-      } else {
-        const objectUrl = URL.createObjectURL(selectedFile);
-        setDurationReady(false);
-        // Register the handler BEFORE assigning src to avoid missing a cached load.
-        const localDrumsEl = stems.current.drums;
-        const onLocalMetadata = () => {
-          const rawDuration = localDrumsEl.duration;
-          if (Number.isFinite(rawDuration) && rawDuration > 0) {
-            durationGuardRef.current = rawDuration;
-            setDuration(rawDuration);
-            setDurationReady(true);
-          } else {
-            const onDurationChange = () => {
-              const d = localDrumsEl.duration;
-              if (Number.isFinite(d) && d > 0) {
-                durationGuardRef.current = d;
-                setDuration(d);
-                setDurationReady(true);
-                localDrumsEl.removeEventListener(
-                  "durationchange",
-                  onDurationChange,
-                );
-              }
-            };
-            localDrumsEl.addEventListener("durationchange", onDurationChange);
-          }
-          if (!isDragging) setSliderTime(0);
-          localDrumsEl.removeEventListener("loadedmetadata", onLocalMetadata);
-        };
-        localDrumsEl.addEventListener("loadedmetadata", onLocalMetadata);
-        stems.current.drums.src = objectUrl;
-        stems.current.bass.src = objectUrl;
-        stems.current.other.src = objectUrl;
-        stems.current.vocals.src = objectUrl;
-      }
-
-      setIsStructureLoading(true);
-      try {
-        const structResp = await fetch(`${API_URL}/api/analysis/structure`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            artist: "Local Upload",
-            title: fileName,
-            duration: 180,
-          }),
-        });
-        const structData = await structResp.json();
-        if (structResp.ok && !structData.error) setStructure(structData);
-      } catch {
-        /* structure is optional */
-      } finally {
-        setIsStructureLoading(false);
-      }
+      xhr.send(form);
     } catch (e: any) {
-      setError("Network error: " + e.message);
-    } finally {
-      // Always sync the library when analysis succeeded so the optimistic entry
-      // is replaced with the real DB record (correct id, bpm, key, etc.).
-      if (analysisSucceeded) refreshLibrary();
+      setError("An unexpected error occurred: " + e.message);
       setLoading(false);
+      setImportProgress(null);
     }
   };
 
