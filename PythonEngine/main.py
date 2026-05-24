@@ -624,8 +624,7 @@ async def analyze(file: UploadFile = File(...)):
         except Exception as e:
             log_step(f"⚠️ Lyrics-transkription misslyckades: {e}")
 
-        log_step(f"✅ /analyze klar på {elapsed(total_start)}s")
-        return {
+        result = {
             "status": "success",
             "bpm": bpm,
             "key": key,
@@ -637,6 +636,18 @@ async def analyze(file: UploadFile = File(...)):
             "duration_seconds": elapsed(total_start),
             "analysis_window_seconds": AUDIO_ANALYZE_DURATION,
         }
+
+        if stems_folder and os.path.isdir(stems_folder):
+            json_path = os.path.join(stems_folder, "analysis.json")
+            try:
+                with open(json_path, "w") as f:
+                    json.dump(result, f, indent=2)
+                log_step(f"💾 Analysis JSON saved to {json_path}")
+            except Exception as e:
+                log_step(f"⚠️ Could not save analysis JSON: {e}")
+
+        log_step(f"✅ /analyze klar på {elapsed(total_start)}s")
+        return result
     except HTTPException:
         raise
     except Exception as e:
@@ -843,7 +854,7 @@ async def import_url(request: ImportUrlRequest):
                 "--audio-quality",
                 "0",
                 "-o",
-                output_template,       
+                output_template,
             ]
             if use_cookies:
                 cookies_path = os.path.join(BASE_DIR, "cookies.txt")
@@ -958,8 +969,7 @@ async def import_url(request: ImportUrlRequest):
         # Cleanup downloaded file
         cleanup_file(file_path)
 
-        log_step(f"✅ /import-url complete in {elapsed(total_start)}s")
-        return {
+        result = {
             "status": "success",
             "title": title,
             "artist": artist,
@@ -973,6 +983,18 @@ async def import_url(request: ImportUrlRequest):
             "duration_seconds": elapsed(total_start),
             "analysis_window_seconds": AUDIO_ANALYZE_DURATION,
         }
+
+        if stems_folder and os.path.isdir(stems_folder):
+            json_path = os.path.join(stems_folder, "analysis.json")
+            try:
+                with open(json_path, "w") as f:
+                    json.dump(result, f, indent=2)
+                log_step(f"💾 Analysis JSON saved to {json_path}")
+            except Exception as e:
+                log_step(f"⚠️ Could not save analysis JSON: {e}")
+
+        log_step(f"✅ /import-url complete in {elapsed(total_start)}s")
+        return result
     except Exception as e:
         print("\n============== Traceback ==============")
         print(traceback.format_exc())
@@ -1195,6 +1217,16 @@ async def import_url_async(request: ImportUrlAsyncRequest):
             jobs[job_id]["status"] = "done"
             jobs[job_id]["stage"] = "✅ Done!"
             jobs[job_id]["progress"] = 100
+
+            if stems_folder and os.path.isdir(stems_folder):
+                json_path = os.path.join(stems_folder, "analysis.json")
+                try:
+                    with open(json_path, "w") as f:
+                        json.dump(result, f, indent=2)
+                    log_step(f"💾 Analysis JSON saved for job {job_id}")
+                except Exception as e:
+                    log_step(f"⚠️ Could not save analysis JSON for job {job_id}: {e}")
+
             log_step(f"✅ Job {job_id} complete in {elapsed(total_start)}s")
 
         except Exception as e:
@@ -1253,6 +1285,23 @@ async def rescan_stems():
 
     log_step(f"🔍 Rescan found {len(found)} stem folders in {stems_base}")
     return {"stems": found}
+
+
+@app.get("/analysis-data/{model}/{folder_name}")
+async def get_analysis_data(model: str, folder_name: str):
+    """Retrieve the analysis.json file for a given separated stem folder."""
+    stems_folder = os.path.join(OUT_DIR, model, folder_name)
+    json_path = os.path.join(stems_folder, "analysis.json")
+    if not os.path.isfile(json_path):
+        raise HTTPException(status_code=404, detail="Analysis data not found.")
+    try:
+        with open(json_path, "r") as f:
+            data = json.load(f)
+        return data
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to read analysis data: {e}"
+        )
 
 
 if __name__ == "__main__":

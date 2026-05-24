@@ -125,7 +125,9 @@ function SongStructurePanel({
   onSaveSections,
 }: SongStructurePanelProps) {
   const [isEditing, setIsEditing] = React.useState(false);
-  const [draftSections, setDraftSections] = React.useState<EditableSection[]>([]);
+  const [draftSections, setDraftSections] = React.useState<EditableSection[]>(
+    [],
+  );
   const [editError, setEditError] = React.useState<string | null>(null);
   const [isSaving, setIsSaving] = React.useState(false);
 
@@ -160,7 +162,7 @@ function SongStructurePanel({
   const handleAddSection = () => {
     setDraftSections((prev) => {
       const lastEnd =
-        prev.length > 0 ? parseTimeInput(prev[prev.length - 1].end) ?? 0 : 0;
+        prev.length > 0 ? (parseTimeInput(prev[prev.length - 1].end) ?? 0) : 0;
       const start = lastEnd;
       const end = lastEnd + 10;
       return [
@@ -270,7 +272,11 @@ function SongStructurePanel({
                   <div className="flex items-center gap-1">
                     <input
                       className="input-dark"
-                      style={{ width: "72px", fontSize: "11px", padding: "6px" }}
+                      style={{
+                        width: "72px",
+                        fontSize: "11px",
+                        padding: "6px",
+                      }}
                       value={sec.start}
                       onChange={(e) =>
                         updateDraft(idx, { start: e.target.value })
@@ -281,9 +287,15 @@ function SongStructurePanel({
                     <span style={{ fontSize: "10px", color: "#777" }}>to</span>
                     <input
                       className="input-dark"
-                      style={{ width: "72px", fontSize: "11px", padding: "6px" }}
+                      style={{
+                        width: "72px",
+                        fontSize: "11px",
+                        padding: "6px",
+                      }}
                       value={sec.end}
-                      onChange={(e) => updateDraft(idx, { end: e.target.value })}
+                      onChange={(e) =>
+                        updateDraft(idx, { end: e.target.value })
+                      }
                       placeholder="MM:SS"
                       aria-label={`Section ${idx + 1} end time`}
                     />
@@ -776,8 +788,13 @@ export default function App() {
     setIsPlaying(false);
     setStructure(null);
     setIsStructureLoading(true);
+
     try {
-      const structResp = await fetch(`${API_URL}/api/analysis/structure`, {
+      const analysisPromise = fetch(
+        `${API_URL}/api/analysis/project/${p.id}`,
+      ).then((res) => (res.ok ? res.json() : null));
+
+      const structurePromise = fetch(`${API_URL}/api/analysis/structure`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -785,11 +802,22 @@ export default function App() {
           title: p.title,
           duration: 180,
         }),
-      });
-      const structData = await structResp.json();
-      if (structResp.ok && !structData.error) setStructure(structData);
-    } catch {
-      /* structure is optional */
+      }).then((res) => (res.ok ? res.json() : null));
+
+      const [analysisData, structData] = await Promise.all([
+        analysisPromise,
+        structurePromise,
+      ]);
+
+      if (analysisData && analysisData.status === "success") {
+        setResult((prev) => ({ ...prev, ...analysisData }));
+      }
+
+      if (structData && !structData.error) {
+        setStructure(structData);
+      }
+    } catch (e) {
+      console.error("Failed to load project data", e);
     } finally {
       setIsStructureLoading(false);
     }

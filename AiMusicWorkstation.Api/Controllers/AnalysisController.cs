@@ -116,6 +116,19 @@ public class AnalysisController : ControllerBase
         var stream = await response.Content.ReadAsStreamAsync();
         return File(stream, "audio/mpeg", enableRangeProcessing: true);
     }
+
+    [HttpGet("project/{id}")]
+    public async Task<IActionResult> GetProjectAnalysis(string id)
+    {
+        var project = await _repository.GetByIdAsync(id);
+        if (project == null || string.IsNullOrEmpty(project.StemsPath))
+        {
+            return NotFound(new { status = "error", message = "Project or stems path not found." });
+        }
+
+        var analysisJson = await _client.GetAnalysisAsync(project.StemsPath);
+        return Content(analysisJson, "application/json");
+    }
 }
 
 public record StructureRequest(string artist, string title, double duration);
