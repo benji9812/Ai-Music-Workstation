@@ -28,6 +28,7 @@ type AnalysisResult = {
 type StructureResult = {
   sections?: Section[];
   error?: string;
+  sectionsSource?: AnalysisSource;
 };
 
 type EditableSection = {
@@ -194,9 +195,12 @@ function SongStructurePanel({
   return (
     <div className="glass-panel" style={{ flex: 1 }}>
       <div className="panel-header">
-        <span className="section-title" style={{ margin: 0 }}>
-          SONG STRUCTURE
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="section-title" style={{ margin: 0 }}>
+            SONG STRUCTURE
+          </span>
+          {renderSourceBadge(structure?.sectionsSource)}
+        </div>
         <div className="flex items-center gap-1">
           {isEditing && (
             <button
@@ -1730,6 +1734,14 @@ export default function App() {
       {showChords && (
         <div className="col-chords">
           <div className="glass-panel" style={{ flex: 1 }}>
+            <div className="panel-header">
+              <span
+                className="section-title"
+                style={{ margin: 0, width: "100%", textAlign: "center" }}
+              >
+                CHORD / SCALE
+              </span>
+            </div>
             <div className="flex gap-2 mb-2">
               <button
                 className={`btn-primary w-full ${activeTab === "chord" ? "active" : ""}`}
