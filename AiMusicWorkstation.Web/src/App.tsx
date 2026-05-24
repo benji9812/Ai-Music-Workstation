@@ -139,9 +139,7 @@ function SongStructurePanel({
 
   const toggleEdit = () => {
     if (isEditing) {
-      setIsEditing(false);
-      setEditError(null);
-      setDraftSections(toEditableSections(structure?.sections ?? []));
+      handleSave();
     } else {
       setIsEditing(true);
       setEditError(null);
@@ -721,13 +719,13 @@ export default function App() {
     const artist = window.prompt("Update artist", project.artist)?.trim();
     if (!artist) return;
 
-    const updatedProject = { ...project, title, artist };
+    const updatedProject = { title, artist };
 
     try {
       const resp = await fetch(
         `${API_URL}/api/library/projects/${project.id}`,
         {
-          method: "PUT",
+          method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(updatedProject),
         },

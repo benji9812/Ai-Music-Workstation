@@ -129,6 +129,26 @@ public class AnalysisController : ControllerBase
         var analysisJson = await _client.GetAnalysisAsync(project.StemsPath);
         return Content(analysisJson, "application/json");
     }
+
+    [HttpPatch("/api/songs/{id}/structure")]
+    public async Task<IActionResult> UpdateStructure(string id, [FromBody] UpdateStructureRequest request)
+    {
+        var project = await _repository.GetByIdAsync(id);
+        if (project == null)
+        {
+            return NotFound(new { status = "error", message = "Project not found." });
+        }
+
+        project.Sections = JsonSerializer.Serialize(request.sections);
+        project.SectionsSource = DataSource.Analysis; // Or a new source if we want to distinguish user edits
+
+        await _repository.UpdateAsync(project);
+        await _repository.SaveAsync();
+
+        return Ok(new { status = "success" });
+    }
 }
 
 public record StructureRequest(string artist, string title, double duration);
+public record UpdateStructureRequest(List<SectionDto> sections);
+public record SectionDto(string label, double start, double end);

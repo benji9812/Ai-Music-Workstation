@@ -28,5 +28,7 @@ namespace AiMusicWorkstation.Domain.Entities
         public DataSource KeySource { get; set; } = DataSource.Unknown;
         public DataSource TimeSigSource { get; set; } = DataSource.Unknown;
         public int TimeSignature { get; set; } = 4;
+        public string Sections { get; set; } = "[]";
+        public DataSource SectionsSource { get; set; } = DataSource.Unknown;
     }
 }

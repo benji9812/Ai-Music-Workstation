@@ -52,7 +52,7 @@ public class LibraryController : ControllerBase
             var canConnect = await context.Database.CanConnectAsync();
             var migrations = await context.Database.GetAppliedMigrationsAsync();
             var pendingMigrations = await context.Database.GetPendingMigrationsAsync();
-            
+
             int projectCount = 0;
             string tableStatus = "Unknown";
             try
@@ -110,18 +110,30 @@ public class LibraryController : ControllerBase
             var fileManager = HttpContext.RequestServices.GetRequiredService<AiMusicWorkstation.Domain.Services.IProjectFileManager>();
             await fileManager.DeleteProjectFilesAsync(project);
         }
-        
+
         return Ok(new { status = "success" });
     }
 
-    [HttpPut("projects/{id}")]
-    public async Task<IActionResult> UpdateProject(string id, [FromBody] SongProject project)
+    [HttpPatch("projects/{id}")]
+    public async Task<IActionResult> PatchProject(string id, [FromBody] UpdateProjectDto projectDto)
     {
-        if (id != project.Id) return BadRequest();
-        
-        await _repository.UpdateAsync(project);
+        if (string.IsNullOrEmpty(id)) return BadRequest();
+
+        var existingProject = await _repository.GetByIdAsync(id);
+        if (existingProject == null) return NotFound();
+
+        if (!string.IsNullOrWhiteSpace(projectDto.Title))
+        {
+            existingProject.Title = projectDto.Title;
+        }
+        if (!string.IsNullOrWhiteSpace(projectDto.Artist))
+        {
+            existingProject.Artist = projectDto.Artist;
+        }
+
+        await _repository.UpdateAsync(existingProject);
         await _repository.SaveAsync();
-        
+
         return Ok(new { status = "success" });
     }
 
@@ -218,3 +230,5 @@ public class LibraryController : ControllerBase
         return $"Rescan failed: {baseException.Message}";
     }
 }
+
+public record UpdateProjectDto(string? Title, string? Artist);
