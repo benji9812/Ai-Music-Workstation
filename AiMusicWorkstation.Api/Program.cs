@@ -63,11 +63,7 @@ builder.Services.AddHttpClient<PythonEngineClient>((sp, client) =>
 });
 
 builder.Services.AddScoped<DbLibraryRepository>();
-builder.Services.AddScoped<AiMusicWorkstation.Domain.Repositories.ILibraryRepository>(sp =>
-    new LibraryRepository(
-        sp.GetRequiredService<DbLibraryRepository>(),
-        sp.GetRequiredService<ILogger<LibraryRepository>>()
-    ));
+builder.Services.AddScoped<AiMusicWorkstation.Domain.Repositories.ILibraryRepository, LibraryRepository>();
 builder.Services.AddSingleton<SmartImporter>();
 builder.Services.AddScoped<AiMusicWorkstation.Domain.Services.IProjectFileManager, AiMusicWorkstation.Infrastructure.Services.ProjectFileManager>();
 

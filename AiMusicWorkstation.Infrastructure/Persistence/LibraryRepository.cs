@@ -10,12 +10,12 @@ namespace AiMusicWorkstation.Infrastructure.Persistence;
 
 public class LibraryRepository : ILibraryRepository
 {
-    private readonly ILibraryRepository _inner;
+    private readonly DbLibraryRepository _inner;
     private readonly ILogger<LibraryRepository> _logger;
 
-    public LibraryRepository(ILibraryRepository libraryRepository, ILogger<LibraryRepository> logger)
+    public LibraryRepository(DbLibraryRepository dbLibraryRepository, ILogger<LibraryRepository> logger)
     {
-        _inner = libraryRepository ?? throw new ArgumentNullException(nameof(libraryRepository));
+        _inner = dbLibraryRepository ?? throw new ArgumentNullException(nameof(dbLibraryRepository));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
