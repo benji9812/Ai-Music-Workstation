@@ -44,6 +44,12 @@ type EditableSection = {
   end: string;
 };
 
+type SongGroup = {
+  id: string;
+  name: string;
+  createdAt: string;
+};
+
 type SongProject = {
   id: string;
   title: string;
@@ -55,6 +61,8 @@ type SongProject = {
   extracted_stems?: Record<string, string>;
   original_path?: string; // Stored path on Python server for later processing
   duration?: string; // TimeSpan from backend
+  groupId?: string;
+  group?: SongGroup;
 };
 
 const timeSpanToSeconds = (ts: string | undefined | number) => {
@@ -797,19 +805,82 @@ export default function App() {
   const [separateStemsProgress, setSeparateStemsProgress] = useState(0);
 
   const [projects, setProjects] = useState<SongProject[]>([]);
+  const [groups, setGroups] = useState<SongGroup[]>([]);
+  const [collapsedGroups, setCollapsedGroups] = useState<
+    Record<string, boolean>
+  >({});
+  const [showNewGroupInput, setShowNewGroupInput] = useState(false);
+  const [newGroupName, setNewGroupName] = useState("");
   const [urlInput, setUrlInput] = useState("");
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchLibrary = async () => {
     try {
-      const resp = await fetch(`${API_URL}/api/library/projects`);
-      if (resp.ok) {
-        const data = await resp.json();
+      const [projectsResp, groupsResp] = await Promise.all([
+        fetch(`${API_URL}/api/library/projects`),
+        fetch(`${API_URL}/api/groups`),
+      ]);
+      if (projectsResp.ok) {
+        const data = await projectsResp.json();
         const normalized = Array.isArray(data) ? data : (data.projects ?? []);
         setProjects(normalized);
       }
+      if (groupsResp.ok) {
+        const data = await groupsResp.json();
+        setGroups(data);
+      }
     } catch (e) {
       console.error("Failed to fetch library", e);
+    }
+  };
+
+  const createGroup = async (name: string) => {
+    try {
+      const resp = await fetch(`${API_URL}/api/groups`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      if (resp.ok) {
+        setNewGroupName("");
+        setShowNewGroupInput(false);
+        fetchLibrary();
+      }
+    } catch (e) {
+      console.error("Failed to create group", e);
+    }
+  };
+
+  const deleteGroupEntity = async (id: string) => {
+    if (
+      !confirm(
+        "Are you sure you want to delete this group? Songs will be ungrouped.",
+      )
+    )
+      return;
+    try {
+      const resp = await fetch(`${API_URL}/api/groups/${id}`, {
+        method: "DELETE",
+      });
+      if (resp.ok) fetchLibrary();
+    } catch (e) {
+      console.error("Failed to delete group", e);
+    }
+  };
+
+  const moveSongToGroup = async (songId: string, groupId: string | null) => {
+    try {
+      const resp = await fetch(
+        `${API_URL}/api/library/projects/${songId}/group`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ groupId }),
+        },
+      );
+      if (resp.ok) fetchLibrary();
+    } catch (e) {
+      console.error("Failed to move song to group", e);
     }
   };
 
@@ -1925,6 +1996,80 @@ export default function App() {
     (!result?.extracted_stems ||
       Object.keys(result.extracted_stems).length === 0); // Stems haven't been separated yet
 
+  const renderProjectRow = (p: SongProject) => (
+    <div
+      key={p.id}
+      className="glass-panel-inner mb-1 flex justify-between"
+      style={{ cursor: "pointer", padding: "6px 8px" }}
+      onClick={() => loadProject(p)}
+    >
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div
+          style={{
+            color: "white",
+            fontWeight: "bold",
+            fontSize: "13px",
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+          }}
+        >
+          {p.title}
+        </div>
+        <div
+          style={{
+            color: "#aaa",
+            fontSize: "11px",
+          }}
+        >
+          {p.artist}
+        </div>
+      </div>
+      <div className="flex gap-1 items-center ml-2">
+        <select
+          className="input-dark"
+          style={{ fontSize: "9px", padding: "2px", width: "70px" }}
+          value={p.groupId || ""}
+          onClick={(e) => e.stopPropagation()}
+          onChange={(e) => {
+            e.stopPropagation();
+            moveSongToGroup(p.id, e.target.value || null);
+          }}
+          title="Move to group"
+        >
+          <option value="">Ungrouped</option>
+          {groups.map((g) => (
+            <option key={g.id} value={g.id}>
+              {g.name}
+            </option>
+          ))}
+        </select>
+        <button
+          className="btn-icon"
+          style={{ fontSize: "10px" }}
+          onClick={(e) => {
+            e.stopPropagation();
+            editProject(p);
+          }}
+          title="Edit"
+        >
+          ✏️
+        </button>
+        <button
+          className="btn-icon"
+          style={{ fontSize: "10px", color: "#ff4444" }}
+          onClick={(e) => {
+            e.stopPropagation();
+            deleteProject(p.id);
+          }}
+          title="Delete"
+        >
+          ❌
+        </button>
+      </div>
+    </div>
+  );
+
   return (
     <div className="app-container">
       {/* COLUMN 1: LIBRARY */}
@@ -1944,6 +2089,13 @@ export default function App() {
                 LIBRARY
               </span>
               <div className="flex gap-1">
+                <button
+                  className="btn-icon"
+                  title="New Group"
+                  onClick={() => setShowNewGroupInput(true)}
+                >
+                  📁+
+                </button>
                 <button
                   className="btn-icon"
                   title={
@@ -2011,58 +2163,112 @@ export default function App() {
                 <option>A-Z</option>
               </select>
             </div>
-            <div style={{ overflowY: "auto", flex: 1, paddingRight: "5px" }}>
-              {projects.map((p) => (
-                <div
-                  key={p.id}
-                  className="glass-panel-inner mb-1 flex justify-between"
-                  style={{ cursor: "pointer" }}
-                  onClick={() => loadProject(p)}
+
+            {showNewGroupInput && (
+              <div className="mb-2 flex gap-1">
+                <input
+                  className="input-dark"
+                  value={newGroupName}
+                  onChange={(e) => setNewGroupName(e.target.value)}
+                  placeholder="Group name..."
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") createGroup(newGroupName);
+                    if (e.key === "Escape") setShowNewGroupInput(false);
+                  }}
+                />
+                <button
+                  className="btn-primary"
+                  onClick={() => createGroup(newGroupName)}
                 >
-                  <div>
+                  Add
+                </button>
+                <button
+                  className="btn-icon"
+                  onClick={() => setShowNewGroupInput(false)}
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+
+            <div style={{ overflowY: "auto", flex: 1, paddingRight: "5px" }}>
+              {/* GROUPS */}
+              {groups.map((group) => {
+                const groupSongs = projects.filter(
+                  (p) => p.groupId === group.id,
+                );
+                const isCollapsed = collapsedGroups[group.id];
+                return (
+                  <div key={group.id} className="mb-2">
                     <div
+                      className="flex items-center justify-between glass-panel-inner p-1 mb-1"
                       style={{
-                        color: "white",
-                        fontWeight: "bold",
-                        fontSize: "13px",
+                        background: "rgba(255,255,255,0.05)",
+                        cursor: "pointer",
+                        border: "1px solid rgba(255,255,255,0.1)",
                       }}
+                      onClick={() =>
+                        setCollapsedGroups((prev) => ({
+                          ...prev,
+                          [group.id]: !prev[group.id],
+                        }))
+                      }
                     >
-                      {p.title}
+                      <div className="flex items-center gap-1">
+                        <span style={{ fontSize: "10px", width: "12px" }}>
+                          {isCollapsed ? "▶" : "▼"}
+                        </span>
+                        <span style={{ fontSize: "12px", fontWeight: "bold" }}>
+                          📁 {group.name}
+                        </span>
+                        <span style={{ fontSize: "10px", color: "#666" }}>
+                          ({groupSongs.length})
+                        </span>
+                      </div>
+                      <button
+                        className="btn-icon"
+                        style={{ fontSize: "10px", color: "#ff4444" }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteGroupEntity(group.id);
+                        }}
+                        title="Delete group"
+                      >
+                        ❌
+                      </button>
                     </div>
-                    <div
-                      style={{
-                        color: "#aaa",
-                        fontSize: "11px",
-                        marginBottom: "4px",
-                      }}
-                    >
-                      {p.artist}
-                    </div>
+                    {!isCollapsed && (
+                      <div
+                        style={{
+                          marginLeft: "12px",
+                          borderLeft: "1px solid rgba(255,255,255,0.1)",
+                          paddingLeft: "4px",
+                        }}
+                      >
+                        {groupSongs.map((p) => renderProjectRow(p))}
+                        {groupSongs.length === 0 && (
+                          <div
+                            style={{
+                              fontSize: "10px",
+                              color: "#555",
+                              padding: "4px",
+                            }}
+                          >
+                            Empty
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
-                  <div className="flex flex-col gap-1">
-                    <button
-                      className="btn-icon"
-                      style={{ fontSize: "10px" }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        editProject(p);
-                      }}
-                    >
-                      ✏️
-                    </button>
-                    <button
-                      className="btn-icon"
-                      style={{ fontSize: "10px", color: "#ff4444" }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        deleteProject(p.id);
-                      }}
-                    >
-                      ❌
-                    </button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
+
+              {/* UNGROUPED SONGS */}
+              {projects
+                .filter((p) => !p.groupId)
+                .map((p) => renderProjectRow(p))}
+
               {projects.length === 0 && (
                 <div
                   style={{

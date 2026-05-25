@@ -30,5 +30,9 @@ namespace AiMusicWorkstation.Domain.Entities
         public int TimeSignature { get; set; } = 4;
         public string Sections { get; set; } = "[]";
         public DataSource SectionsSource { get; set; } = DataSource.Unknown;
+
+        // Grouping
+        public Guid? GroupId { get; set; }
+        public SongGroup? Group { get; set; }
     }
 }

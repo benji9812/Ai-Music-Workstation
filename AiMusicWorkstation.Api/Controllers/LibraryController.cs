@@ -137,6 +137,29 @@ public class LibraryController : ControllerBase
         return Ok(new { status = "success" });
     }
 
+    [HttpPatch("projects/{id}/group")]
+    public async Task<IActionResult> PatchProjectGroup(string id, [FromBody] UpdateProjectGroupDto dto)
+    {
+        if (string.IsNullOrEmpty(id)) return BadRequest();
+
+        var existingProject = await _repository.GetByIdAsync(id);
+        if (existingProject == null) return NotFound();
+
+        if (dto.GroupId == null)
+        {
+            existingProject.GroupId = null;
+        }
+        else
+        {
+            existingProject.GroupId = dto.GroupId;
+        }
+
+        await _repository.UpdateAsync(existingProject);
+        await _repository.SaveAsync();
+
+        return Ok(new { status = "success" });
+    }
+
     [HttpPost("rescan-stems")]
     public async Task<IActionResult> RescanStems(
         [FromServices] PythonEngineClient pythonClient,
@@ -232,3 +255,4 @@ public class LibraryController : ControllerBase
 }
 
 public record UpdateProjectDto(string? Title, string? Artist);
+public record UpdateProjectGroupDto(Guid? GroupId);

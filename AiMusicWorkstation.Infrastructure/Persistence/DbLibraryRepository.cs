@@ -16,6 +16,7 @@ public class DbLibraryRepository : ILibraryRepository
     public async Task<List<SongProject>> GetAllAsync(CancellationToken cancellationToken = default)
     {
         return await _context.Projects
+            .Include(p => p.Group)
             .OrderByDescending(p => p.DateAdded)
             .ToListAsync(cancellationToken);
     }
@@ -23,6 +24,7 @@ public class DbLibraryRepository : ILibraryRepository
     public async Task<SongProject?> GetByIdAsync(string id, CancellationToken cancellationToken = default)
     {
         return await _context.Projects
+            .Include(p => p.Group)
             .FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
     }
 
