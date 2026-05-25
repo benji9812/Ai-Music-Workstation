@@ -117,6 +117,8 @@ type SongStructurePanelProps = {
   isStructureLoading: boolean;
   onJumpToTime: (time: number) => void;
   onSaveSections: (sections: Section[]) => Promise<void>;
+  isFolded: boolean;
+  onToggleFold: () => void;
 };
 
 function SongStructurePanel({
@@ -124,6 +126,8 @@ function SongStructurePanel({
   isStructureLoading,
   onJumpToTime,
   onSaveSections,
+  isFolded,
+  onToggleFold,
 }: SongStructurePanelProps) {
   const [isEditing, setIsEditing] = React.useState(false);
   const [draftSections, setDraftSections] = React.useState<EditableSection[]>(
@@ -220,144 +224,158 @@ function SongStructurePanel({
           >
             {isEditing ? "Done" : "Edit"}
           </button>
+          <button
+            className="btn-fold"
+            onClick={onToggleFold}
+            title={isFolded ? "Expand panel" : "Collapse panel"}
+          >
+            {isFolded ? "▼" : "▲"}
+          </button>
         </div>
       </div>
-      <div style={{ overflowY: "auto", flex: 1, paddingRight: "5px" }}>
-        {isStructureLoading ? (
-          // Skeleton rows while structure is being fetched
-          <div className="structure-skeleton">
-            {["60%", "45%", "70%", "50%", "65%", "40%"].map((w, i) => (
-              <div key={i} className="structure-skeleton-row">
-                <div className="skeleton-bar" style={{ width: w }} />
-                <div className="skeleton-bar" style={{ width: "28px" }} />
-              </div>
-            ))}
-          </div>
-        ) : isEditing ? (
-          <>
-            {draftSections.length === 0 ? (
-              <div
-                style={{
-                  fontSize: "12px",
-                  color: "#777",
-                  textAlign: "center",
-                  marginTop: "16px",
-                }}
-              >
-                No sections yet
-              </div>
-            ) : (
-              draftSections.map((sec, idx) => (
-                <div
-                  key={sec.id}
-                  className="glass-panel-inner mb-1 flex flex-col gap-1"
-                >
-                  <div className="flex items-center gap-1 justify-between">
-                    <input
-                      className="input-dark"
-                      style={{ fontSize: "12px", padding: "6px 8px" }}
-                      value={sec.label}
-                      onChange={(e) =>
-                        updateDraft(idx, { label: e.target.value })
-                      }
-                      aria-label={`Section ${idx + 1} name`}
-                    />
-                    <button
-                      className="btn-icon"
-                      style={{ fontSize: "14px", color: "#ff4444" }}
-                      onClick={() => handleDelete(idx)}
-                      aria-label={`Delete section ${idx + 1}`}
-                    >
-                      🗑
-                    </button>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <input
-                      className="input-dark"
-                      style={{
-                        width: "72px",
-                        fontSize: "11px",
-                        padding: "6px",
-                      }}
-                      value={sec.start}
-                      onChange={(e) =>
-                        updateDraft(idx, { start: e.target.value })
-                      }
-                      placeholder="MM:SS"
-                      aria-label={`Section ${idx + 1} start time`}
-                    />
-                    <span style={{ fontSize: "10px", color: "#777" }}>to</span>
-                    <input
-                      className="input-dark"
-                      style={{
-                        width: "72px",
-                        fontSize: "11px",
-                        padding: "6px",
-                      }}
-                      value={sec.end}
-                      onChange={(e) =>
-                        updateDraft(idx, { end: e.target.value })
-                      }
-                      placeholder="MM:SS"
-                      aria-label={`Section ${idx + 1} end time`}
-                    />
-                  </div>
+      <div
+        className={`panel-content-collapsible ${isFolded ? "is-folded" : ""}`}
+        style={{ flex: 1, display: "flex", flexDirection: "column" }}
+      >
+        <div style={{ overflowY: "auto", flex: 1, paddingRight: "5px" }}>
+          {isStructureLoading ? (
+            // Skeleton rows while structure is being fetched
+            <div className="structure-skeleton">
+              {["60%", "45%", "70%", "50%", "65%", "40%"].map((w, i) => (
+                <div key={i} className="structure-skeleton-row">
+                  <div className="skeleton-bar" style={{ width: w }} />
+                  <div className="skeleton-bar" style={{ width: "28px" }} />
                 </div>
-              ))
-            )}
-            <button
-              className="btn-primary mt-2"
-              style={{ width: "100%" }}
-              onClick={handleAddSection}
-            >
-              + Add Section
-            </button>
-            {editError && (
-              <div
-                style={{
-                  color: "#ff6666",
-                  fontSize: "11px",
-                  marginTop: "6px",
-                  textAlign: "center",
-                }}
-              >
-                ⚠️ {editError}
-              </div>
-            )}
-          </>
-        ) : structure?.sections ? (
-          structure.sections.map((sec: Section, idx: number) => (
-            <div
-              key={idx}
-              className="glass-panel-inner mb-1 flex justify-between items-center cursor-pointer hover:border-cyan"
-              onClick={() => onJumpToTime(parseFloat(String(sec.start)))}
-            >
-              <span
-                style={{
-                  color: "white",
-                  fontWeight: "bold",
-                  fontSize: "12px",
-                }}
-              >
-                {sec.label}
-              </span>
-              <span style={{ color: "var(--neon-cyan)", fontSize: "10px" }}>
-                {formatTime(sec.start)}
-              </span>
+              ))}
             </div>
-          ))
-        ) : (
-          <div
-            style={{
-              fontSize: "12px",
-              color: "#555",
-              textAlign: "center",
-              marginTop: "20px",
-            }}
-          >
-            No structure data
-          </div>
-        )}
+          ) : isEditing ? (
+            <>
+              {draftSections.length === 0 ? (
+                <div
+                  style={{
+                    fontSize: "12px",
+                    color: "#777",
+                    textAlign: "center",
+                    marginTop: "16px",
+                  }}
+                >
+                  No sections yet
+                </div>
+              ) : (
+                draftSections.map((sec, idx) => (
+                  <div
+                    key={sec.id}
+                    className="glass-panel-inner mb-1 flex flex-col gap-1"
+                  >
+                    <div className="flex items-center gap-1 justify-between">
+                      <input
+                        className="input-dark"
+                        style={{ fontSize: "12px", padding: "6px 8px" }}
+                        value={sec.label}
+                        onChange={(e) =>
+                          updateDraft(idx, { label: e.target.value })
+                        }
+                        aria-label={`Section ${idx + 1} name`}
+                      />
+                      <button
+                        className="btn-icon"
+                        style={{ fontSize: "14px", color: "#ff4444" }}
+                        onClick={() => handleDelete(idx)}
+                        aria-label={`Delete section ${idx + 1}`}
+                      >
+                        🗑
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <input
+                        className="input-dark"
+                        style={{
+                          width: "72px",
+                          fontSize: "11px",
+                          padding: "6px",
+                        }}
+                        value={sec.start}
+                        onChange={(e) =>
+                          updateDraft(idx, { start: e.target.value })
+                        }
+                        placeholder="MM:SS"
+                        aria-label={`Section ${idx + 1} start time`}
+                      />
+                      <span style={{ fontSize: "10px", color: "#777" }}>
+                        to
+                      </span>
+                      <input
+                        className="input-dark"
+                        style={{
+                          width: "72px",
+                          fontSize: "11px",
+                          padding: "6px",
+                        }}
+                        value={sec.end}
+                        onChange={(e) =>
+                          updateDraft(idx, { end: e.target.value })
+                        }
+                        placeholder="MM:SS"
+                        aria-label={`Section ${idx + 1} end time`}
+                      />
+                    </div>
+                  </div>
+                ))
+              )}
+              <button
+                className="btn-primary mt-2"
+                style={{ width: "100%" }}
+                onClick={handleAddSection}
+              >
+                + Add Section
+              </button>
+              {editError && (
+                <div
+                  style={{
+                    color: "#ff6666",
+                    fontSize: "11px",
+                    marginTop: "6px",
+                    textAlign: "center",
+                  }}
+                >
+                  ⚠️ {editError}
+                </div>
+              )}
+            </>
+          ) : structure?.sections ? (
+            structure.sections.map((sec: Section, idx: number) => (
+              <div
+                key={idx}
+                className="glass-panel-inner mb-1 flex justify-between items-center cursor-pointer hover:border-cyan"
+                onClick={() => onJumpToTime(parseFloat(String(sec.start)))}
+              >
+                <span
+                  style={{
+                    color: "white",
+                    fontWeight: "bold",
+                    fontSize: "12px",
+                  }}
+                >
+                  {sec.label}
+                </span>
+                <span style={{ color: "var(--neon-cyan)", fontSize: "10px" }}>
+                  {formatTime(sec.start)}
+                </span>
+              </div>
+            ))
+          ) : (
+            <div
+              style={{
+                fontSize: "12px",
+                color: "#555",
+                textAlign: "center",
+                marginTop: "20px",
+              }}
+            >
+              No structure data
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -660,6 +678,7 @@ export default function App() {
   const [showLyrics, setShowLyrics] = useState(true);
   const [showStructure, setShowStructure] = useState(true);
   const [showLibrary, setShowLibrary] = useState(true);
+  const [showStemMixer, setShowStemMixer] = useState(true);
 
   // API Integration States
   const [result, setResult] = useState<AnalysisResult | null>(null);
@@ -1731,17 +1750,27 @@ export default function App() {
       </div>
 
       {/* COLUMN 2: CHORDS & SCALES */}
-      {showChords && (
-        <div className="col-chords">
-          <div className="glass-panel" style={{ flex: 1 }}>
-            <div className="panel-header">
-              <span
-                className="section-title"
-                style={{ margin: 0, width: "100%", textAlign: "center" }}
-              >
-                CHORD / SCALE
-              </span>
-            </div>
+      <div className="col-chords">
+        <div className="glass-panel" style={{ flex: 1 }}>
+          <div className="panel-header">
+            <button
+              className="btn-fold"
+              onClick={() => setShowChords(!showChords)}
+              title={showChords ? "Collapse panel" : "Expand panel"}
+            >
+              {showChords ? "▲" : "▼"}
+            </button>
+            <span className="section-title" style={{ margin: 0 }}>
+              CHORD / SCALE
+            </span>
+            {/* spacer to keep title centered */}
+            <div style={{ width: "24px" }} />
+          </div>
+
+          <div
+            className={`panel-content-collapsible ${showChords ? "" : "is-folded"}`}
+            style={{ display: "flex", flexDirection: "column", flex: 1 }}
+          >
             <div className="flex gap-2 mb-2">
               <button
                 className={`btn-primary w-full ${activeTab === "chord" ? "active" : ""}`}
@@ -2033,31 +2062,6 @@ export default function App() {
           </div>
         </div>
 
-        {/* ── Panel toggle toolbar (dedicated row below header) ── */}
-        <div className="panel-toggle-toolbar">
-          <button
-            className="toggle-btn panel-toggle-btn"
-            data-active={showChords ? "true" : "false"}
-            onClick={() => setShowChords(!showChords)}
-          >
-            🎹 Chords / Scale
-          </button>
-          <button
-            className="toggle-btn panel-toggle-btn"
-            data-active={showLyrics ? "true" : "false"}
-            onClick={() => setShowLyrics(!showLyrics)}
-          >
-            🎤 Lyrics
-          </button>
-          <button
-            className="toggle-btn panel-toggle-btn"
-            data-active={showStructure ? "true" : "false"}
-            onClick={() => setShowStructure(!showStructure)}
-          >
-            📑 Song Structure
-          </button>
-        </div>
-
         {error && (
           <div
             style={{
@@ -2322,16 +2326,26 @@ export default function App() {
         </div>
 
         {/* LYRICS PANEL IN THE MIDDLE */}
-        {showLyrics && (
+        <div
+          className="glass-panel"
+          style={{ flex: 1, display: "flex", flexDirection: "column" }}
+        >
+          <div className="panel-header">
+            <span className="section-title" style={{ margin: 0 }}>
+              LYRICS
+            </span>
+            <button
+              className="btn-fold"
+              onClick={() => setShowLyrics(!showLyrics)}
+              title={showLyrics ? "Collapse panel" : "Expand panel"}
+            >
+              {showLyrics ? "▲" : "▼"}
+            </button>
+          </div>
           <div
-            className="glass-panel"
+            className={`panel-content-collapsible ${showLyrics ? "" : "is-folded"}`}
             style={{ flex: 1, display: "flex", flexDirection: "column" }}
           >
-            <div className="panel-header">
-              <span className="section-title" style={{ margin: 0 }}>
-                LYRICS
-              </span>
-            </div>
             <div
               ref={lyricsScrollRef}
               onScroll={handleManualScroll}
@@ -2384,58 +2398,66 @@ export default function App() {
               )}
             </div>
           </div>
-        )}
+        </div>
 
         {/* Mixer */}
         <div className="glass-panel" style={{ paddingBottom: "4px" }}>
           <div className="panel-header">
-            <span
-              className="section-title"
-              style={{ margin: 0, width: "100%", textAlign: "center" }}
-            >
+            <span className="section-title" style={{ margin: 0 }}>
               STEM MIXER
             </span>
+            <button
+              className="btn-fold"
+              onClick={() => setShowStemMixer(!showStemMixer)}
+              title={showStemMixer ? "Collapse panel" : "Expand panel"}
+            >
+              {showStemMixer ? "▲" : "▼"}
+            </button>
           </div>
-          <div className="mixer-grid">
-            {(["drums", "bass", "other", "vocals"] as const).map((stem) => (
-              <div key={stem} className="mixer-channel">
-                <span
-                  style={{
-                    fontSize: "11px",
-                    fontWeight: "bold",
-                    color: "#888",
-                  }}
-                >
-                  {stem.toUpperCase()}
-                </span>
-                <div className="vertical-slider-container">
-                  <input
-                    type="range"
-                    className="vertical-slider"
-                    min="0"
-                    max="100"
-                    value={volumes[stem]}
-                    onChange={(e) =>
-                      setMixerVolume(stem, Number(e.target.value))
-                    }
-                  />
-                </div>
-                <div className="flex gap-1">
-                  <button
-                    className={`toggle-btn toggle-mute ${mutes[stem] ? "active" : ""}`}
-                    onClick={() => toggleMute(stem)}
+          <div
+            className={`panel-content-collapsible ${showStemMixer ? "" : "is-folded"}`}
+          >
+            <div className="mixer-grid">
+              {(["drums", "bass", "other", "vocals"] as const).map((stem) => (
+                <div key={stem} className="mixer-channel">
+                  <span
+                    style={{
+                      fontSize: "11px",
+                      fontWeight: "bold",
+                      color: "#888",
+                    }}
                   >
-                    M
-                  </button>
-                  <button
-                    className={`toggle-btn toggle-solo ${solos[stem] ? "active" : ""}`}
-                    onClick={() => toggleSolo(stem)}
-                  >
-                    S
-                  </button>
+                    {stem.toUpperCase()}
+                  </span>
+                  <div className="vertical-slider-container">
+                    <input
+                      type="range"
+                      className="vertical-slider"
+                      min="0"
+                      max="100"
+                      value={volumes[stem]}
+                      onChange={(e) =>
+                        setMixerVolume(stem, Number(e.target.value))
+                      }
+                    />
+                  </div>
+                  <div className="flex gap-1">
+                    <button
+                      className={`toggle-btn toggle-mute ${mutes[stem] ? "active" : ""}`}
+                      onClick={() => toggleMute(stem)}
+                    >
+                      M
+                    </button>
+                    <button
+                      className={`toggle-btn toggle-solo ${solos[stem] ? "active" : ""}`}
+                      onClick={() => toggleSolo(stem)}
+                    >
+                      S
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
 
@@ -2544,16 +2566,16 @@ export default function App() {
       </div>
 
       {/* COLUMN 4: SECTIONS */}
-      {showStructure && (
-        <div className="col-sections">
-          <SongStructurePanel
-            structure={structure}
-            isStructureLoading={isStructureLoading}
-            onJumpToTime={jumpToTime}
-            onSaveSections={saveStructureSections}
-          />
-        </div>
-      )}
+      <div className="col-sections">
+        <SongStructurePanel
+          structure={structure}
+          isStructureLoading={isStructureLoading}
+          onJumpToTime={jumpToTime}
+          onSaveSections={saveStructureSections}
+          isFolded={!showStructure}
+          onToggleFold={() => setShowStructure(!showStructure)}
+        />
+      </div>
       <SpeedInsights />
     </div>
   );

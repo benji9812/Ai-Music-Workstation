@@ -354,6 +354,53 @@ body {
     white-space: nowrap;
 }
 
+/* Vertical Fold Mechanic
+   ================================================ */
+.panel-content-collapsible {
+    overflow: hidden;
+    transition:
+        max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+        opacity 0.3s ease,
+        margin 0.4s ease,
+        padding 0.4s ease;
+    max-height: 2000px; /* High enough to contain content */
+    opacity: 1;
+}
+
+.panel-content-collapsible.is-folded {
+    max-height: 0;
+    opacity: 0;
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    pointer-events: none;
+}
+
+.btn-fold {
+    background: var(--color-surface-offset);
+    border: 1px solid var(--color-border);
+    color: var(--text-muted);
+    width: 24px;
+    height: 24px;
+    min-width: 24px;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    transition: all 0.2s ease;
+    padding: 0;
+}
+
+.btn-fold:hover {
+    color: var(--neon-cyan);
+    border-color: var(--glass-hover-border);
+    box-shadow: 0 0 10px rgba(0, 240, 255, 0.2);
+    background: rgba(255, 255, 255, 0.1);
+}
+
 /* Transport toggle buttons (Count In, Metro, Repeat) */
 .transport-toggle-btn {
     min-width: 44px;
@@ -635,6 +682,14 @@ body {
     text-align: center;
 }
 
-.cursor-pointer { cursor: pointer; }
-.hover\:border-cyan { transition: all 0.2s ease; }
-.hover\:border-cyan:hover { border-color: var(--neon-cyan); box-shadow: 0 0 10px rgba(0, 240, 255, 0.2); background: rgba(255, 255, 255, 0.03); }
+.cursor-pointer {
+    cursor: pointer;
+}
+.hover\:border-cyan {
+    transition: all 0.2s ease;
+}
+.hover\:border-cyan:hover {
+    border-color: var(--neon-cyan);
+    box-shadow: 0 0 10px rgba(0, 240, 255, 0.2);
+    background: rgba(255, 255, 255, 0.03);
+}
