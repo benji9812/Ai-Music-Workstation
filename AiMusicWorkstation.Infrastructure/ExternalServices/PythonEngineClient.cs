@@ -54,6 +54,8 @@ public class PythonEngineClient
         if (!await _manager.EnsureRunningAsync())
             return "{\"status\":\"error\",\"message\":\"Python engine not reachable\"}";
         var response = await _client.PostAsJsonAsync("import-url", new { url });
+        if (!response.IsSuccessStatusCode)
+            return $"{{\"status\":\"error\",\"message\":\"Job not found or engine restarted\",\"code\":{(int)response.StatusCode}}}";
         return await response.Content.ReadAsStringAsync();
     }
 
@@ -62,6 +64,8 @@ public class PythonEngineClient
         if (!await _manager.EnsureRunningAsync())
             return "{\"status\":\"error\",\"message\":\"Python engine not reachable\"}";
         var response = await _client.PostAsJsonAsync("import-url-async", new { url });
+        if (!response.IsSuccessStatusCode)
+            return $"{{\"status\":\"error\",\"message\":\"Job not found or engine restarted\",\"code\":{(int)response.StatusCode}}}";
         return await response.Content.ReadAsStringAsync();
     }
 
@@ -70,6 +74,8 @@ public class PythonEngineClient
         if (!await _manager.EnsureRunningAsync())
             return "{\"status\":\"error\",\"message\":\"Python engine not reachable\"}";
         var response = await _client.PostAsJsonAsync("start-analyze-quick-job", new { url });
+        if (!response.IsSuccessStatusCode)
+            return $"{{\"status\":\"error\",\"message\":\"Job not found or engine restarted\",\"code\":{(int)response.StatusCode}}}";
         return await response.Content.ReadAsStringAsync();
     }
 
@@ -78,6 +84,8 @@ public class PythonEngineClient
         if (!await _manager.EnsureRunningAsync())
             return "{\"status\":\"error\",\"message\":\"Python engine not reachable\"}";
         var response = await _client.GetAsync($"job-status/{jobId}");
+        if (!response.IsSuccessStatusCode)
+            return $"{{\"status\":\"error\",\"message\":\"Job not found or engine restarted\",\"code\":{(int)response.StatusCode}}}";
         return await response.Content.ReadAsStringAsync();
     }
 
