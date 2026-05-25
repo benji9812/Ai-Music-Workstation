@@ -4,7 +4,7 @@ namespace AiMusicWorkstation.Desktop
 {
     public partial class InputWindow : Window
     {
-        public string Answer { get; private set; }
+        public string Answer { get; private set; } = string.Empty;
 
         public InputWindow(string prompt, string defaultText = "")
         {

@@ -17,6 +17,10 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Threading;
+using AiMusicWorkstation.Domain.Services;
+using System.Net.Http;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace AiMusicWorkstation.Desktop
 {
@@ -60,7 +64,10 @@ namespace AiMusicWorkstation.Desktop
             LibraryViewModel? libraryViewModel = null,
             MainWindowViewModel? mainWindowViewModel = null,
             LibraryManager? libraryManager = null,
-            AiAnalysisOrchestrator? analysisOrchestrator = null)
+            AiAnalysisOrchestrator? analysisOrchestrator = null,
+            ILyricsService? lyricsService = null,
+            HttpClient? httpClient = null,
+            ILogger<LyricsService>? lyricsLogger = null)
         {
             InitializeComponent();
 
@@ -80,7 +87,11 @@ namespace AiMusicWorkstation.Desktop
             _analysisOrchestrator = analysisOrchestrator
                 ?? new AiAnalysisOrchestrator(
                     new PythonBridge(PythonConfig.CreateDefault()),
-                    new AnalysisResultParser());
+                    new AnalysisResultParser(),
+                    lyricsService ?? new LyricsService(
+                        httpClient ?? new HttpClient(),
+                        config,
+                        lyricsLogger ?? new NullLogger<LyricsService>()));
 
             Closing += (s, e) => { _player.Dispose(); _metronome.Dispose(); };
 
@@ -1216,8 +1227,3 @@ namespace AiMusicWorkstation.Desktop
         public UIElement? Diagram { get; set; }
     }
 }
-
-
-
-
-

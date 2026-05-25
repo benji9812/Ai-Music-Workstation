@@ -89,15 +89,15 @@ namespace AiMusicWorkstation.Desktop.Services
             if (autoPlay) _outputDevice.Play();
         }
 
-        private WaveOutEvent _outputDevice;
-        private MixingSampleProvider _mixer;
+        private WaveOutEvent? _outputDevice;
+        private MixingSampleProvider? _mixer;
 
-        public string CurrentStemsPath { get; private set; }
+        public string? CurrentStemsPath { get; private set; }
 
         // Denna egenskap används av MainWindow för att veta om sliders ska visas
         public bool IsSingleFileMode => _channels.ContainsKey("backing") && !_channels.ContainsKey("drums");
 
-        public event EventHandler PlaybackStopped;
+        public event EventHandler? PlaybackStopped;
         public bool IsPlaying => _outputDevice?.PlaybackState == PlaybackState.Playing;
 
         private bool _isLooping = false;
@@ -116,8 +116,8 @@ namespace AiMusicWorkstation.Desktop.Services
 
         private class StemChannel
         {
-            public AudioFileReader Reader { get; set; }
-            public LoopStream Looper { get; set; }
+            public AudioFileReader? Reader { get; set; }
+            public LoopStream? Looper { get; set; }
             public float UserVolume { get; set; } = 0.8f;
             public bool IsMuted { get; set; } = false;
             public bool IsSolo { get; set; } = false;

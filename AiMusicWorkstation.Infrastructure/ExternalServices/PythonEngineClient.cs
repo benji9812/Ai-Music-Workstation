@@ -73,7 +73,6 @@ public class PythonEngineClient
         return await response.Content.ReadAsStringAsync();
     }
 
-
     public async Task<string> GetJobStatusAsync(string jobId)
     {
         if (!await _manager.EnsureRunningAsync())
@@ -92,21 +91,8 @@ public class PythonEngineClient
 
     public Task<bool> IsHealthyAsync() => _manager.IsHealthyAsync();
 
-    public async Task<string> GetAnalysisAsync(string stemsPath)
-    {
-        if (!await _manager.EnsureRunningAsync())
-            return "{\"status\":\"error\",\"message\":\"Python engine not reachable\"}";
 
-        var pathParts = stemsPath.Split(new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar });
-        if (pathParts.Length < 2)
-            return "{\"status\":\"error\",\"message\":\"Invalid stemsPath\"}";
 
-        var folderName = pathParts.Last();
-        var model = pathParts.Take(pathParts.Length -1).Last();
-
-        var response = await _client.GetAsync($"analysis-data/{model}/{folderName}");
-        return await response.Content.ReadAsStringAsync();
-    }
 
     public async Task<string> GetAnalysisAsync(string stemsPath)
     {

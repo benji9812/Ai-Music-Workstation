@@ -19,7 +19,7 @@ namespace AiMusicWorkstation.Desktop.Models
 
         [JsonPropertyName("color")]
         public string Color { get; set; } = "#007ACC";
-        
+
         [JsonIgnore]
         public bool IsActive
         {
@@ -37,7 +37,7 @@ namespace AiMusicWorkstation.Desktop.Models
         (System.Windows.Media.Color)System.Windows.Media.ColorConverter
         .ConvertFromString(Color));
 
-        public event PropertyChangedEventHandler PropertyChanged;
+        public event PropertyChangedEventHandler? PropertyChanged;
         protected void OnPropertyChanged(string name) =>
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
     }

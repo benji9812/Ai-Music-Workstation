@@ -4,7 +4,7 @@ namespace AiMusicWorkstation.Desktop
 {
     public partial class EditSectionWindow : Window
     {
-        public string SectionName { get; private set; }
+        public string SectionName { get; private set; } = string.Empty;
         public double SectionTime { get; private set; }
 
         public EditSectionWindow(string currentName, double currentTime)

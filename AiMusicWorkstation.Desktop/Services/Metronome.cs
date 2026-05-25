@@ -4,7 +4,7 @@ namespace AiMusicWorkstation.Desktop.Services
 {
     public class Metronome : IDisposable
     {
-        private CancellationTokenSource _cts;
+        private CancellationTokenSource? _cts;
         private bool _isRunning;
 
         private WaveOutEvent _output;
@@ -14,8 +14,8 @@ namespace AiMusicWorkstation.Desktop.Services
         public int TimeSignature { get; set; } = 4;
         public int CountInBars { get; set; } = 1;
 
-        public event Action<int> OnBeat;
-        public event Action OnCountInComplete;
+        public event Action<int>? OnBeat;
+        public event Action? OnCountInComplete;
 
         public Metronome()
         {
