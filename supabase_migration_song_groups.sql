@@ -1,11 +1,13 @@
 -- Supabase Migration: Add song groups
 
--- 1. Create SongGroups table
-CREATE TABLE IF NOT EXISTS "SongGroups" (
-    "Id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    "Name" TEXT NOT NULL,
-    "CreatedAt" TIMESTAMPTZ DEFAULT now()
+-- 1. Create song_groups table
+CREATE TABLE IF NOT EXISTS song_groups (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL,
+    user_id UUID REFERENCES auth.users(id),
+    created_at TIMESTAMPTZ DEFAULT now()
 );
 
--- 2. Add GroupId column to Projects table (SongProjects)
-ALTER TABLE "Projects" ADD COLUMN IF NOT EXISTS "GroupId" UUID REFERENCES "SongGroups"("Id") ON DELETE SET NULL;
+-- 2. Add group_id column to songs table
+ALTER TABLE songs
+ADD COLUMN IF NOT EXISTS group_id UUID REFERENCES song_groups(id) ON DELETE SET NULL;
