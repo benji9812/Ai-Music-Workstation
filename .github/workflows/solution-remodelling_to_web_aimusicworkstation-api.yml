@@ -6,7 +6,7 @@ name: Build and deploy ASP.Net Core app to Azure Web App - aimusicworkstation-ap
 on:
   push:
     branches:
-      - Solution/Remodelling_To_Web
+      - dev
   workflow_dispatch:
 
 jobs:
