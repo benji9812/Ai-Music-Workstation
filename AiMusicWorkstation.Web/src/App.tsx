@@ -977,7 +977,10 @@ export default function App() {
     audioPipelineInitializedRef.current = true; // Guard before any async yields
     try {
       const toneCtx = getContext().rawContext as AudioContext;
-      const ps = new PitchShift(transposeSteps);
+      const ps = new PitchShift({
+        pitch: transposeSteps,
+        windowSize: transposeSteps < 0 ? 0.2 : 0.1,
+      });
       ps.toDestination();
       pitchShiftRef.current = ps;
       (Object.keys(stems.current) as Array<keyof typeof stems.current>).forEach(
@@ -1031,17 +1034,24 @@ export default function App() {
     }
     return durationGuardRef.current;
   };
-  const syncStemsToTime = (time: number) => {
-    const safeDuration = readDuration();
-    const clamped = clampTime(time, safeDuration);
-    Object.values(stems.current).forEach((a) => {
-      a.currentTime = clamped;
-    });
-    setCurrentTime(clamped);
-    setSliderTime(clamped);
-    return clamped;
-  };
+  const syncStemsToTime = React.useCallback(
+    (time: number) => {
+      const safeDuration = readDuration();
+      const clamped = clampTime(time, safeDuration);
+      const audioElements = Object.values(stems.current);
 
+      // Synchronous tight loop for simultaneous property updates.
+      // This ensures the browser receives all seek requests in the same execution block.
+      audioElements.forEach((a) => {
+        a.currentTime = clamped;
+      });
+
+      setCurrentTime(clamped);
+      setSliderTime(clamped);
+      return clamped;
+    },
+    [setCurrentTime, setSliderTime],
+  );
   // Apply volumes and mutes/solos — uses GainNodes once the pipeline is live
   useEffect(() => {
     const anySolo = Object.values(solos).some((s) => s);
@@ -1066,6 +1076,8 @@ export default function App() {
   useEffect(() => {
     if (pitchShiftRef.current) {
       pitchShiftRef.current.pitch = transposeSteps;
+      // Increase window size for downward shifts to mitigate static/artifacts
+      pitchShiftRef.current.windowSize = transposeSteps < 0 ? 0.2 : 0.1;
     }
   }, [transposeSteps]);
 
@@ -1181,10 +1193,8 @@ export default function App() {
     const drums = stems.current.drums;
     const handleEnded = () => {
       if (repeatEnabled) {
-        Object.values(stems.current).forEach((a) => {
-          a.currentTime = 0;
-          a.play();
-        });
+        syncStemsToTime(0);
+        Object.values(stems.current).forEach((a) => a.play());
       } else {
         setIsPlaying(false);
       }
@@ -1193,7 +1203,7 @@ export default function App() {
     return () => {
       drums.removeEventListener("ended", handleEnded);
     };
-  }, [repeatEnabled]);
+  }, [repeatEnabled, syncStemsToTime]);
 
   const handleManualScroll = (_e: React.UIEvent<HTMLDivElement>) => {
     isManualScrollRef.current = true;
@@ -1266,29 +1276,16 @@ export default function App() {
   };
 
   const seekTime = (offset: number) => {
-    const safeDuration = readDuration();
     // Use the latest audio clock if playing, otherwise the state
     const baseTime = isPlaying ? stems.current.drums.currentTime : currentTime;
-    const updatedTime = clampTime(baseTime + offset, safeDuration);
-
-    Object.values(stems.current).forEach((a) => {
-      a.currentTime = updatedTime;
-    });
-    setCurrentTime(updatedTime);
-    setSliderTime(updatedTime);
+    syncStemsToTime(baseTime + offset);
   };
 
   const jumpToTime = (time: number) => {
     // Ensure the value is a real number even if the API returned a string
     const parsed = parseFloat(String(time));
     if (!Number.isFinite(parsed) || parsed < 0) return;
-    const safeDuration = readDuration();
-    const clamped = clampTime(parsed, safeDuration);
-    Object.values(stems.current).forEach((a) => {
-      a.currentTime = clamped;
-    });
-    setCurrentTime(clamped);
-    setSliderTime(clamped);
+    syncStemsToTime(parsed);
   };
 
   const saveStructureSections = async (sections: Section[]) => {
