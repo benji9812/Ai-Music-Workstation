@@ -181,9 +181,67 @@ public class ImportController : ControllerBase
             return StatusCode(500, new { status = "error", message = ex.Message });
         }
     }
+    [HttpPost("start-analyze-quick-job")]
+    public async Task<IActionResult> StartAnalyzeQuickJob([FromBody] ImportRequest request)
+    {
+        if (string.IsNullOrEmpty(request?.Url))
+            return BadRequest(new { status = "error", message = "URL missing" });
+        try
+        {
+            var resultJson = await _pythonClient.StartAnalyzeQuickJobAsync(request.Url);
+            return Content(resultJson, "application/json");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to start async quick analysis for {Url}", request.Url);
+            return StatusCode(500, new { status = "error", message = ex.Message });
+        }
+    }
+
+    [HttpPost("separate-stems")]
+    public async Task<IActionResult> SeparateStems([FromForm] IFormFile? file, [FromForm] string stems, [FromForm] string? originalFilePath)
+    {
+        if (string.IsNullOrEmpty(stems))
+            return BadRequest(new { status = "error", message = "Stems list missing." });
+
+        if (file == null && string.IsNullOrEmpty(originalFilePath))
+            return BadRequest(new { status = "error", message = "No file uploaded or file path provided." });
+
+        try
+        {
+            _logger.LogInformation("SeparateStems: delegating to Python Engine for stem separation.");
+            var resultJson = await _pythonClient.SeparateStemsAsync(file, stems, originalFilePath);
+            return Content(resultJson, "application/json");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to perform stem separation.");
+            return StatusCode(500, new { status = "error", message = ex.Message });
+        }
+    }
+
+    [HttpPost("analyze-quick")]
+    public async Task<IActionResult> AnalyzeQuick(IFormFile file)
+    {
+        if (file == null || file.Length == 0)
+            return BadRequest(new { status = "error", message = "No file uploaded." });
+
+        try
+        {
+            _logger.LogInformation("AnalyzeQuick: delegating to Python Engine for quick analysis.");
+            var resultJson = await _pythonClient.AnalyzeQuickAsync(file);
+            return Content(resultJson, "application/json");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to perform quick analysis.");
+            return StatusCode(500, new { status = "error", message = ex.Message });
+        }
+    }
 }
 
 public class ImportRequest
 {
     public string Url { get; set; } = string.Empty;
+    public string? FilePath { get; set; }
 }

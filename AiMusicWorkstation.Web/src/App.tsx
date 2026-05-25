@@ -1,6 +1,7 @@
 import * as React from "react";
 import { PitchShift, getContext, start as toneStart } from "tone";
 import { SpeedInsights } from "@vercel/speed-insights/react";
+import * as path from "path-browserify";
 import "./index.css";
 import { ChordDiagram } from "./ChordDiagram";
 
@@ -19,11 +20,13 @@ type AnalysisResult = {
   time_signature?: number;
   timeSigSource?: AnalysisSource;
   lyrics?: LyricSegment[];
-  stems_path?: string;
+  stems_path?: string; // Legacy field, new extracted_stems will be used
+  extracted_stems?: Record<string, string>;
   duration_seconds?: number;
   title?: string;
   artist?: string;
   error?: string;
+  original_path?: string; // Path on the Python engine server for subsequent separation
 };
 
 type StructureResult = {
@@ -46,7 +49,9 @@ type SongProject = {
   genre: string;
   bpm: number;
   key: string;
-  stemsPath: string;
+  stemsPath: string; // This will likely become legacy
+  extracted_stems?: Record<string, string>;
+  original_path?: string; // Stored path on Python server for later processing
   duration?: string; // TimeSpan from backend
 };
 
@@ -245,7 +250,7 @@ function SongStructurePanel({
           <button
             className="btn-fold"
             onClick={onToggleFold}
-            title={isFolded ? "Expand panel" : "Collapse panel"}
+            title={isFolded ? "Collapse panel" : "Expand panel"}
           >
             {isFolded ? "▼" : "▲"}
           </button>
@@ -543,7 +548,7 @@ function parseKey(key: string): { root: string; type: "major" | "minor" } {
       rest.startsWith("minor") ||
       rest.startsWith("m ")) &&
     !rest.startsWith("maj");
-  return { root, type: isMinor ? "minor" : "major" };
+  return { root, type: isMinor ? "minor" : "minor" }; // Corrected from major to minor on `m`
 }
 
 /** Returns the TRANSPOSE_SCALE note names that make up a chord (triad/7th). */
@@ -753,24 +758,9 @@ export default function App() {
   const [masterVol, setMasterVol] = useState(100);
 
   // Mixer states
-  const [volumes, setVolumes] = useState({
-    drums: 80,
-    bass: 80,
-    other: 80,
-    vocals: 80,
-  });
-  const [mutes, setMutes] = useState({
-    drums: false,
-    bass: false,
-    other: false,
-    vocals: false,
-  });
-  const [solos, setSolos] = useState({
-    drums: false,
-    bass: false,
-    other: false,
-    vocals: false,
-  });
+  const [volumes, setVolumes] = useState<Record<string, number>>({});
+  const [mutes, setMutes] = useState<Record<string, boolean>>({});
+  const [solos, setSolos] = useState<Record<string, boolean>>({});
 
   // Panel toggles
   const [showChords, setShowChords] = useState(true);
@@ -797,6 +787,12 @@ export default function App() {
     stage: string;
     progress: number;
   } | null>(null);
+
+  // Stem separation states
+  const [showSeparateStemsModal, setShowSeparateStemsModal] = useState(false);
+  const [selectedStems, setSelectedStems] = useState<string[]>([]);
+  const [isSeparatingStems, setIsSeparatingStems] = useState(false);
+  const [separateStemsProgress, setSeparateStemsProgress] = useState(0);
 
   const [projects, setProjects] = useState<SongProject[]>([]);
   const [urlInput, setUrlInput] = useState("");
@@ -862,15 +858,37 @@ export default function App() {
     }
   };
 
-  const loadStemsFromPath = (stemsPath: string) => {
-    const pathParts = stemsPath.split(/[\/\\]/);
-    const relPath = pathParts.slice(-2).join("/");
+  const DEFAULT_STEMS = ["vocals", "drums", "bass", "guitar", "piano", "other"];
+
+  const stems = useRef<Record<string, HTMLAudioElement>>({});
+
+  // Initialize stems with empty Audio elements if they don't exist
+  useEffect(() => {
+    DEFAULT_STEMS.forEach((stem) => {
+      if (!stems.current[stem]) {
+        stems.current[stem] = Object.assign(new Audio(), {
+          crossOrigin: "anonymous",
+        });
+      }
+    });
+  }, []); // Run once on mount
+
+
+  const loadStemsFromPath = (stemsMap: Record<string, string>) => {
+    // Clear all existing stem sources first
+    Object.values(stems.current).forEach((audio) => {
+      audio.src = "";
+    });
+
+    const firstStemKey = Object.keys(stemsMap)[0];
+    if (!firstStemKey) return;
+
     setDurationReady(false);
     // Register the handler BEFORE assigning src so the event is never missed,
     // even if the browser resolves metadata from cache synchronously.
-    const drumsEl = stems.current.drums;
+    const firstStemEl = stems.current[firstStemKey];
     const onMetadata = () => {
-      const rawDuration = drumsEl.duration;
+      const rawDuration = firstStemEl.duration;
       if (Number.isFinite(rawDuration) && rawDuration > 0) {
         durationGuardRef.current = rawDuration;
         setDuration(rawDuration);
@@ -878,29 +896,82 @@ export default function App() {
       } else {
         // Duration not yet known (e.g. VBR/streaming) — wait for durationchange
         const onDurationChange = () => {
-          const d = drumsEl.duration;
+          const d = firstStemEl.duration;
           if (Number.isFinite(d) && d > 0) {
             durationGuardRef.current = d;
             setDuration(d);
             setDurationReady(true);
-            drumsEl.removeEventListener("durationchange", onDurationChange);
+            firstStemEl.removeEventListener("durationchange", onDurationChange);
           }
         };
-        drumsEl.addEventListener("durationchange", onDurationChange);
+        firstStemEl.addEventListener("durationchange", onDurationChange);
       }
       if (!isDragging) setSliderTime(0);
-      drumsEl.removeEventListener("loadedmetadata", onMetadata);
+      firstStemEl.removeEventListener("loadedmetadata", onMetadata);
     };
-    drumsEl.addEventListener("loadedmetadata", onMetadata);
-    stems.current.drums.src = `${API_URL}/api/analysis/audio/${relPath}/drums.mp3`;
-    stems.current.bass.src = `${API_URL}/api/analysis/audio/${relPath}/bass.mp3`;
-    stems.current.other.src = `${API_URL}/api/analysis/audio/${relPath}/other.mp3`;
-    stems.current.vocals.src = `${API_URL}/api/analysis/audio/${relPath}/vocals.mp3`;
+    firstStemEl.addEventListener("loadedmetadata", onMetadata);
+
+    Object.entries(stemsMap).forEach(([stemName, url]) => {
+      if (!stems.current[stemName]) {
+        stems.current[stemName] = Object.assign(new Audio(), {
+          crossOrigin: "anonymous",
+        });
+      }
+      stems.current[stemName].src = url;
+    });
   };
 
   const loadProject = async (p: SongProject) => {
-    if (p.stemsPath) loadStemsFromPath(p.stemsPath);
-    setResult({ bpm: p.bpm, key: p.key, title: p.title, artist: p.artist });
+    if (p.extracted_stems && Object.keys(p.extracted_stems).length > 0) {
+      loadStemsFromPath(p.extracted_stems);
+      // Reset mixer to default for loaded stems
+      const initialVolumes: Record<string, number> = {};
+      const initialMutes: Record<string, boolean> = {};
+      const initialSolos: Record<string, boolean> = {};
+      Object.keys(p.extracted_stems).forEach((stem) => {
+        initialVolumes[stem] = 80;
+        initialMutes[stem] = false;
+        initialSolos[stem] = false;
+      });
+      setVolumes(initialVolumes);
+      setMutes(initialMutes);
+      setSolos(initialSolos);
+    } else if (p.stemsPath) {
+      // Fallback for legacy projects
+      // This path is for older projects that only have stemsPath string.
+      // We need to fetch individual stem URLs if available, or perhaps
+      // trigger a separate-stems if the backend supports it.
+      // For now, if stemsPath exists, assume traditional drum/bass/etc. and construct URLs.
+      const pathParts = p.stemsPath.split(/[\/\]/);
+      const relPath = pathParts.slice(-2).join("/");
+      const defaultStemsMap: Record<string, string> = {
+        drums: `${API_URL}/api/analysis/audio/${relPath}/drums.mp3`,
+        bass: `${API_URL}/api/analysis/audio/${relPath}/bass.mp3`,
+        other: `${API_URL}/api/analysis/audio/${relPath}/other.mp3`,
+        vocals: `${API_URL}/api/analysis/audio/${relPath}/vocals.mp3`,
+      };
+      loadStemsFromPath(defaultStemsMap);
+      setVolumes({ drums: 80, bass: 80, other: 80, vocals: 80 });
+      setMutes({ drums: false, bass: false, other: false, vocals: false });
+      setSolos({ drums: false, bass: false, other: false, vocals: false });
+    } else {
+      // If no stems, clear all audio elements
+      Object.values(stems.current).forEach((audio) => (audio.src = ""));
+      setDuration(0);
+      setDurationReady(false);
+      setVolumes({});
+      setMutes({});
+      setSolos({});
+    }
+
+    setResult({
+      bpm: p.bpm,
+      key: p.key,
+      title: p.title,
+      artist: p.artist,
+      original_path: p.original_path,
+      extracted_stems: p.extracted_stems,
+    });
     setNowPlaying({ title: p.title, artist: p.artist });
     setCurrentProjectId(p.id);
     setCurrentTime(0);
@@ -950,15 +1021,18 @@ export default function App() {
     setImportProgress({ stage: "⏳ Starting import...", progress: 0 });
 
     try {
-      // Start the async job (returns immediately with job_id)
-      const startResp = await fetch(`${API_URL}/api/import/start`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: urlInput }),
-      });
+      // Start the async job for quick analysis
+      const startResp = await fetch(
+        `${API_URL}/api/import/start-analyze-quick-job`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: urlInput }),
+        },
+      );
       const startData = await startResp.json();
       if (!startResp.ok || startData.status === "error") {
-        setError(startData.message || "Failed to start import");
+        setError(startData.message || "Failed to start quick analysis");
         setLoading(false);
         setImportProgress(null);
         return;
@@ -987,27 +1061,36 @@ export default function App() {
             setImportProgress(null);
 
             const data: AnalysisResult = statusData.result;
-            setResult(data);
+            setResult({ ...data, original_path: data.original_path });
             const trackTitle = data.title || "Unknown Track";
             const trackArtist = data.artist || "Unknown Artist";
             setNowPlaying({ title: trackTitle, artist: trackArtist });
             setCurrentProjectId(null);
             setUrlInput("");
 
-            if (data.stems_path) loadStemsFromPath(data.stems_path);
+            // Capture original_path from quick analysis result
+            const originalPathOnServer = data.original_path;
+            if (originalPathOnServer) {
+              setResult((prev) => ({
+                ...prev,
+                original_path: originalPathOnServer,
+              }));
+            }
 
-            // Optimistically add the imported song to the library immediately
-            // so the user sees it without waiting for the fetchLibrary round-trip.
-            const optimisticProject: SongProject = {
-              id: `yt-${trackTitle}-${trackArtist}`,
-              title: trackTitle,
-              artist: trackArtist,
-              bpm: data.bpm ?? 0,
-              key: data.key ?? "",
-              stemsPath: data.stems_path ?? "",
-              genre: "Uncategorized",
-            };
-            setProjects((prev) => [optimisticProject, ...prev]);
+            // Set duration from the quick analysis result
+            if (data.duration_seconds && data.duration_seconds > 0) {
+              durationGuardRef.current = data.duration_seconds;
+              setDuration(data.duration_seconds);
+              setDurationReady(true);
+            }
+
+            // No stems are loaded yet with analyze-quick, so clear existing audio elements.
+            // Playback will only be possible after explicit stem separation for URL-imported tracks.
+            Object.values(stems.current).forEach((audio) => (audio.src = ""));
+            setVolumes({});
+            setMutes({});
+            setSolos({});
+
 
             setIsStructureLoading(true);
             try {
@@ -1057,18 +1140,11 @@ export default function App() {
   const lyricsScrollRef = useRef<HTMLDivElement>(null);
 
   // Audio elements
-  const stems = useRef({
-    drums: Object.assign(new Audio(), { crossOrigin: "anonymous" }),
-    bass: Object.assign(new Audio(), { crossOrigin: "anonymous" }),
-    other: Object.assign(new Audio(), { crossOrigin: "anonymous" }),
-    vocals: Object.assign(new Audio(), { crossOrigin: "anonymous" }),
-  });
+  const stems = useRef<Record<string, HTMLAudioElement>>({});
 
   // ── Pitch-shift pipeline (Tone.js) ─────────────────────────────────────
   const pitchShiftRef = useRef<PitchShift | null>(null);
-  const stemGainNodesRef = useRef<
-    Partial<Record<keyof typeof stems.current, GainNode>>
-  >({});
+  const stemGainNodesRef = useRef<Record<string, GainNode>>({});
   const audioPipelineInitializedRef = useRef(false);
 
   const initAudioPipeline = () => {
@@ -1082,7 +1158,7 @@ export default function App() {
       });
       ps.toDestination();
       pitchShiftRef.current = ps;
-      (Object.keys(stems.current) as Array<keyof typeof stems.current>).forEach(
+      Object.keys(stems.current).forEach(
         (k) => {
           try {
             const source = toneCtx.createMediaElementSource(stems.current[k]);
@@ -1126,7 +1202,9 @@ export default function App() {
     return Math.max(0, Math.min(value, max));
   };
   const readDuration = () => {
-    const rawDuration = stems.current.drums.duration;
+    const firstStemKey = Object.keys(stems.current)[0];
+    if (!firstStemKey) return 0;
+    const rawDuration = stems.current[firstStemKey].duration;
     if (Number.isFinite(rawDuration) && rawDuration > 0) {
       durationGuardRef.current = rawDuration;
       return rawDuration;
@@ -1154,9 +1232,9 @@ export default function App() {
   // Apply volumes and mutes/solos — uses GainNodes once the pipeline is live
   useEffect(() => {
     const anySolo = Object.values(solos).some((s) => s);
-    (Object.keys(stems.current) as Array<keyof typeof stems.current>).forEach(
+    Object.keys(stems.current).forEach(
       (k) => {
-        let vol = (volumes[k] / 100) * (masterVol / 100);
+        let vol = (volumes[k] ?? 0 / 100) * (masterVol / 100);
         if (mutes[k]) vol = 0;
         if (anySolo && !solos[k]) vol = 0;
         vol = Math.min(Math.max(vol, 0), 1);
@@ -1242,7 +1320,9 @@ export default function App() {
   useEffect(() => {
     const interval = setInterval(() => {
       if (isPlaying) {
-        const current = stems.current.drums.currentTime;
+        const firstStemKey = Object.keys(stems.current)[0];
+        if (!firstStemKey) return; // No stems to play
+        const current = stems.current[firstStemKey].currentTime;
         const safeDuration = readDuration();
         const safeCurrent = clampTime(current, safeDuration);
         setCurrentTime(safeCurrent);
@@ -1289,7 +1369,9 @@ export default function App() {
 
   // Handle playback end (repeat and play/pause icon)
   useEffect(() => {
-    const drums = stems.current.drums;
+    const firstStemKey = Object.keys(stems.current)[0];
+    if (!firstStemKey) return;
+    const firstAudioElement = stems.current[firstStemKey];
     const handleEnded = () => {
       if (repeatEnabled) {
         syncStemsToTime(0);
@@ -1298,9 +1380,9 @@ export default function App() {
         setIsPlaying(false);
       }
     };
-    drums.addEventListener("ended", handleEnded);
+    firstAudioElement.addEventListener("ended", handleEnded);
     return () => {
-      drums.removeEventListener("ended", handleEnded);
+      firstAudioElement.removeEventListener("ended", handleEnded);
     };
   }, [repeatEnabled, syncStemsToTime]);
 
@@ -1308,6 +1390,7 @@ export default function App() {
     isManualScrollRef.current = true;
     if (manualScrollTimeoutRef.current !== null) {
       clearTimeout(manualScrollTimeoutRef.current);
+      manualScrollTimeoutRef.current = null;
     }
     manualScrollTimeoutRef.current = setTimeout(() => {
       isManualScrollRef.current = false;
@@ -1376,7 +1459,8 @@ export default function App() {
 
   const seekTime = (offset: number) => {
     // Use the latest audio clock if playing, otherwise the state
-    const baseTime = isPlaying ? stems.current.drums.currentTime : currentTime;
+    const firstStemKey = Object.keys(stems.current)[0];
+    const baseTime = isPlaying && firstStemKey ? stems.current[firstStemKey].currentTime : currentTime;
     syncStemsToTime(baseTime + offset);
   };
 
@@ -1435,7 +1519,7 @@ export default function App() {
 
     try {
       const xhr = new XMLHttpRequest();
-      xhr.open("POST", `${API_URL}/api/analysis/analyze`, true);
+      xhr.open("POST", `${API_URL}/api/import/analyze-quick`, true);
 
       // This is the key part for upload progress
       xhr.upload.onprogress = (event) => {
@@ -1471,56 +1555,76 @@ export default function App() {
           return;
         }
 
-        const data = JSON.parse(xhr.responseText);
+        const data: AnalysisResult = JSON.parse(xhr.responseText);
         if (data.error || data.status === "error") {
           setError(data.error || data.message || "Analysis failed on server.");
           analysisSucceeded = false;
           return;
         }
 
-        // From here, it's the same success logic as before
         analysisSucceeded = true;
-        setResult(data);
+        setResult(data); // Store the quick analysis results
         const fileName = selectedFile.name.replace(/\.[^.]+$/, "");
         setNowPlaying({ title: fileName, artist: "Local Upload" });
         setCurrentProjectId(null);
         setCurrentTime(0);
         setSliderTime(0);
 
-        const savedProject: SongProject = {
-          id: `local-${fileName}`,
-          title: fileName,
-          artist: "Local Upload",
-          bpm: data.bpm ?? 0,
-          key: data.key ?? "",
-          stemsPath: data.stems_path ?? "",
-          genre: "Uncategorized",
-        };
-        setProjects((prev) => [savedProject, ...prev]);
+        // For quick analysis, we get the original_path (temp file on server)
+        // Store this for later stem separation.
+        const originalPathOnServer = data.original_path;
+        if (originalPathOnServer) {
+          setResult((prev) => ({
+            ...prev,
+            original_path: originalPathOnServer,
+          }));
+        }
 
-        if (data.stems_path) {
-          loadStemsFromPath(data.stems_path);
+        // Set duration from the quick analysis result
+        if (data.duration_seconds && data.duration_seconds > 0) {
+          durationGuardRef.current = data.duration_seconds;
+          setDuration(data.duration_seconds);
+          setDurationReady(true);
         } else {
-          // This path for non-stem results seems unlikely with /analyze but is kept for safety
+          // Fallback: If no duration from analysis, load local file to get duration
           const objectUrl = URL.createObjectURL(selectedFile);
-          setDurationReady(false);
-          const localDrumsEl = stems.current.drums;
-          const onLocalMetadata = () => {
-            const rawDuration = localDrumsEl.duration;
-            if (Number.isFinite(rawDuration) && rawDuration > 0) {
-              durationGuardRef.current = rawDuration;
-              setDuration(rawDuration);
+          const localAudio = new Audio(objectUrl);
+          localAudio.addEventListener("loadedmetadata", () => {
+            if (localAudio.duration && localAudio.duration > 0) {
+              durationGuardRef.current = localAudio.duration;
+              setDuration(localAudio.duration);
               setDurationReady(true);
             }
-            if (!isDragging) setSliderTime(0);
-            localDrumsEl.removeEventListener("loadedmetadata", onLocalMetadata);
-          };
-          localDrumsEl.addEventListener("loadedmetadata", onLocalMetadata);
-          stems.current.drums.src = objectUrl;
-          stems.current.bass.src = objectUrl;
-          stems.current.other.src = objectUrl;
-          stems.current.vocals.src = objectUrl;
+            URL.revokeObjectURL(objectUrl); // Clean up
+          });
         }
+
+        // No stems are loaded yet with analyze-quick, so don't call loadStemsFromPath
+        // Instead, load the original file into the drums stem for playback
+        const objectUrl = URL.createObjectURL(selectedFile);
+        setDurationReady(false); // Reset while loading local original
+        const localDrumsEl = stems.current.drums;
+        const onLocalMetadata = () => {
+          const rawDuration = localDrumsEl.duration;
+          if (Number.isFinite(rawDuration) && rawDuration > 0) {
+            durationGuardRef.current = rawDuration;
+            setDuration(rawDuration);
+            setDurationReady(true);
+          }
+          if (!isDragging) setSliderTime(0);
+          localDrumsEl.removeEventListener("loadedmetadata", onLocalMetadata);
+        };
+        localDrumsEl.addEventListener("loadedmetadata", onLocalMetadata);
+        // Only load the "drums" stem (which will effectively be the original track)
+        // The other stems should be cleared/reset as they are not present.
+        stems.current.drums.src = objectUrl;
+        stems.current.bass.src = "";
+        stems.current.other.src = "";
+        stems.current.vocals.src = "";
+        // Reset current mixer states as only "drums" (original) is playing
+        setVolumes({ drums: 80, bass: 0, other: 0, vocals: 0 });
+        setMutes({ drums: false, bass: true, other: true, vocals: true });
+        setSolos({ drums: false, bass: false, other: false, vocals: false });
 
         setIsStructureLoading(true);
         try {
@@ -1570,6 +1674,108 @@ export default function App() {
     }
   };
 
+  // ── Separate Stems Function ────────────────────────────────────────────────
+  const handleSeparateStems = async () => {
+    if (!result || (!result.original_path && !currentProjectId)) {
+      setError("No audio loaded to separate stems.");
+      return;
+    }
+    if (selectedStems.length === 0) {
+      setError("Please select at least one stem to separate.");
+      return;
+    }
+
+    setShowSeparateStemsModal(false);
+    setIsSeparatingStems(true);
+    setSeparateStemsProgress(0);
+    setImportProgress({
+      stage: "🎚️ Separating stems...",
+      progress: 0,
+    }); // Reuse import progress indicator for now
+
+    try {
+      const formData = new FormData();
+      formData.append("stems", selectedStems.join(","));
+
+      let apiEndpoint = `${API_URL}/api/import/separate-stems`;
+
+      // If we have an original_path (from local upload or URL quick analysis)
+      // use that to tell the backend where the file is.
+      if (result.original_path) {
+        formData.append("originalFilePath", result.original_path);
+      } else if (currentProjectId) {
+        // If it's a library project without separated stems, we need to
+        // figure out how to pass the source file to the Python engine.
+        // For now, this branch is not fully implemented as original_path
+        // is designed for the current session's analysis.
+        setError("Stem separation for existing library projects not yet fully implemented.");
+        setIsSeparatingStems(false);
+        setImportProgress(null);
+        return;
+      } else {
+        setError("Cannot determine source file for stem separation.");
+        setIsSeparatingStems(false);
+        setImportProgress(null);
+        return;
+      }
+
+
+      const resp = await fetch(apiEndpoint, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!resp.ok) {
+        let errorMsg = `Stem separation failed: HTTP ${resp.status}`;
+        try {
+          const errData = await resp.json();
+          errorMsg = errData.message || errorMsg;
+        } catch {
+          // response is not json
+        }
+        setError(errorMsg);
+        setIsSeparatingStems(false);
+        setImportProgress(null);
+        return;
+      }
+
+      const data: { extracted_stems: Record<string, string> } =
+        await resp.json();
+
+      if (data.extracted_stems && Object.keys(data.extracted_stems).length > 0) {
+        // Update the result state with the new extracted stems
+        setResult((prev) => ({
+          ...prev,
+          extracted_stems: data.extracted_stems,
+        }));
+        // Load the newly separated stems into the audio elements
+        loadStemsFromPath(data.extracted_stems);
+
+        // Reset mixer states for the newly loaded stems
+        const initialVolumes: Record<string, number> = {};
+        const initialMutes: Record<string, boolean> = {};
+        const initialSolos: Record<string, boolean> = {};
+        Object.keys(data.extracted_stems).forEach((stem) => {
+          initialVolumes[stem] = 80;
+          initialMutes[stem] = false;
+          initialSolos[stem] = false;
+        });
+        setVolumes(initialVolumes);
+        setMutes(initialMutes);
+        setSolos(initialSolos);
+
+      } else {
+        setError("Stem separation returned no stems.");
+      }
+    } catch (e: any) {
+      setError("Network error during stem separation: " + e.message);
+    } finally {
+      setIsSeparatingStems(false);
+      setImportProgress(null);
+    }
+  };
+
+
   const formatTime = (sec: number) => {
     if (!Number.isFinite(sec) || sec < 0) return "00:00";
     const m = Math.floor(sec / 60);
@@ -1577,15 +1783,15 @@ export default function App() {
     return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
   };
 
-  const setMixerVolume = (stem: keyof typeof volumes, val: number) => {
+  const setMixerVolume = (stem: string, val: number) => {
     setVolumes((prev) => ({ ...prev, [stem]: val }));
   };
 
-  const toggleMute = (stem: keyof typeof mutes) => {
+  const toggleMute = (stem: string) => {
     setMutes((prev) => ({ ...prev, [stem]: !prev[stem] }));
   };
 
-  const toggleSolo = (stem: keyof typeof solos) => {
+  const toggleSolo = (stem: string) => {
     setSolos((prev) => ({ ...prev, [stem]: !prev[stem] }));
   };
 
@@ -1598,7 +1804,7 @@ export default function App() {
     if (isExporting) return;
     setIsExporting(true);
     try {
-      const stemKeys = ["drums", "bass", "other", "vocals"] as const;
+      const stemKeys = Object.keys(stems.current);
       const anySolo = Object.values(solos).some((s) => s);
 
       // Decode each stem's MP3 into an AudioBuffer via a temporary AudioContext
@@ -1635,7 +1841,7 @@ export default function App() {
         const buf = decoded[i];
         if (!buf) return;
 
-        let vol = (volumes[k] / 100) * (masterVol / 100);
+        let vol = (volumes[k] ?? 0 / 100) * (masterVol / 100);
         if (mutes[k]) vol = 0;
         if (anySolo && !solos[k]) vol = 0;
         vol = Math.max(0, Math.min(1, vol));
@@ -1714,6 +1920,12 @@ export default function App() {
       ? ["I", "II", "III", "IV", "V", "VI", "VII"]
       : ["i", "ii", "♭III", "iv", "v", "♭VI", "♭VII"];
   // ─────────────────────────────────────────────────────────────────────────
+
+  const canSeparateStems =
+    nowPlaying !== null && // A song is loaded
+    result?.original_path !== undefined && // We have the original path to the file on the server
+    (!result?.extracted_stems || Object.keys(result.extracted_stems).length === 0); // Stems haven't been separated yet
+
 
   return (
     <div className="app-container">
@@ -1870,64 +2082,42 @@ export default function App() {
         </div>
       </div>
 
-      {/* COLUMN 2: CHORDS & SCALES */}
-      <div className="col-chords">
-        <div className="glass-panel" style={{ flex: 1 }}>
-          <div className="panel-header">
-            <button
-              className="btn-fold"
-              onClick={() => setShowChords(!showChords)}
-              title={showChords ? "Collapse panel" : "Expand panel"}
-            >
-              {showChords ? "▲" : "▼"}
-            </button>
-            <span className="section-title" style={{ margin: 0 }}>
-              CHORD / SCALE
-            </span>
-            {/* spacer to keep title centered */}
-            <div style={{ width: "24px" }} />
-          </div>
-
-          <div
-            className={`panel-content-collapsible ${showChords ? "" : "is-folded"}`}
-            style={{ display: "flex", flexDirection: "column", flex: 1 }}
+      {/* COLUMN 2: ANALYSIS & VISUALIZATION */}
+      <div className="col-analysis">
+        <div className="tabs">
+          <button
+            className={`tab-button ${activeTab === "chord" ? "active" : ""}`}
+            onClick={() => setActiveTab("chord")}
           >
-            <div className="flex gap-2 mb-2">
-              <button
-                className={`btn-primary w-full ${activeTab === "chord" ? "active" : ""}`}
-                onClick={() => setActiveTab("chord")}
-              >
-                Chord
-              </button>
-              <button
-                className={`btn-primary w-full ${activeTab === "scale" ? "active" : ""}`}
-                onClick={() => setActiveTab("scale")}
-              >
-                Scale
-              </button>
-            </div>
+            CHORDS
+          </button>
+          <button
+            className={`tab-button ${activeTab === "scale" ? "active" : ""}`}
+            onClick={() => setActiveTab("scale")}
+          >
+            SCALE
+          </button>
+        </div>
 
+        <div className="tab-content">
+          <div className="flex flex-col gap-2" style={{ flex: 1 }}>
             {activeTab === "chord" && (
-              <div
-                className="flex flex-col items-stretch"
-                style={{ flex: 1, gap: 10 }}
-              >
-                {/* Active chord display */}
-                {activeChordDisplay ? (
+              <div className="flex flex-col" style={{ flex: 1, gap: 8 }}>
+                <div
+                  className="glass-panel-inner text-center"
+                  style={{ padding: "8px 10px" }}
+                >
                   <div
-                    className="glass-panel-inner text-center"
-                    style={{ padding: "6px 8px" }}
+                    style={{
+                      fontSize: "10px",
+                      color: "#888",
+                      letterSpacing: "2px",
+                      marginBottom: 4,
+                    }}
                   >
-                    <div
-                      style={{
-                        fontSize: "10px",
-                        color: "#888",
-                        letterSpacing: "1px",
-                        marginBottom: 3,
-                      }}
-                    >
-                      ACTIVE CHORD
-                    </div>
+                    ACTIVE CHORD
+                  </div>
+                  {activeChordDisplay ? (
                     <div
                       style={{
                         fontSize: "20px",
@@ -1937,60 +2127,6 @@ export default function App() {
                     >
                       {activeChordDisplay}
                     </div>
-                    <div
-                      style={{
-                        fontSize: "11px",
-                        color: "var(--neon-cyan)",
-                        marginTop: 3,
-                        letterSpacing: "1px",
-                      }}
-                    >
-                      {[...activeChordTones].join(" · ")}
-                    </div>
-                  </div>
-                ) : (
-                  <div
-                    className="glass-panel-inner text-center"
-                    style={{ padding: "10px" }}
-                  >
-                    <div style={{ fontSize: "13px", color: "#555" }}>
-                      {result?.chords
-                        ? "Waiting for playback..."
-                        : "Waiting for analysis..."}
-                    </div>
-                  </div>
-                )}
-
-                {/* Upcoming row */}
-                {upcomingChords.length > 0 && (
-                  <div
-                    className="flex items-center justify-center gap-3 px-2 py-1"
-                    style={{ opacity: 0.8 }}
-                  >
-                    {upcomingChords.map((ch, i) => (
-                      <div
-                        key={i}
-                        style={{
-                          fontSize: "13px",
-                          color: "white",
-                          fontWeight: "600",
-                        }}
-                      >
-                        {transposeChord(ch.chord, transposeSteps)}
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Active chord diagram */}
-                <div className="flex-1 flex items-center justify-center">
-                  {activeChordIdx !== -1 ? (
-                    <ChordDiagram
-                      chord={transposeChord(
-                        result!.chords![activeChordIdx].chord,
-                        transposeSteps,
-                      )}
-                    />
                   ) : (
                     <div
                       style={{
@@ -2334,16 +2470,7 @@ export default function App() {
                     }}
                   />
                 </div>
-                <div
-                  style={{
-                    fontSize: 10,
-                    color: "#555",
-                    marginTop: 4,
-                    textAlign: "center",
-                  }}
-                >
-                  This may take 4-6 minutes (Demucs stem separation)
-                </div>
+                {/* No Demucs message for quick analysis */}
               </div>
             ) : (
               <>
@@ -2561,6 +2688,17 @@ export default function App() {
             <span className="section-title" style={{ margin: 0 }}>
               STEM MIXER
             </span>
+            {canSeparateStems && (
+              <button
+                className="btn-primary"
+                onClick={() => setShowSeparateStemsModal(true)}
+                disabled={isSeparatingStems || loading}
+                title={isSeparatingStems ? "Separating stems..." : "Separate Stems"}
+                style={{ padding: "4px 10px", fontSize: "10px" }}
+              >
+                {isSeparatingStems ? "Separating..." : "Separate Stems"}
+              </button>
+            )}
             <button
               className="btn-fold"
               onClick={() => setShowStemMixer(!showStemMixer)}
@@ -2573,49 +2711,105 @@ export default function App() {
             className={`panel-content-collapsible ${showStemMixer ? "" : "is-folded"}`}
           >
             <div className="mixer-grid">
-              {(["drums", "bass", "other", "vocals"] as const).map((stem) => (
-                <div key={stem} className="mixer-channel">
-                  <span
-                    style={{
-                      fontSize: "11px",
-                      fontWeight: "bold",
-                      color: "#888",
-                    }}
-                  >
-                    {stem.toUpperCase()}
-                  </span>
-                  <div className="vertical-slider-container">
-                    <input
-                      type="range"
-                      className="vertical-slider"
-                      min="1"
-                      max="100"
-                      value={volumes[stem]}
-                      onChange={(e) =>
-                        setMixerVolume(stem, Number(e.target.value))
-                      }
+              {result?.extracted_stems && Object.keys(result.extracted_stems).length > 0 ? (
+                Object.keys(stems.current).map((stem) => (
+                  <div key={stem} className="mixer-channel">
+                    <span
+                      style={{
+                        fontSize: "11px",
+                        fontWeight: "bold",
+                        color: "#888",
+                      }}
+                    >
+                      {stem.toUpperCase()}
+                    </span>
+                    <div className="vertical-slider-container">
+                      <input
+                        type="range"
+                        className="vertical-slider"
+                        min="1"
+                        max="100"
+                        value={volumes[stem] ?? 80}
+                        onChange={(e) =>
+                          setMixerVolume(stem, Number(e.target.value))
+                        }
+                      />
+                    </div>
+                    <VolumeInput
+                      value={volumes[stem] ?? 80}
+                      onChange={(val) => setMixerVolume(stem, val)}
                     />
+                    <div className="flex gap-1">
+                      <button
+                        className={`toggle-btn toggle-mute ${mutes[stem] ? "active" : ""}`}
+                        onClick={() => toggleMute(stem)}
+                      >
+                        M
+                      </button>
+                      <button
+                        className={`toggle-btn toggle-solo ${solos[stem] ? "active" : ""}`}
+                        onClick={() => toggleSolo(stem)}
+                      >
+                        S
+                      </button>
+                    </div>
                   </div>
-                  <VolumeInput
-                    value={volumes[stem]}
-                    onChange={(val) => setMixerVolume(stem, val)}
-                  />
-                  <div className="flex gap-1">
-                    <button
-                      className={`toggle-btn toggle-mute ${mutes[stem] ? "active" : ""}`}
-                      onClick={() => toggleMute(stem)}
+                ))
+              ) : nowPlaying && !result?.extracted_stems && result?.original_path ? (
+                // If a song is loaded and stems not separated yet, show a placeholder for the original track
+                <div key="original" className="mixer-channel">
+                    <span
+                      style={{
+                        fontSize: "11px",
+                        fontWeight: "bold",
+                        color: "#888",
+                      }}
                     >
-                      M
-                    </button>
-                    <button
-                      className={`toggle-btn toggle-solo ${solos[stem] ? "active" : ""}`}
-                      onClick={() => toggleSolo(stem)}
-                    >
-                      S
-                    </button>
+                      ORIGINAL
+                    </span>
+                    <div className="vertical-slider-container">
+                      <input
+                        type="range"
+                        className="vertical-slider"
+                        min="1"
+                        max="100"
+                        value={volumes["drums"] ?? 80} // Use drums volume for original
+                        onChange={(e) =>
+                          setMixerVolume("drums", Number(e.target.value))
+                        }
+                      />
+                    </div>
+                    <VolumeInput
+                      value={volumes["drums"] ?? 80}
+                      onChange={(val) => setMixerVolume("drums", val)}
+                    />
+                    <div className="flex gap-1">
+                      <button
+                        className={`toggle-btn toggle-mute ${mutes["drums"] ? "active" : ""}`}
+                        onClick={() => toggleMute("drums")}
+                      >
+                        M
+                      </button>
+                      <button
+                        className={`toggle-btn toggle-solo ${solos["drums"] ? "active" : ""}`}
+                        onClick={() => toggleSolo("drums")}
+                      >
+                        S
+                      </button>
+                    </div>
                   </div>
+              ) : (
+                <div
+                  style={{
+                    fontSize: "12px",
+                    color: "#555",
+                    textAlign: "center",
+                    padding: "20px",
+                  }}
+                >
+                  No stems loaded. Import a song to get started.
                 </div>
-              ))}
+              )}
             </div>
           </div>
         </div>
@@ -2736,6 +2930,69 @@ export default function App() {
         />
       </div>
       <SpeedInsights />
+
+      {/* Separate Stems Modal */}
+      {showSeparateStemsModal && (
+        <div className="modal-overlay">
+          <div className="modal-content glass-panel" style={{ minWidth: "400px" }}>
+            <h2 className="text-xl font-bold mb-4 neon-text-gradient">Separate Stems</h2>
+            <p className="mb-4 text-sm text-gray-400">
+              Select which stems you'd like to extract from the track.
+              More stems will take longer to process.
+            </p>
+            <div className="flex flex-wrap gap-2 mb-6">
+              {DEFAULT_STEMS.map((stem) => (
+                <label key={stem} className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    checked={selectedStems.includes(stem)}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedStems((prev) => [...prev, stem]);
+                      } else {
+                        setSelectedStems((prev) =>
+                          prev.filter((s) => s !== stem),
+                        );
+                      }
+                    }}
+                    className="form-checkbox h-4 w-4 text-cyan-600 transition duration-150 ease-in-out"
+                  />
+                  <span className="text-gray-200 capitalize">{stem}</span>
+                </label>
+              ))}
+            </div>
+
+            {isSeparatingStems && (
+              <div className="w-full bg-gray-700 rounded-full h-2.5 mb-4">
+                <div
+                  className="bg-cyan-600 h-2.5 rounded-full"
+                  style={{ width: `${separateStemsProgress}%` }}
+                ></div>
+              </div>
+            )}
+
+            <div className="flex justify-end gap-3">
+              <button
+                className="btn-secondary"
+                onClick={() => {
+                  setShowSeparateStemsModal(false);
+                  setSelectedStems([]);
+                }}
+                disabled={isSeparatingStems}
+              >
+                Cancel
+              </button>
+              <button
+                className="btn-primary"
+                onClick={handleSeparateStems}
+                disabled={selectedStems.length === 0 || isSeparatingStems}
+              >
+                {isSeparatingStems ? "Separating..." : "Separate"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
