@@ -11,6 +11,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.106.2",
     "@vercel/speed-insights": "^2.0.0",
     "path-browserify": "^1.0.1",
     "react": "^19.2.6",

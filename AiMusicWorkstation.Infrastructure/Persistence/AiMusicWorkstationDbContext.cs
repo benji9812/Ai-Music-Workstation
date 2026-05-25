@@ -12,6 +12,7 @@ public class AiMusicWorkstationDbContext : DbContext
 
     public DbSet<SongProject> Projects { get; set; } = null!;
     public DbSet<SongGroup> SongGroups { get; set; } = null!;
+    public DbSet<Profile> Profiles { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -22,5 +23,16 @@ public class AiMusicWorkstationDbContext : DbContext
             .WithMany(g => g.Songs)
             .HasForeignKey(p => p.GroupId)
             .OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<Profile>()
+            .ToTable("profiles");
+
+        modelBuilder.Entity<SongProject>()
+            .Property(p => p.UserId)
+            .HasColumnName("user_id");
+
+        modelBuilder.Entity<SongGroup>()
+            .Property(g => g.UserId)
+            .HasColumnName("user_id");
     }
 }

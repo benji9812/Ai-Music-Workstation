@@ -19,12 +19,12 @@ public class LibraryRepository : ILibraryRepository
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
-    public async Task<List<SongProject>> GetAllAsync(CancellationToken cancellationToken = default)
+    public async Task<List<SongProject>> GetAllAsync(Guid? userId = null, CancellationToken cancellationToken = default)
     {
         try
         {
-            _logger.LogDebug("Retrieving all projects from library");
-            var result = await _inner.GetAllAsync(cancellationToken);
+            _logger.LogDebug("Retrieving all projects from library for user {UserId}", userId);
+            var result = await _inner.GetAllAsync(userId, cancellationToken);
             _logger.LogInformation("Retrieved {Count} projects from library", result.Count);
             return result;
         }
@@ -35,12 +35,12 @@ public class LibraryRepository : ILibraryRepository
         }
     }
 
-    public async Task<SongProject?> GetByIdAsync(string id, CancellationToken cancellationToken = default)
+    public async Task<SongProject?> GetByIdAsync(string id, Guid? userId = null, CancellationToken cancellationToken = default)
     {
         try
         {
-            _logger.LogDebug("Retrieving project with ID {Id}", id);
-            var result = await _inner.GetByIdAsync(id, cancellationToken);
+            _logger.LogDebug("Retrieving project with ID {Id} for user {UserId}", id, userId);
+            var result = await _inner.GetByIdAsync(id, userId, cancellationToken);
             return result;
         }
         catch (Exception ex)
@@ -54,7 +54,7 @@ public class LibraryRepository : ILibraryRepository
     {
         try
         {
-            _logger.LogInformation("Adding project: {Title}", project.Title);
+            _logger.LogInformation("Adding project: {Title} for user {UserId}", project.Title, project.UserId);
             await _inner.AddAsync(project, cancellationToken);
         }
         catch (Exception ex)
@@ -68,7 +68,7 @@ public class LibraryRepository : ILibraryRepository
     {
         try
         {
-            _logger.LogInformation("Updating project: {Title}", project.Title);
+            _logger.LogInformation("Updating project: {Title} for user {UserId}", project.Title, project.UserId);
             await _inner.UpdateAsync(project, cancellationToken);
         }
         catch (Exception ex)
@@ -78,12 +78,12 @@ public class LibraryRepository : ILibraryRepository
         }
     }
 
-    public async Task DeleteAsync(string id, CancellationToken cancellationToken = default)
+    public async Task DeleteAsync(string id, Guid? userId = null, CancellationToken cancellationToken = default)
     {
         try
         {
-            _logger.LogInformation("Deleting project: {Id}", id);
-            await _inner.DeleteAsync(id, cancellationToken);
+            _logger.LogInformation("Deleting project: {Id} for user {UserId}", id, userId);
+            await _inner.DeleteAsync(id, userId, cancellationToken);
         }
         catch (Exception ex)
         {

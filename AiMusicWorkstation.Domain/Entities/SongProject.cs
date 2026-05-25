@@ -34,5 +34,7 @@ namespace AiMusicWorkstation.Domain.Entities
         // Grouping
         public Guid? GroupId { get; set; }
         public SongGroup? Group { get; set; }
+
+        public Guid? UserId { get; set; }
     }
 }

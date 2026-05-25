@@ -4,9 +4,12 @@ using AiMusicWorkstation.Domain.Repositories;
 using Microsoft.AspNetCore.Mvc;
 using System.Text.Json;
 using System.IO;
+using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
 
 namespace AiMusicWorkstation.Api.Controllers;
 
+[Authorize]
 [ApiController]
 [Route("api/[controller]")]
 public class AnalysisController : ControllerBase
@@ -20,7 +23,18 @@ public class AnalysisController : ControllerBase
         _repository = repository ?? throw new ArgumentNullException(nameof(repository));
     }
 
+    private Guid? GetUserId()
+    {
+        var sub = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
+        if (Guid.TryParse(sub, out var userId))
+        {
+            return userId;
+        }
+        return null;
+    }
+
     // GET /api/analysis/health
+    [AllowAnonymous]
     [HttpGet("health")]
     public async Task<IActionResult> Health()
     {
@@ -35,6 +49,7 @@ public class AnalysisController : ControllerBase
         if (file == null)
             return BadRequest(new { status = "error", message = "File missing" });
 
+        var userId = GetUserId();
         string response = await _client.AnalyzeAsync(file);
 
         try
@@ -66,7 +81,8 @@ public class AnalysisController : ControllerBase
                     DateAdded = DateTime.Now,
                     BpmSource = DataSource.Analysis,
                     KeySource = DataSource.Analysis,
-                    TimeSigSource = DataSource.Analysis
+                    TimeSigSource = DataSource.Analysis,
+                    UserId = userId
                 };
 
                 await _repository.AddAsync(project);
@@ -104,6 +120,7 @@ public class AnalysisController : ControllerBase
     }
 
     // GET /api/analysis/audio/{path}
+    [AllowAnonymous]
     [HttpGet("audio/{*path}")]
     public async Task<IActionResult> GetAudio(string path, [FromServices] PythonEngineConfig config, [FromServices] IHttpClientFactory clientFactory)
     {
@@ -120,7 +137,8 @@ public class AnalysisController : ControllerBase
     [HttpGet("project/{id}")]
     public async Task<IActionResult> GetProjectAnalysis(string id)
     {
-        var project = await _repository.GetByIdAsync(id);
+        var userId = GetUserId();
+        var project = await _repository.GetByIdAsync(id, userId);
         if (project == null || string.IsNullOrEmpty(project.StemsPath))
         {
             return NotFound(new { status = "error", message = "Project or stems path not found." });
@@ -133,7 +151,8 @@ public class AnalysisController : ControllerBase
     [HttpPatch("/api/songs/{id}/structure")]
     public async Task<IActionResult> UpdateStructure(string id, [FromBody] UpdateStructureRequest request)
     {
-        var project = await _repository.GetByIdAsync(id);
+        var userId = GetUserId();
+        var project = await _repository.GetByIdAsync(id, userId);
         if (project == null)
         {
             return NotFound(new { status = "error", message = "Project not found." });

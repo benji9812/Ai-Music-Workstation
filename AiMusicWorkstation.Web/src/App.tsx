@@ -4,6 +4,9 @@ import { SpeedInsights } from "@vercel/speed-insights/react";
 import * as path from "path-browserify";
 import "./index.css";
 import { ChordDiagram } from "./ChordDiagram";
+import { supabase } from "./supabaseClient";
+import { Auth } from "./Auth";
+import { Landing } from "./Landing";
 
 type LyricSegment = { start: number; end: number; text: string };
 type ChordEntry = { time: number; chord: string };
@@ -751,6 +754,35 @@ const VolumeInput = ({
 };
 
 export default function App() {
+  const [session, setSession] = useState<any>(null);
+  const [authView, setAuthView] = useState<"landing" | "auth">("landing");
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const authFetch = React.useCallback(
+    async (url: string, options: RequestInit = {}) => {
+      const token = session?.access_token;
+      const headers = {
+        ...options.headers,
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      };
+      return window.fetch(url, { ...options, headers });
+    },
+    [session],
+  );
+
   const [activeTab, setActiveTab] = useState<"chord" | "scale">("chord");
 
   // Audio playback states
@@ -817,8 +849,8 @@ export default function App() {
   const fetchLibrary = async () => {
     try {
       const [projectsResp, groupsResp] = await Promise.all([
-        fetch(`${API_URL}/api/library/projects`),
-        fetch(`${API_URL}/api/groups`),
+        authFetch(`${API_URL}/api/library/projects`),
+        authFetch(`${API_URL}/api/groups`),
       ]);
       if (projectsResp.ok) {
         const data = await projectsResp.json();
@@ -836,7 +868,7 @@ export default function App() {
 
   const createGroup = async (name: string) => {
     try {
-      const resp = await fetch(`${API_URL}/api/groups`, {
+      const resp = await authFetch(`${API_URL}/api/groups`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name }),
@@ -859,7 +891,7 @@ export default function App() {
     )
       return;
     try {
-      const resp = await fetch(`${API_URL}/api/groups/${id}`, {
+      const resp = await authFetch(`${API_URL}/api/groups/${id}`, {
         method: "DELETE",
       });
       if (resp.ok) fetchLibrary();
@@ -870,7 +902,7 @@ export default function App() {
 
   const moveSongToGroup = async (songId: string, groupId: string | null) => {
     try {
-      const resp = await fetch(
+      const resp = await authFetch(
         `${API_URL}/api/library/projects/${songId}/group`,
         {
           method: "PATCH",
@@ -895,9 +927,12 @@ export default function App() {
 
   const deleteProject = async (id: string) => {
     try {
-      await fetch(`${API_URL}/api/library/projects/${id}?deleteFiles=true`, {
-        method: "DELETE",
-      });
+      await authFetch(
+        `${API_URL}/api/library/projects/${id}?deleteFiles=true`,
+        {
+          method: "DELETE",
+        },
+      );
       refreshLibrary();
     } catch (e) {
       console.error("Failed to delete project", e);
@@ -913,7 +948,7 @@ export default function App() {
     const updatedProject = { title, artist };
 
     try {
-      const resp = await fetch(
+      const resp = await authFetch(
         `${API_URL}/api/library/projects/${project.id}`,
         {
           method: "PATCH",
@@ -1053,11 +1088,11 @@ export default function App() {
     setIsStructureLoading(true);
 
     try {
-      const analysisPromise = fetch(
+      const analysisPromise = authFetch(
         `${API_URL}/api/analysis/project/${p.id}`,
       ).then((res) => (res.ok ? res.json() : null));
 
-      const structurePromise = fetch(`${API_URL}/api/analysis/structure`, {
+      const structurePromise = authFetch(`${API_URL}/api/analysis/structure`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1094,7 +1129,7 @@ export default function App() {
 
     try {
       // Start the async job for quick analysis
-      const startResp = await fetch(
+      const startResp = await authFetch(
         `${API_URL}/api/import/start-analyze-quick-job`,
         {
           method: "POST",
@@ -1116,7 +1151,7 @@ export default function App() {
       if (pollRef.current) clearInterval(pollRef.current);
       pollRef.current = setInterval(async () => {
         try {
-          const statusResp = await fetch(
+          const statusResp = await authFetch(
             `${API_URL}/api/import/status/${jobId}`,
           );
           const statusData = await statusResp.json();
@@ -1165,7 +1200,7 @@ export default function App() {
 
             setIsStructureLoading(true);
             try {
-              const structResp = await fetch(
+              const structResp = await authFetch(
                 `${API_URL}/api/analysis/structure`,
                 {
                   method: "POST",
@@ -1542,7 +1577,7 @@ export default function App() {
     setStructure({ sections });
     if (!currentProjectId) return;
     try {
-      const resp = await fetch(
+      const resp = await authFetch(
         `${API_URL}/api/songs/${currentProjectId}/structure`,
         {
           method: "PATCH",
@@ -1695,15 +1730,18 @@ export default function App() {
 
         setIsStructureLoading(true);
         try {
-          const structResp = await fetch(`${API_URL}/api/analysis/structure`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              artist: "Local Upload",
-              title: fileName,
-              duration: data.duration_seconds || 180,
-            }),
-          });
+          const structResp = await authFetch(
+            `${API_URL}/api/analysis/structure`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                artist: "Local Upload",
+                title: fileName,
+                duration: data.duration_seconds || 180,
+              }),
+            },
+          );
           const structData = await structResp.json();
           if (structResp.ok && !structData.error) setStructure(structData);
         } catch {
@@ -1788,7 +1826,7 @@ export default function App() {
         return;
       }
 
-      const resp = await fetch(apiEndpoint, {
+      const resp = await authFetch(apiEndpoint, {
         method: "POST",
         body: formData,
       });
@@ -1883,7 +1921,7 @@ export default function App() {
           const src = stems.current[k].src;
           if (!src) return null;
           try {
-            const resp = await fetch(src);
+            const resp = await authFetch(src);
             if (!resp.ok) return null;
             const ab = await resp.arrayBuffer();
             return decodingCtx.decodeAudioData(ab);
@@ -2070,6 +2108,14 @@ export default function App() {
     </div>
   );
 
+  if (!session) {
+    return authView === "landing" ? (
+      <Landing onGetStarted={() => setAuthView("auth")} />
+    ) : (
+      <Auth onSession={(s) => setSession(s)} />
+    );
+  }
+
   return (
     <div className="app-container">
       {/* COLUMN 1: LIBRARY */}
@@ -2089,6 +2135,17 @@ export default function App() {
                 LIBRARY
               </span>
               <div className="flex gap-1">
+                <button
+                  className="btn-icon"
+                  title="Logout"
+                  onClick={async () => {
+                    await supabase.auth.signOut();
+                    setSession(null);
+                    setAuthView("landing");
+                  }}
+                >
+                  🚪
+                </button>
                 <button
                   className="btn-icon"
                   title="New Group"
@@ -2112,7 +2169,7 @@ export default function App() {
                       return;
                     }
                     try {
-                      const resp = await fetch(
+                      const resp = await authFetch(
                         `${API_URL}/api/library/rescan-stems`,
                         { method: "POST" },
                       );

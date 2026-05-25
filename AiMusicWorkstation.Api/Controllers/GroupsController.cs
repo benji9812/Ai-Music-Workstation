@@ -1,10 +1,13 @@
 using AiMusicWorkstation.Domain.Entities;
 using AiMusicWorkstation.Infrastructure.Persistence;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 
 namespace AiMusicWorkstation.Api.Controllers;
 
+[Authorize]
 [ApiController]
 [Route("api/[controller]")]
 public class GroupsController : ControllerBase
@@ -16,10 +19,22 @@ public class GroupsController : ControllerBase
         _context = context;
     }
 
+    private Guid? GetUserId()
+    {
+        var sub = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
+        if (Guid.TryParse(sub, out var userId))
+        {
+            return userId;
+        }
+        return null;
+    }
+
     [HttpGet]
     public async Task<IActionResult> GetGroups()
     {
+        var userId = GetUserId();
         var groups = await _context.SongGroups
+            .Where(g => g.UserId == userId)
             .OrderBy(g => g.Name)
             .ToListAsync();
         return Ok(groups);
@@ -30,7 +45,12 @@ public class GroupsController : ControllerBase
     {
         if (string.IsNullOrWhiteSpace(dto.Name)) return BadRequest("Name is required");
 
-        var group = new SongGroup { Name = dto.Name };
+        var userId = GetUserId();
+        var group = new SongGroup
+        {
+            Name = dto.Name,
+            UserId = userId
+        };
         _context.SongGroups.Add(group);
         await _context.SaveChangesAsync();
 
@@ -40,7 +60,8 @@ public class GroupsController : ControllerBase
     [HttpPut("{id}")]
     public async Task<IActionResult> UpdateGroup(Guid id, [FromBody] UpdateGroupDto dto)
     {
-        var group = await _context.SongGroups.FindAsync(id);
+        var userId = GetUserId();
+        var group = await _context.SongGroups.FirstOrDefaultAsync(g => g.Id == id && g.UserId == userId);
         if (group == null) return NotFound();
 
         if (!string.IsNullOrWhiteSpace(dto.Name))
@@ -55,7 +76,8 @@ public class GroupsController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteGroup(Guid id)
     {
-        var group = await _context.SongGroups.FindAsync(id);
+        var userId = GetUserId();
+        var group = await _context.SongGroups.FirstOrDefaultAsync(g => g.Id == id && g.UserId == userId);
         if (group == null) return NotFound();
 
         _context.SongGroups.Remove(group);

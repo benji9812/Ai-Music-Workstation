@@ -1,8 +1,13 @@
 using AiMusicWorkstation.Infrastructure.ExternalServices;
 using AiMusicWorkstation.Infrastructure.Persistence;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using Npgsql;
 using Scalar.AspNetCore;
+using System.Security.Claims;
+using System.Text;
+using System.Text.Json;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -28,6 +33,50 @@ builder.Services.AddCors(options =>
         .AllowAnyHeader());
 });
 // === ===
+
+// Authentication
+var jwtSecret = builder.Configuration["SUPABASE_JWT_SECRET"];
+if (!string.IsNullOrEmpty(jwtSecret))
+{
+    var key = Encoding.UTF8.GetBytes(jwtSecret);
+    builder.Services.AddAuthentication(options =>
+    {
+        options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+        options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+    })
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(key),
+            ValidateIssuer = false,
+            ValidateAudience = true,
+            ValidAudience = "authenticated",
+            ValidateLifetime = true,
+            ClockSkew = TimeSpan.Zero
+        };
+        options.Events = new JwtBearerEvents
+        {
+            OnTokenValidated = context =>
+            {
+                if (context.Principal?.Identity is ClaimsIdentity identity)
+                {
+                    var appMetadata = identity.FindFirst("app_metadata")?.Value;
+                    if (!string.IsNullOrEmpty(appMetadata))
+                    {
+                        using var doc = JsonDocument.Parse(appMetadata);
+                        if (doc.RootElement.TryGetProperty("role", out var roleElement))
+                        {
+                            identity.AddClaim(new Claim(ClaimTypes.Role, roleElement.GetString() ?? "user"));
+                        }
+                    }
+                }
+                return Task.CompletedTask;
+            }
+        };
+    });
+}
 
 // Services
 builder.Services.AddControllers();
@@ -106,6 +155,7 @@ if (!usesPortBinding)
 app.UseCors("AllowWeb");
 // === ===
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();

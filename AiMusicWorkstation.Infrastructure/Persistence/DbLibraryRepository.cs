@@ -13,18 +13,34 @@ public class DbLibraryRepository : ILibraryRepository
         _context = context ?? throw new ArgumentNullException(nameof(context));
     }
 
-    public async Task<List<SongProject>> GetAllAsync(CancellationToken cancellationToken = default)
+    public async Task<List<SongProject>> GetAllAsync(Guid? userId = null, CancellationToken cancellationToken = default)
     {
-        return await _context.Projects
+        var query = _context.Projects
             .Include(p => p.Group)
+            .AsQueryable();
+
+        if (userId.HasValue)
+        {
+            query = query.Where(p => p.UserId == userId.Value);
+        }
+
+        return await query
             .OrderByDescending(p => p.DateAdded)
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<SongProject?> GetByIdAsync(string id, CancellationToken cancellationToken = default)
+    public async Task<SongProject?> GetByIdAsync(string id, Guid? userId = null, CancellationToken cancellationToken = default)
     {
-        return await _context.Projects
+        var query = _context.Projects
             .Include(p => p.Group)
+            .AsQueryable();
+
+        if (userId.HasValue)
+        {
+            query = query.Where(p => p.UserId == userId.Value);
+        }
+
+        return await query
             .FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
     }
 
@@ -48,9 +64,15 @@ public class DbLibraryRepository : ILibraryRepository
         }
     }
 
-    public async Task DeleteAsync(string id, CancellationToken cancellationToken = default)
+    public async Task DeleteAsync(string id, Guid? userId = null, CancellationToken cancellationToken = default)
     {
-        var existing = await _context.Projects.FindAsync(new object[] { id }, cancellationToken);
+        var query = _context.Projects.AsQueryable();
+        if (userId.HasValue)
+        {
+            query = query.Where(p => p.UserId == userId.Value);
+        }
+
+        var existing = await query.FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
         if (existing != null)
         {
             _context.Projects.Remove(existing);

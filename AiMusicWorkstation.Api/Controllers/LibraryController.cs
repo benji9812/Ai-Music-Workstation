@@ -6,9 +6,12 @@ using AiMusicWorkstation.Infrastructure.Persistence;
 using AiMusicWorkstation.Infrastructure.ExternalServices;
 using System.Text.Json;
 using Npgsql;
+using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
 
 namespace AiMusicWorkstation.Api.Controllers;
 
+[Authorize]
 [ApiController]
 [Route("api/[controller]")]
 public class LibraryController : ControllerBase
@@ -20,11 +23,23 @@ public class LibraryController : ControllerBase
         _repository = repository ?? throw new ArgumentNullException(nameof(repository));
     }
 
+    private Guid? GetUserId()
+    {
+        var sub = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
+        if (Guid.TryParse(sub, out var userId))
+        {
+            return userId;
+        }
+        return null;
+    }
+
+    [AllowAnonymous]
     [HttpGet("db-check")]
     public async Task<IActionResult> DbCheck(
         [FromServices] AiMusicWorkstationDbContext context,
         [FromServices] PythonEngineConfig pythonConfig)
     {
+        // ... (rest of the method remains the same)
         string connectionString = "";
         string sanitizedConnString = "";
         try
@@ -90,7 +105,7 @@ public class LibraryController : ControllerBase
     [HttpGet("projects")]
     public async Task<IActionResult> GetProjects()
     {
-        var projects = await _repository.GetAllAsync();
+        var projects = await _repository.GetAllAsync(GetUserId());
         return Ok(projects);
     }
 
@@ -99,10 +114,11 @@ public class LibraryController : ControllerBase
     {
         if (string.IsNullOrEmpty(id)) return BadRequest();
 
-        var project = await _repository.GetByIdAsync(id);
+        var userId = GetUserId();
+        var project = await _repository.GetByIdAsync(id, userId);
         if (project == null) return NotFound();
 
-        await _repository.DeleteAsync(id);
+        await _repository.DeleteAsync(id, userId);
         await _repository.SaveAsync();
 
         if (deleteFiles)
@@ -119,7 +135,8 @@ public class LibraryController : ControllerBase
     {
         if (string.IsNullOrEmpty(id)) return BadRequest();
 
-        var existingProject = await _repository.GetByIdAsync(id);
+        var userId = GetUserId();
+        var existingProject = await _repository.GetByIdAsync(id, userId);
         if (existingProject == null) return NotFound();
 
         if (!string.IsNullOrWhiteSpace(projectDto.Title))
@@ -142,7 +159,8 @@ public class LibraryController : ControllerBase
     {
         if (string.IsNullOrEmpty(id)) return BadRequest();
 
-        var existingProject = await _repository.GetByIdAsync(id);
+        var userId = GetUserId();
+        var existingProject = await _repository.GetByIdAsync(id, userId);
         if (existingProject == null) return NotFound();
 
         if (dto.GroupId == null)
@@ -160,20 +178,22 @@ public class LibraryController : ControllerBase
         return Ok(new { status = "success" });
     }
 
+    [Authorize(Roles = "admin")]
     [HttpPost("rescan-stems")]
     public async Task<IActionResult> RescanStems(
         [FromServices] PythonEngineClient pythonClient,
         [FromServices] ILogger<LibraryController> logger)
     {
         int added = 0;
+        var userId = GetUserId();
         try
         {
             var json = await pythonClient.RescanStemsAsync();
             using var doc = JsonDocument.Parse(json);
             var stemsArr = doc.RootElement.GetProperty("stems");
 
-            // Get all existing stems paths from DB
-            var existing = await _repository.GetAllAsync();
+            // Get all existing stems paths from DB for this user
+            var existing = await _repository.GetAllAsync(userId);
             var existingPaths = new HashSet<string>(
                 existing.Where(p => !string.IsNullOrEmpty(p.StemsPath))
                         .Select(p => p.StemsPath),
@@ -203,13 +223,14 @@ public class LibraryController : ControllerBase
                     DateAdded     = DateTime.UtcNow,
                     BpmSource     = DataSource.Analysis,
                     KeySource     = DataSource.Analysis,
-                    TimeSigSource = DataSource.Analysis
+                    TimeSigSource = DataSource.Analysis,
+                    UserId        = userId
                 };
 
                 await _repository.AddAsync(project);
                 existingPaths.Add(stemsPath);
                 added++;
-                logger.LogInformation("Rescan: added orphaned stems '{Title}' from {Path}", title, stemsPath);
+                logger.LogInformation("Rescan: added orphaned stems '{Title}' from {Path} for user {UserId}", title, stemsPath, userId);
             }
 
             if (added > 0)
