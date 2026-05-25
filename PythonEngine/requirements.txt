@@ -1,3 +1,4 @@
+--extra-index-url https://download.pytorch.org/whl/cu118
 aiohappyeyeballs==2.6.1
 aiohttp==3.13.3
 aiosignal==1.4.0
@@ -108,9 +109,9 @@ sympy==1.14.0
 tenacity==9.1.4
 threadpoolctl==3.6.0
 tiktoken==0.12.0
-torch==2.7.1+cu118
-torchaudio==2.7.1+cu118
-torchvision==0.22.1+cu118
+torch==2.7.1
+torchaudio==2.7.1
+torchvision==0.22.1
 tqdm==4.67.3
 treetable==0.2.6
 typer==0.23.1
