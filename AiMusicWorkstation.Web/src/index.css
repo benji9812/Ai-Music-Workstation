@@ -207,6 +207,35 @@ body {
     touch-action: pan-y;
 }
 
+.lyric-line {
+    cursor: pointer;
+    transition: all 0.2s ease;
+    margin: 5px 0;
+    font-size: 14px;
+    color: #555;
+    border-radius: 4px;
+    padding: 4px 8px;
+    line-height: 1.4;
+}
+
+.lyric-line:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+    color: #bdbdbd;
+}
+
+.lyric-line.active {
+    color: #fff;
+    font-weight: bold;
+    background-color: rgba(255, 255, 255, 0.08);
+}
+
+.lyric-timestamp {
+    color: #444;
+    font-size: 10px;
+    margin-right: 8px;
+    font-family: monospace;
+}
+
 /* ====================
    Buttons
 ==================== */

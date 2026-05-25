@@ -2469,27 +2469,10 @@ export default function App() {
                 result.lyrics.map((seg, idx) => (
                   <p
                     key={idx}
-                    style={{
-                      color:
-                        currentTime >= seg.start && currentTime <= seg.end
-                          ? "#fff"
-                          : "#555",
-                      margin: "5px 0",
-                      fontSize: "14px",
-                      fontWeight:
-                        currentTime >= seg.start && currentTime <= seg.end
-                          ? "bold"
-                          : "normal",
-                      transition: "color 0.2s",
-                    }}
+                    className={`lyric-line ${currentTime >= seg.start && currentTime <= seg.end ? "active" : ""}`}
+                    onClick={() => jumpToTime(seg.start)}
                   >
-                    <span
-                      style={{
-                        color: "#444",
-                        fontSize: "10px",
-                        marginRight: "5px",
-                      }}
-                    >
+                    <span className="lyric-timestamp">
                       [{seg.start.toFixed(1)}s]
                     </span>
                     {seg.text}
