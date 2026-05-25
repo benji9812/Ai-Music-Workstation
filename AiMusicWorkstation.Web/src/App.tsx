@@ -472,9 +472,32 @@ function transposeNote(note: string, semitones: number): string {
   return TRANSPOSE_SCALE[(((idx + semitones) % 12) + 12) % 12];
 }
 function transposeChord(chord: string, semitones: number): string {
-  if (semitones === 0) return chord;
   const { root, quality } = parseChord(chord);
-  return transposeNote(root, semitones) + quality;
+  const transposedRoot = transposeNote(root, semitones);
+  return simplifyChord(transposedRoot + quality);
+}
+
+/**
+ * Simplifies complex chord names (maj7, sus2, sus4, 7, etc.) into basic Major/Minor forms.
+ */
+function simplifyChord(chord: string): string {
+  const { root, quality } = parseChord(chord);
+  const q = quality.toLowerCase();
+
+  // Handle minor chords
+  if (q.startsWith("m") && !q.startsWith("maj")) {
+    return root + "m";
+  }
+  // Handle diminished
+  if (q.includes("dim") || q.includes("°")) {
+    return root + "dim";
+  }
+  // Handle augmented
+  if (q.includes("aug") || q === "+") {
+    return root + "aug";
+  }
+  // Everything else (maj, maj7, 7, sus2, sus4, etc.) -> simple major triad
+  return root;
 }
 function transposeKey(key: string, semitones: number): string {
   if (!key || semitones === 0) return key;
@@ -1622,6 +1645,12 @@ export default function App() {
   const displayKey = result?.key
     ? transposeKey(result.key, transposeSteps)
     : null;
+
+  const upcomingChords =
+    result?.chords && activeChordIdx !== -1
+      ? result.chords.slice(activeChordIdx + 1, activeChordIdx + 5)
+      : [];
+
   const _scaleDegreesLabel =
     _scaleType === "major"
       ? ["I", "II", "III", "IV", "V", "VI", "VII"]
@@ -1822,73 +1851,100 @@ export default function App() {
 
             {activeTab === "chord" && (
               <div
-                className="flex flex-col items-center justify-center"
-                style={{ flex: 1, gap: 12 }}
+                className="flex flex-col items-stretch"
+                style={{ flex: 1, gap: 10 }}
               >
-                {/* Rolling Chord Queue */}
-                <div
-                  className="glass-panel-inner w-full flex items-center justify-center gap-4"
-                  style={{ minHeight: "60px", overflow: "hidden" }}
-                >
-                  {result?.chords && activeChordIdx !== -1 ? (
-                    result.chords
-                      .slice(activeChordIdx, activeChordIdx + 5)
-                      .map((ch, i) => {
-                        const isActive = i === 0;
-                        return (
-                          <div
-                            key={i}
-                            style={{
-                              display: "flex",
-                              flexDirection: "column",
-                              alignItems: "center",
-                              opacity: isActive ? 1 : 0.4,
-                              transform: isActive ? "scale(1.2)" : "scale(1)",
-                              transition: "all 0.3s ease",
-                            }}
-                          >
-                            <span
-                              style={{
-                                fontSize: isActive ? "24px" : "16px",
-                                fontWeight: "bold",
-                                color: isActive ? "var(--neon-cyan)" : "white",
-                                textDecoration: isActive ? "underline" : "none",
-                                textUnderlineOffset: "4px",
-                              }}
-                            >
-                              {transposeChord(ch.chord, transposeSteps)}
-                            </span>
-                          </div>
-                        );
-                      })
-                  ) : (
+                {/* Active chord display */}
+                {activeChordDisplay ? (
+                  <div
+                    className="glass-panel-inner text-center"
+                    style={{ padding: "6px 8px" }}
+                  >
+                    <div
+                      style={{
+                        fontSize: "10px",
+                        color: "#888",
+                        letterSpacing: "1px",
+                        marginBottom: 3,
+                      }}
+                    >
+                      ACTIVE CHORD
+                    </div>
+                    <div
+                      style={{
+                        fontSize: "20px",
+                        fontWeight: "bold",
+                        color: "var(--neon-yellow)",
+                      }}
+                    >
+                      {activeChordDisplay}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: "11px",
+                        color: "var(--neon-cyan)",
+                        marginTop: 3,
+                        letterSpacing: "1px",
+                      }}
+                    >
+                      {[...activeChordTones].join(" · ")}
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    className="glass-panel-inner text-center"
+                    style={{ padding: "10px" }}
+                  >
                     <div style={{ fontSize: "13px", color: "#555" }}>
                       {result?.chords
                         ? "Waiting for playback..."
                         : "Waiting for analysis..."}
                     </div>
-                  )}
-                </div>
-
-                {/* Active chord diagram */}
-                {activeChordIdx !== -1 ? (
-                  <ChordDiagram
-                    chord={transposeChord(
-                      result!.chords![activeChordIdx].chord,
-                      transposeSteps,
-                    )}
-                  />
-                ) : (
-                  <div
-                    style={{
-                      fontSize: 40,
-                      fontWeight: "bold",
-                      color: "var(--neon-yellow)",
-                    }}
-                  >
-                    {result?.key ?? "—"}
                   </div>
                 )}
+
+                {/* Upcoming row */}
+                {upcomingChords.length > 0 && (
+                  <div
+                    className="flex items-center justify-center gap-3 px-2 py-1"
+                    style={{ opacity: 0.8 }}
+                  >
+                    {upcomingChords.map((ch, i) => (
+                      <div
+                        key={i}
+                        style={{
+                          fontSize: "13px",
+                          color: "white",
+                          fontWeight: "600",
+                        }}
+                      >
+                        {transposeChord(ch.chord, transposeSteps)}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Active chord diagram */}
+                <div className="flex-1 flex items-center justify-center">
+                  {activeChordIdx !== -1 ? (
+                    <ChordDiagram
+                      chord={transposeChord(
+                        result!.chords![activeChordIdx].chord,
+                        transposeSteps,
+                      )}
+                    />
+                  ) : (
+                    <div
+                      style={{
+                        fontSize: 40,
+                        fontWeight: "bold",
+                        color: "var(--neon-yellow)",
+                      }}
+                    >
+                      {result?.key ?? "—"}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 
@@ -2013,39 +2069,62 @@ export default function App() {
 
                 {/* Active chord tones */}
                 {activeChordDisplay && (
-                  <div
-                    className="glass-panel-inner text-center"
-                    style={{ padding: "6px 8px" }}
-                  >
+                  <div className="flex flex-col gap-2">
                     <div
-                      style={{
-                        fontSize: "10px",
-                        color: "#888",
-                        letterSpacing: "1px",
-                        marginBottom: 3,
-                      }}
+                      className="glass-panel-inner text-center"
+                      style={{ padding: "6px 8px" }}
                     >
-                      ACTIVE CHORD
+                      <div
+                        style={{
+                          fontSize: "10px",
+                          color: "#888",
+                          letterSpacing: "1px",
+                          marginBottom: 3,
+                        }}
+                      >
+                        ACTIVE CHORD
+                      </div>
+                      <div
+                        style={{
+                          fontSize: "20px",
+                          fontWeight: "bold",
+                          color: "var(--neon-yellow)",
+                        }}
+                      >
+                        {activeChordDisplay}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: "11px",
+                          color: "var(--neon-cyan)",
+                          marginTop: 3,
+                          letterSpacing: "1px",
+                        }}
+                      >
+                        {[...activeChordTones].join(" · ")}
+                      </div>
                     </div>
-                    <div
-                      style={{
-                        fontSize: "18px",
-                        fontWeight: "bold",
-                        color: "var(--neon-yellow)",
-                      }}
-                    >
-                      {activeChordDisplay}
-                    </div>
-                    <div
-                      style={{
-                        fontSize: "11px",
-                        color: "var(--neon-cyan)",
-                        marginTop: 3,
-                        letterSpacing: "1px",
-                      }}
-                    >
-                      {[...activeChordTones].join(" · ")}
-                    </div>
+
+                    {/* Upcoming row (harmonized) */}
+                    {upcomingChords.length > 0 && (
+                      <div
+                        className="flex items-center justify-center gap-3 px-2 py-1"
+                        style={{ opacity: 0.8 }}
+                      >
+                        {upcomingChords.map((ch, i) => (
+                          <div
+                            key={i}
+                            style={{
+                              fontSize: "13px",
+                              color: "white",
+                              fontWeight: "600",
+                            }}
+                          >
+                            {transposeChord(ch.chord, transposeSteps)}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
 
