@@ -20,6 +20,7 @@ type AnalysisResult = {
   timeSigSource?: AnalysisSource;
   lyrics?: LyricSegment[];
   stems_path?: string;
+  duration_seconds?: number;
   title?: string;
   artist?: string;
   error?: string;
@@ -46,6 +47,23 @@ type SongProject = {
   bpm: number;
   key: string;
   stemsPath: string;
+  duration?: string; // TimeSpan from backend
+};
+
+const timeSpanToSeconds = (ts: string | undefined | number) => {
+  if (!ts) return 180;
+  if (typeof ts === "number") return ts;
+  const parts = ts.split(":");
+  if (parts.length === 3) {
+    return (
+      parseInt(parts[0]) * 3600 + parseInt(parts[1]) * 60 + parseFloat(parts[2])
+    );
+  }
+  if (parts.length === 2) {
+    return parseInt(parts[0]) * 60 + parseFloat(parts[1]);
+  }
+  const parsed = parseFloat(ts);
+  return isNaN(parsed) ? 180 : parsed;
 };
 
 const formatTime = (sec: number) => {
@@ -821,7 +839,7 @@ export default function App() {
         body: JSON.stringify({
           artist: p.artist,
           title: p.title,
-          duration: 180,
+          duration: timeSpanToSeconds(p.duration),
         }),
       }).then((res) => (res.ok ? res.json() : null));
 
@@ -920,7 +938,7 @@ export default function App() {
                   body: JSON.stringify({
                     artist: trackArtist,
                     title: trackTitle,
-                    duration: 180,
+                    duration: data.duration_seconds || 180,
                   }),
                 },
               );
@@ -1431,7 +1449,7 @@ export default function App() {
             body: JSON.stringify({
               artist: "Local Upload",
               title: fileName,
-              duration: 180, // Using a default, consider getting real duration
+              duration: data.duration_seconds || 180,
             }),
           });
           const structData = await structResp.json();

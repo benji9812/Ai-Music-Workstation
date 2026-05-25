@@ -596,7 +596,10 @@ async def analyze(file: UploadFile = File(...)):
             mono=AUDIO_LOAD_MONO,
             duration=AUDIO_ANALYZE_DURATION,
         )
-        log_step(f"🎵 Audio laddad ({elapsed(load_start)}s)")
+        audio_duration = float(librosa.get_duration(y=y_audio, sr=sr))
+        log_step(
+            f"🎵 Audio loaded ({elapsed(load_start)}s), duration: {audio_duration:.2f}s"
+        )
 
         bpm = detect_bpm_robust(y_audio, sr)
         time_signature = detect_time_signature(y_audio, sr, bpm)
@@ -633,7 +636,8 @@ async def analyze(file: UploadFile = File(...)):
             "lyrics": lyrics,
             "stems_path": stems_folder or "",
             "original_path": file_path,
-            "duration_seconds": elapsed(total_start),
+            "duration_seconds": audio_duration,
+            "analysis_time_seconds": elapsed(total_start),
             "analysis_window_seconds": AUDIO_ANALYZE_DURATION,
         }
 
@@ -674,25 +678,64 @@ async def structure(request: StructureRequest):
     try:
         gemini = get_gemini_client()
         prompt = (
-            f"Analyze the song structure of '{request.title}' by '{request.artist}' "
-            f"(duration: {request.duration:.1f} seconds). "
-            "Return a JSON array of sections with fields: "
-            "'label' (e.g. Intro, Verse, Chorus, Bridge, Outro), "
-            "'start' (seconds, float), 'end' (seconds, float). "
+            f"Analyze the song structure of '{request.title}' by '{request.artist}'.\n"
+            f"The total audio duration is exactly {request.duration:.1f} seconds.\n"
+            "Your task is to provide a complete list of song sections (e.g., Intro, Verse, Chorus, Bridge, Outro).\n"
+            "CRITICAL REQUIREMENTS:\n"
+            f"1. The sections MUST cover the ENTIRE duration from 0.0 to {request.duration:.1f} seconds.\n"
+            "2. There must be no gaps between sections.\n"
+            f"3. The last section's end time MUST be exactly {request.duration:.1f}.\n"
+            "Return a JSON array of objects with fields: "
+            "'label' (string), 'start' (float), 'end' (float).\n"
             "Only return valid JSON, no extra text."
         )
         response = gemini.models.generate_content(
-            model="gemini-2.5-flash", contents=prompt
+            model="gemini-2.5-flash",
+            contents=prompt,
+            config={"max_output_tokens": 2048},
         )
         raw = (response.text or "").strip()
         # Strip markdown code fences if present
         if raw.startswith("```"):
             raw = re.sub(r"^```[a-z]*\n?", "", raw)
             raw = re.sub(r"\n?```$", "", raw)
+
         sections = json.loads(raw)
+
+        # Post-processing to ensure full duration coverage
+        if isinstance(sections, list) and len(sections) > 0:
+            # Sort by start time
+            sections.sort(key=lambda x: x.get("start", 0))
+
+            # Ensure the first section starts at 0
+            if sections[0].get("start", 0) > 0:
+                sections[0]["start"] = 0.0
+
+            # Ensure no gaps and logical flow
+            for i in range(len(sections) - 1):
+                current_end = sections[i].get("end", 0)
+                next_start = sections[i + 1].get("start", 0)
+
+                # If there's a gap, close it
+                if current_end < next_start:
+                    sections[i]["end"] = next_start
+                # If they overlap significantly or end > next start, adjust
+                elif current_end > next_start:
+                    sections[i + 1]["start"] = current_end
+
+            # Ensure it reaches the end
+            last_section = sections[-1]
+            if last_section.get("end", 0) < request.duration - 0.5:
+                log_step(
+                    f"📏 Extending last section from {last_section.get('end')} to {request.duration}"
+                )
+                last_section["end"] = round(request.duration, 2)
+            elif last_section.get("end", 0) > request.duration + 0.5:
+                last_section["end"] = round(request.duration, 2)
+
         return {"status": "success", "sections": sections}
     except Exception as e:
-        log_step(f"⚠️ /structure misslyckades: {e}")
+        log_step(f"⚠️ /structure failed: {e}")
         raise HTTPException(
             status_code=500, detail=f"Structure analysis failed: {str(e)}"
         )
@@ -938,7 +981,10 @@ async def import_url(request: ImportUrlRequest):
             mono=AUDIO_LOAD_MONO,
             duration=AUDIO_ANALYZE_DURATION,
         )
-        log_step(f"🎵 Audio loaded ({elapsed(load_start)}s)")
+        audio_duration = float(librosa.get_duration(y=y_audio, sr=sr))
+        log_step(
+            f"🎵 Audio loaded ({elapsed(load_start)}s), duration: {audio_duration:.2f}s"
+        )
 
         bpm = detect_bpm_robust(y_audio, sr)
         time_signature = detect_time_signature(y_audio, sr, bpm)
@@ -980,7 +1026,8 @@ async def import_url(request: ImportUrlRequest):
             "lyrics": lyrics,
             "stems_path": stems_folder or "",
             "original_path": "",
-            "duration_seconds": elapsed(total_start),
+            "duration_seconds": audio_duration,
+            "analysis_time_seconds": elapsed(total_start),
             "analysis_window_seconds": AUDIO_ANALYZE_DURATION,
         }
 
