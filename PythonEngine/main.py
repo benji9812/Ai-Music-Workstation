@@ -11,7 +11,7 @@ import warnings
 from contextlib import asynccontextmanager
 from functools import lru_cache
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
 
 import librosa
 import numpy as np
@@ -46,6 +46,23 @@ AUDIO_LOAD_MONO = True
 AUDIO_ANALYZE_DURATION = None
 AUDIO_CHORDS_DURATION = None
 WHISPER_SR = 16000
+
+COMMON_FALSE_POSITIVES = {
+    "you",
+    "i",
+    "the",
+    "a",
+    "it",
+    "me",
+    "my",
+    "in",
+    "to",
+    "is",
+    "on",
+    "that",
+    "this",
+    "for",
+}
 
 # --- CORS middleware for web frontend support ---
 origins = [
@@ -299,6 +316,32 @@ def transcribe_with_groq(audio_path: str):
             {"start": 0.0, "end": 0.0, "text": raw_text.strip() if raw_text else ""}
         )
     return segments
+
+
+def post_process_lyrics(lyrics: List[dict], audio_duration: float):
+    """Validate and clean lyrics."""
+    if not lyrics:
+        return []
+
+    # a. Remove lines where text is a single common false-positive word
+    processed = []
+    for seg in lyrics:
+        text = seg["text"].strip().lower()
+        if text in COMMON_FALSE_POSITIVES or not text:
+            continue
+        processed.append(seg)
+
+    if not processed:
+        return []
+
+    # b. Ensure first lyric line starts at or before first vocal occurrence (handled by sorted start times)
+    processed.sort(key=lambda x: x["start"])
+
+    # c. Trim trailing lines after song effectively ended (last 2 seconds)
+    max_time = audio_duration - 2.0
+    processed = [s for s in processed if s["start"] < max_time]
+
+    return processed
 
 
 def detect_bpm_robust(y, sr):
@@ -572,8 +615,12 @@ async def analyze_only(file: UploadFile = File(...)):
 
 
 @app.post("/analyze")
-async def analyze(file: UploadFile = File(...)):
-    """Full analysis: Demucs stem separation + Groq Whisper lyrics + BPM/key/chords."""
+async def analyze(
+    file: UploadFile = File(...),
+    title: Optional[str] = None,
+    artist: Optional[str] = None,
+):
+    """Full analysis: Demucs stem separation + Whisper lyrics + BPM/key/chords."""
     total_start = now()
     file_path = None
     stems_folder = None
@@ -581,7 +628,7 @@ async def analyze(file: UploadFile = File(...)):
         ensure_runtime_dirs()
         if not file.filename:
             raise HTTPException(status_code=400, detail="Ingen fil skickades.")
-        log_step("📥 /analyze request mottagen")
+        log_step(f"📥 /analyze request mottagen (title={title}, artist={artist})")
         safe_filename = sanitize_filename(file.filename)
         file_path = os.path.join(UPLOAD_DIR, safe_filename)
         contents = await file.read()
@@ -618,17 +665,23 @@ async def analyze(file: UploadFile = File(...)):
         log_step(f"🎚️ Demucs klart ({elapsed(demucs_start)}s)")
 
         lyrics = []
+        # 1. Whisper transkription (Nu den enda källan i Python-motorn)
         try:
             clean_vocals = prepare_vocals_for_whisper(vocals_path)
             lyrics = transcribe_with_groq(clean_vocals)
             if clean_vocals != vocals_path:
                 cleanup_file(clean_vocals)
-            log_step(f"🗣️ Lyrics transkriberade: {len(lyrics)} segment")
+            log_step(f"🗣️ Lyrics (Whisper): {len(lyrics)} segments")
         except Exception as e:
             log_step(f"⚠️ Lyrics-transkription misslyckades: {e}")
 
+        # 2. Quality fixes
+        lyrics = post_process_lyrics(lyrics, audio_duration)
+
         result = {
             "status": "success",
+            "title": title or "",
+            "artist": artist or "",
             "bpm": bpm,
             "key": key,
             "time_signature": time_signature,
@@ -1003,14 +1056,18 @@ async def import_url(request: ImportUrlRequest):
         log_step(f"🎚️ Demucs done ({elapsed(demucs_start)}s)")
 
         lyrics = []
+        # 1. Whisper transkription
         try:
             clean_vocals = prepare_vocals_for_whisper(vocals_path)
             lyrics = transcribe_with_groq(clean_vocals)
             if clean_vocals != vocals_path:
                 cleanup_file(clean_vocals)
-            log_step(f"🗣️ Lyrics: {len(lyrics)} segments")
+            log_step(f"🗣️ Lyrics (Whisper): {len(lyrics)} segments")
         except Exception as e:
             log_step(f"⚠️ Lyrics transcription failed: {e}")
+
+        # 2. Quality fixes
+        lyrics = post_process_lyrics(lyrics, audio_duration)
 
         # Cleanup downloaded file
         cleanup_file(file_path)
@@ -1234,7 +1291,7 @@ async def import_url_async(request: ImportUrlAsyncRequest):
                 file_path, job_id
             )
 
-            job_update(job_id, "🗣️ Transcribing lyrics...", progress=95)
+            job_update(job_id, "🗣️ Transcribing lyrics (Whisper)...", progress=95)
             lyrics = []
             try:
                 clean_vocals = prepare_vocals_for_whisper(vocals_path)
@@ -1243,6 +1300,10 @@ async def import_url_async(request: ImportUrlAsyncRequest):
                     cleanup_file(clean_vocals)
             except Exception as e:
                 log_step(f"⚠️ Lyrics transcription failed: {e}")
+
+            # 2. Quality fixes
+            audio_duration = float(librosa.get_duration(path=vocals_path))
+            lyrics = post_process_lyrics(lyrics, audio_duration)
 
             cleanup_file(file_path)
 

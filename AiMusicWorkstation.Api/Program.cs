@@ -62,6 +62,8 @@ builder.Services.AddHttpClient<PythonEngineClient>((sp, client) =>
     client.Timeout = cfg.Timeout;
 });
 
+builder.Services.AddHttpClient<AiMusicWorkstation.Domain.Services.ILyricsService, LyricsService>();
+
 builder.Services.AddScoped<DbLibraryRepository>();
 builder.Services.AddScoped<AiMusicWorkstation.Domain.Repositories.ILibraryRepository, LibraryRepository>();
 builder.Services.AddSingleton<SmartImporter>();

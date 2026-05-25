@@ -56,6 +56,8 @@ namespace AiMusicWorkstation.Desktop
                 services.AddSingleton<ISmartImporterService>(sp =>
                     new SmartImporterAdapter(sp.GetRequiredService<SmartImporter>()));
 
+                services.AddHttpClient<ILyricsService, LyricsService>();
+
                 services.AddSingleton(new Metronome());
                 services.AddSingleton<IMetronome>(sp =>
                     new MetronomeAdapter(sp.GetRequiredService<Metronome>()));
