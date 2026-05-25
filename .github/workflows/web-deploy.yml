@@ -1,7 +1,7 @@
 name: web-deploy
 on:
   push:
-    branches: [dev, Solution/Remodelling_To_Web]
+    branches: [dev]
     paths:
       - "AiMusicWorkstation.Web/**"
 # Vercel handles deployment automatically via its GitHub integration.
