@@ -24,10 +24,10 @@ jobs:
           dotnet-version: '10.x'
 
       - name: Build with dotnet
-        run: dotnet build AiMusicWorkstation.Api/AiMusicWorkstation.Api.csproj --configuration Release
+        run: dotnet build --configuration Release
 
       - name: dotnet publish
-        run: dotnet publish AiMusicWorkstation.Api/AiMusicWorkstation.Api.csproj -c Release -o ${{env.DOTNET_ROOT}}/myapp
+        run: dotnet publish -c Release -o ${{env.DOTNET_ROOT}}/myapp
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
@@ -51,9 +51,9 @@ jobs:
       - name: Login to Azure
         uses: azure/login@v2
         with:
-          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_FC7F7BBD631D436E80F455ACF38D46FF }}
-          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_EB5A96121B2146C68EE5CF6E9B4ED437 }}
-          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_E08066B92E86458EA3E774C9893B20E6 }}
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_5BE93A6DFF394AD596C248BCFD06D176 }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_ADC3F52D12F841C1ABAFC68E43EA4B5E }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_1D83B10638BE4C1994A96BB786AC1B5F }}
 
       - name: Deploy to Azure Web App
         id: deploy-to-webapp
@@ -62,3 +62,4 @@ jobs:
           app-name: 'aimusicworkstation-api'
           slot-name: 'Production'
           package: .
+          
