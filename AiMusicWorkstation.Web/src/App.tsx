@@ -1,9 +1,7 @@
-import * as React from "react";
+import React from "react";
 import { PitchShift, getContext, start as toneStart } from "tone";
 import { SpeedInsights } from "@vercel/speed-insights/react";
-import * as path from "path-browserify";
 import "./index.css";
-import { ChordDiagram } from "./ChordDiagram";
 import { supabase } from "./supabaseClient";
 import { Auth } from "./Auth";
 import { Landing } from "./Landing";
@@ -805,7 +803,6 @@ export default function App() {
   const [solos, setSolos] = useState<Record<string, boolean>>({});
 
   // Panel toggles
-  const [showChords, setShowChords] = useState(true);
   const [showLyrics, setShowLyrics] = useState(true);
   const [showStructure, setShowStructure] = useState(true);
   const [showLibrary, setShowLibrary] = useState(true);
