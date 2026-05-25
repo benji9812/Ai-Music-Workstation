@@ -1,4 +1,10 @@
-export function Landing({ onGetStarted }: { onGetStarted: () => void }) {
+export function Landing({
+  onLogIn,
+  onSignUp,
+}: {
+  onLogIn: () => void;
+  onSignUp: () => void;
+}) {
   return (
     <div
       className="landing-container"
@@ -29,9 +35,16 @@ export function Landing({ onGetStarted }: { onGetStarted: () => void }) {
         <button
           className="btn-primary"
           style={{ padding: "12px 30px", fontSize: "1.1rem" }}
-          onClick={onGetStarted}
+          onClick={onLogIn}
         >
-          Get Started
+          Log In
+        </button>
+        <button
+          className="btn-secondary"
+          style={{ padding: "12px 30px", fontSize: "1.1rem" }}
+          onClick={onSignUp}
+        >
+          Sign Up
         </button>
       </div>
       <div

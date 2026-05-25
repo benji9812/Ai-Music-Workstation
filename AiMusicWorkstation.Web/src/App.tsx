@@ -2,9 +2,11 @@ import React from "react";
 import { PitchShift, getContext, start as toneStart } from "tone";
 import { SpeedInsights } from "@vercel/speed-insights/react";
 import "./index.css";
-import { supabase } from "./supabaseClient";
-import { Auth } from "./Auth";
+import { supabase } from "./lib/supabaseClient";
+import { LoginForm } from "./components/LoginForm";
+import { RegisterForm } from "./components/RegisterForm";
 import { Landing } from "./Landing";
+import { useAuthStore } from "./store/authStore";
 
 type LyricSegment = { start: number; end: number; text: string };
 type ChordEntry = { time: number; chord: string };
@@ -752,25 +754,49 @@ const VolumeInput = ({
 };
 
 export default function App() {
-  const [session, setSession] = useState<any>(null);
-  const [authView, setAuthView] = useState<"landing" | "auth">("landing");
+  const { session, initialized, initialize, signOut } = useAuthStore();
+  const [authMode, setAuthMode] = useState<"landing" | "login" | "register">(
+    "landing",
+  );
+  const [path, setPath] = useState(window.location.pathname);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-    });
+    let cleanup: (() => void) | undefined;
+    (async () => {
+      cleanup = await initialize();
+    })();
+    return () => cleanup?.();
+  }, [initialize]);
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-    });
-
-    return () => subscription.unsubscribe();
+  useEffect(() => {
+    const onPopState = () => setPath(window.location.pathname);
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
   }, []);
+
+  const navigate = React.useCallback((to: string) => {
+    if (window.location.pathname !== to) {
+      window.history.pushState({}, "", to);
+      setPath(to);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!initialized) return;
+    if (!session && path !== "/landing") {
+      navigate("/landing");
+      return;
+    }
+    if (session && (path === "/landing" || path === "/")) {
+      navigate("/app");
+    }
+  }, [initialized, navigate, path, session]);
 
   const authFetch = React.useCallback(
     async (url: string, options: RequestInit = {}) => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       const token = session?.access_token;
       const headers = {
         ...options.headers,
@@ -778,7 +804,7 @@ export default function App() {
       };
       return window.fetch(url, { ...options, headers });
     },
-    [session],
+    [],
   );
 
   const [activeTab, setActiveTab] = useState<"chord" | "scale">("chord");
@@ -966,6 +992,7 @@ export default function App() {
   const DEFAULT_STEMS = ["vocals", "drums", "bass", "guitar", "piano", "other"];
 
   const stems = useRef<Record<string, HTMLAudioElement>>({});
+  const stemObjectUrls = useRef<Record<string, string>>({});
 
   // Initialize stems with empty Audio elements if they don't exist
   useEffect(() => {
@@ -978,11 +1005,15 @@ export default function App() {
     });
   }, []); // Run once on mount
 
-  const loadStemsFromPath = (stemsMap: Record<string, string>) => {
+  const loadStemsFromPath = async (stemsMap: Record<string, string>) => {
     // Clear all existing stem sources first
     Object.values(stems.current).forEach((audio) => {
       audio.src = "";
     });
+    Object.values(stemObjectUrls.current).forEach((url) => {
+      URL.revokeObjectURL(url);
+    });
+    stemObjectUrls.current = {};
 
     const firstStemKey = Object.keys(stemsMap)[0];
     if (!firstStemKey) return;
@@ -1015,19 +1046,32 @@ export default function App() {
     };
     firstStemEl.addEventListener("loadedmetadata", onMetadata);
 
-    Object.entries(stemsMap).forEach(([stemName, url]) => {
-      if (!stems.current[stemName]) {
-        stems.current[stemName] = Object.assign(new Audio(), {
-          crossOrigin: "anonymous",
-        });
-      }
-      stems.current[stemName].src = url;
-    });
+    await Promise.all(
+      Object.entries(stemsMap).map(async ([stemName, url]) => {
+        if (!stems.current[stemName]) {
+          stems.current[stemName] = Object.assign(new Audio(), {
+            crossOrigin: "anonymous",
+          });
+        }
+        try {
+          const resp = await authFetch(url);
+          if (!resp.ok) {
+            console.error(`Failed to load stem ${stemName}`, await resp.text());
+            return;
+          }
+          const blobUrl = URL.createObjectURL(await resp.blob());
+          stemObjectUrls.current[stemName] = blobUrl;
+          stems.current[stemName].src = blobUrl;
+        } catch (e) {
+          console.error(`Failed to load stem ${stemName}`, e);
+        }
+      }),
+    );
   };
 
   const loadProject = async (p: SongProject) => {
     if (p.extracted_stems && Object.keys(p.extracted_stems).length > 0) {
-      loadStemsFromPath(p.extracted_stems);
+      await loadStemsFromPath(p.extracted_stems);
       // Reset mixer to default for loaded stems
       const initialVolumes: Record<string, number> = {};
       const initialMutes: Record<string, boolean> = {};
@@ -1054,7 +1098,7 @@ export default function App() {
         other: `${API_URL}/api/analysis/audio/${relPath}/other.mp3`,
         vocals: `${API_URL}/api/analysis/audio/${relPath}/vocals.mp3`,
       };
-      loadStemsFromPath(defaultStemsMap);
+      await loadStemsFromPath(defaultStemsMap);
       setVolumes({ drums: 80, bass: 80, other: 80, vocals: 80 });
       setMutes({ drums: false, bass: false, other: false, vocals: false });
       setSolos({ drums: false, bass: false, other: false, vocals: false });
@@ -1617,8 +1661,15 @@ export default function App() {
     let analysisSucceeded = false;
 
     try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const token = session?.access_token;
       const xhr = new XMLHttpRequest();
       xhr.open("POST", `${API_URL}/api/import/analyze-quick`, true);
+      if (token) {
+        xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+      }
 
       // This is the key part for upload progress
       xhr.upload.onprogress = (event) => {
@@ -1855,7 +1906,7 @@ export default function App() {
           extracted_stems: data.extracted_stems,
         }));
         // Load the newly separated stems into the audio elements
-        loadStemsFromPath(data.extracted_stems);
+        await loadStemsFromPath(data.extracted_stems);
 
         // Reset mixer states for the newly loaded stems
         const initialVolumes: Record<string, number> = {};
@@ -2105,11 +2156,42 @@ export default function App() {
     </div>
   );
 
+  if (!initialized) {
+    return <div className="app-container" />;
+  }
+
   if (!session) {
-    return authView === "landing" ? (
-      <Landing onGetStarted={() => setAuthView("auth")} />
-    ) : (
-      <Auth onSession={(s) => setSession(s)} />
+    return (
+      <div className="app-container">
+        <Landing
+          onLogIn={() => {
+            setAuthMode("login");
+            navigate("/landing");
+          }}
+          onSignUp={() => {
+            setAuthMode("register");
+            navigate("/landing");
+          }}
+        />
+        {authMode === "login" && (
+          <LoginForm
+            onSuccess={() => {
+              setAuthMode("landing");
+              navigate("/app");
+            }}
+            onSwitchToRegister={() => setAuthMode("register")}
+          />
+        )}
+        {authMode === "register" && (
+          <RegisterForm
+            onSuccess={() => {
+              setAuthMode("landing");
+              navigate("/app");
+            }}
+            onSwitchToLogin={() => setAuthMode("login")}
+          />
+        )}
+      </div>
     );
   }
 
@@ -2136,9 +2218,9 @@ export default function App() {
                   className="btn-icon"
                   title="Logout"
                   onClick={async () => {
-                    await supabase.auth.signOut();
-                    setSession(null);
-                    setAuthView("landing");
+                    await signOut();
+                    setAuthMode("landing");
+                    navigate("/landing");
                   }}
                 >
                   🚪
