@@ -1212,12 +1212,22 @@ export default function App() {
       setIsPlaying(false);
       return;
     }
+
+    // Capture the time we want to start from.
+    // If we are currently dragging the slider, use that value.
+    // Otherwise, we use the current tracked time.
     const targetTime = isDragging ? sliderTime : currentTime;
-    if (isDragging) setIsDragging(false);
-    syncStemsToTime(targetTime);
+
+    // If we were dragging, we need to finalize the seek across all stems.
+    if (isDragging) {
+      setIsDragging(false);
+      syncStemsToTime(targetTime);
+    }
+
     // Resume Tone.js AudioContext (required by browser autoplay policy)
     await toneStart();
     initAudioPipeline();
+
     // Count-in logic
     if (countInEnabled) {
       setIsCountingIn(true);
@@ -1232,6 +1242,7 @@ export default function App() {
         if (count >= 4) {
           clearInterval(interval);
           setIsCountingIn(false);
+          // Final sync before starting playback to ensure all stems are aligned
           syncStemsToTime(targetTime);
           Object.values(stems.current).forEach((a) => a.play());
           setIsPlaying(true);
@@ -1239,19 +1250,27 @@ export default function App() {
       }, beatIntervalMs);
       return;
     }
+
+    // Normal play (resume)
     Object.values(stems.current).forEach((a) => a.play());
     setIsPlaying(true);
   };
 
   const skipToStart = () => {
+    // Explicitly reset to start
     syncStemsToTime(0);
+    // If not playing, we don't auto-start unless preferred.
+    // The previous logic called handlePlayPause(), which we'll keep for consistency
+    // with "restart and play" behavior, but now it will correctly use targetTime=0.
     if (!isPlaying) handlePlayPause();
   };
 
   const seekTime = (offset: number) => {
     const safeDuration = readDuration();
-    const baseTime = isDragging ? sliderTime : currentTime;
+    // Use the latest audio clock if playing, otherwise the state
+    const baseTime = isPlaying ? stems.current.drums.currentTime : currentTime;
     const updatedTime = clampTime(baseTime + offset, safeDuration);
+
     Object.values(stems.current).forEach((a) => {
       a.currentTime = updatedTime;
     });
