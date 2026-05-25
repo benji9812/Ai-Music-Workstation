@@ -677,6 +677,64 @@ export const __testHooks = {
 
 const { useState, useRef, useEffect } = React;
 
+const VolumeInput = ({
+  value,
+  onChange,
+}: {
+  value: number;
+  onChange: (val: number) => void;
+}) => {
+  const [inputValue, setInputValue] = React.useState(value.toString());
+
+  React.useEffect(() => {
+    setInputValue(Math.max(1, value).toString());
+  }, [value]);
+
+  const handleBlurOrEnter = () => {
+    const trimmed = inputValue.trim();
+    if (!/^\d+$/.test(trimmed)) {
+      setInputValue(value.toString());
+      return;
+    }
+    const num = parseInt(trimmed, 10);
+    const clamped = Math.max(1, Math.min(100, num));
+    onChange(clamped);
+    setInputValue(clamped.toString());
+  };
+
+  return (
+    <div
+      className="flex items-center"
+      style={{ fontSize: "10px", color: "#ccc", minWidth: "35px" }}
+    >
+      <input
+        type="text"
+        value={inputValue}
+        onChange={(e) => setInputValue(e.target.value)}
+        onBlur={handleBlurOrEnter}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            handleBlurOrEnter();
+            (e.target as HTMLInputElement).blur();
+          }
+        }}
+        style={{
+          width: "22px",
+          background: "transparent",
+          border: "none",
+          borderBottom: "1px solid #555",
+          color: "inherit",
+          fontSize: "inherit",
+          textAlign: "right",
+          padding: "0 2px",
+          outline: "none",
+        }}
+      />
+      <span style={{ marginLeft: "1px", opacity: 0.8 }}>%</span>
+    </div>
+  );
+};
+
 export default function App() {
   const [activeTab, setActiveTab] = useState<"chord" | "scale">("chord");
 
@@ -2166,12 +2224,13 @@ export default function App() {
             </span>
             <input
               type="range"
-              min="0"
+              min="1"
               max="100"
               value={masterVol}
               onChange={(e) => setMasterVol(Number(e.target.value))}
               style={{ width: "80px" }}
             />
+            <VolumeInput value={masterVol} onChange={setMasterVol} />
           </div>
         </div>
 
@@ -2529,7 +2588,7 @@ export default function App() {
                     <input
                       type="range"
                       className="vertical-slider"
-                      min="0"
+                      min="1"
                       max="100"
                       value={volumes[stem]}
                       onChange={(e) =>
@@ -2537,6 +2596,10 @@ export default function App() {
                       }
                     />
                   </div>
+                  <VolumeInput
+                    value={volumes[stem]}
+                    onChange={(val) => setMixerVolume(stem, val)}
+                  />
                   <div className="flex gap-1">
                     <button
                       className={`toggle-btn toggle-mute ${mutes[stem] ? "active" : ""}`}
