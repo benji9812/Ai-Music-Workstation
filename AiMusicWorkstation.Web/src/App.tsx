@@ -1348,7 +1348,7 @@ export default function App() {
               errData.message ||
               errData.detail ||
               xhr.statusText;
-          } catch (e) {
+          } catch {
             // response is not json
           }
           setError(errorMsg);
@@ -2033,7 +2033,7 @@ export default function App() {
             )}
           </div>
         </div>
-      )}
+      </div>
 
       {/* COLUMN 3: MAIN WORKSTATION (Now strictly matches Desktop layout) */}
       <div className="col-main">
