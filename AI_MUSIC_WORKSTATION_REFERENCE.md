@@ -11,7 +11,7 @@ AI Music Workstation är ett system som tar en MP3-fil och returnerar:
 - **Tonart** (Krumhansl-Schmuckler på basstam)
 - **Ackord** (chroma-analys på `other`-stam)
 - **Lyrics** (Groq Whisper Large v3 på vokalstam)
-- **Låtstruktur** (Intro/Verse/Chorus/Bridge/Outro via Gemini 2.5 Flash)
+- **Låtstruktur** (Intro/Verse/Chorus/Bridge/Outro via Gemini 1.5 Flash)
 
 Stem-separationen görs med **Demucs htdemucs-modellen** som delar upp låten i:
 `drums.mp3`, `bass.mp3`, `other.mp3`, `vocals.mp3`
@@ -59,7 +59,7 @@ Ai-Music-Workstation/
 | GET | `/health` | Returnerar `{"status": "ok"}` |
 | POST | `/analyze` | **Full analys**: Demucs + Groq Whisper + BPM/tonart/ackord |
 | POST | `/analyze-only` | **Snabb analys**: BPM/tonart/ackord direkt från uppladdad fil, **ingen Demucs** |
-| POST | `/structure` | Låtstruktur via Gemini 2.5 Flash (tar `artist`, `title`, `duration`) |
+| POST | `/structure` | Låtstruktur via Gemini 1.5 Flash (tar `artist`, `title`, `duration`) |
 
 ### AiMusicWorkstation.Api (ASP.NET Core) – port 8080/7107
 

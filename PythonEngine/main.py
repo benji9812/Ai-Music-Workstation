@@ -854,7 +854,7 @@ class StructureRequest(BaseModel):
 @app.post("/structure")
 async def structure(request: StructureRequest):
     """Song structure analysis via Gemini with robust parsing and retries."""
-    max_retries = 2
+    max_retries = 3
     last_error = None
 
     for attempt in range(max_retries + 1):
@@ -863,21 +863,19 @@ async def structure(request: StructureRequest):
             prompt = (
                 f"Analyze the song structure of '{request.title}' by '{request.artist}'.\n"
                 f"The total audio duration is exactly {request.duration:.1f} seconds.\n"
-                "Your task is to provide a complete list of song sections (e.g., Intro, Verse, Chorus, Bridge, Outro).\n"
-                "CRITICAL REQUIREMENTS:\n"
-                f"1. The sections MUST cover the ENTIRE duration from 0.0 to {request.duration:.1f} seconds.\n"
-                "2. There must be no gaps between sections.\n"
-                f"3. The last section's end time MUST be exactly {request.duration:.1f}.\n"
-                "Return a JSON array of objects with fields: "
-                "'label' (string), 'start' (float), 'end' (float).\n"
+                "Provide a list of song sections using ONLY these labels: Intro, Verse, Chorus, Bridge, Outro.\n"
+                "CRITICAL:\n"
+                f"1. Sections must cover 0.0 to {request.duration:.1f} without gaps.\n"
+                f"2. The last section MUST end at {request.duration:.1f}.\n"
+                'Return a JSON array: [{"label": "...", "start": 0.0, "end": 10.0}, ...]\n'
                 "Only return valid JSON, no extra text."
             )
 
-            # Increase max_output_tokens to avoid truncation
+            # Use gemini-1.5-flash and increased token limit
             response = gemini.models.generate_content(
-                model="gemini-2.5-flash",
+                model="gemini-1.5-flash",
                 contents=prompt,
-                config={"max_output_tokens": 4096},
+                config={"max_output_tokens": 8192},
             )
 
             raw = (response.text or "").strip()
@@ -936,10 +934,26 @@ async def structure(request: StructureRequest):
             else:
                 raise ValueError("AI returned an empty or invalid list of sections")
         except Exception as e:
+            err_str = str(e)
+            # Check for 503 or Unavailable (typical for high load)
+            is_503 = (
+                "503" in err_str
+                or "Unavailable" in err_str
+                or "overloaded" in err_str.lower()
+            )
+
+            if is_503 and attempt < max_retries:
+                wait_time = [2, 4, 8][attempt]
+                log_step(
+                    f"⚠️ Gemini 503 (attempt {attempt + 1}). Retrying in {wait_time}s..."
+                )
+                time.sleep(wait_time)
+                continue
+
             log_step(f"⚠️ Attempt {attempt + 1} failed: {e}")
             last_error = e
             if attempt < max_retries:
-                time.sleep(1)  # Small delay before retry
+                time.sleep(1)  # Normal retry delay for other errors
 
     # If all retries failed
     log_step(f"❌ All structure analysis attempts failed: {last_error}")
