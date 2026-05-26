@@ -18,7 +18,16 @@ import numpy as np
 import soundfile as sf
 import uvicorn
 from dotenv import load_dotenv
-from fastapi import Body, Depends, FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import (
+    Body,
+    Depends,
+    FastAPI,
+    File,
+    Form,
+    HTTPException,
+    Request,
+    UploadFile,
+)
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -752,6 +761,7 @@ class SeparateStemsRequest(BaseModel):
 
 @app.post("/separate-stems")
 async def separate_stems(
+    request: Request,
     file: Optional[UploadFile] = File(None),
     stems: Optional[str] = Form(None),
     file_path: Optional[str] = Form(None),
@@ -760,6 +770,20 @@ async def separate_stems(
     total_start = now()
     audio_file_path = None
     try:
+        # 1. Log incoming request details
+        log_step("--- Incoming /separate-stems request ---")
+        try:
+            body_bytes = await request.body()
+            log_step(f"Raw Body: {body_bytes.decode('utf-8', errors='replace')}")
+        except Exception as e:
+            log_step(f"Could not log raw body: {e}")
+
+        log_step(f"Form stems: {stems}")
+        log_step(f"Form file_path: {file_path}")
+        log_step(f"JSON data: {request_data}")
+        if file:
+            log_step(f"Uploaded file: {file.filename}")
+
         ensure_runtime_dirs()
 
         # Extract data from either Form or JSON Body
@@ -768,21 +792,22 @@ async def separate_stems(
             effective_file_path = request_data.file_path
         else:
             # When using Form, stems might be comma-separated or multiple fields
-            # FastAPI handles multiple fields if typed as List[str], but here we handle string fallback
             stems_list = (
                 [s.strip() for s in stems.split(",") if s.strip()] if stems else []
             )
             effective_file_path = file_path
 
         if not file and not effective_file_path:
-            raise HTTPException(
-                status_code=400, detail="No file uploaded or file_path provided."
-            )
+            detail = "No file uploaded (file is None) and no file_path provided."
+            log_step(f"❌ 400 Bad Request: {detail}")
+            raise HTTPException(status_code=400, detail=detail)
 
         if file:
             if not file.filename:
-                raise HTTPException(status_code=400, detail="No file name provided.")
-            log_step("📥 /separate-stems request mottagen (with file upload)")
+                detail = "File object present but filename is missing."
+                log_step(f"❌ 400 Bad Request: {detail}")
+                raise HTTPException(status_code=400, detail=detail)
+            log_step("📥 /separate-stems: Processing uploaded file")
             safe_filename = sanitize_filename(file.filename)
             audio_file_path = os.path.join(UPLOAD_DIR, safe_filename)
             contents = await file.read()
@@ -790,21 +815,21 @@ async def separate_stems(
                 f.write(contents)
             log_step(f"💾 Fil sparad: {audio_file_path} ({elapsed(total_start)}s)")
         elif effective_file_path:
-            log_step(
-                f"📥 /separate-stems request mottagen (using existing file: {effective_file_path})"
-            )
+            log_step(f"📥 /separate-stems: Using existing file: {effective_file_path}")
             audio_file_path = effective_file_path
             if not os.path.exists(audio_file_path):
-                raise HTTPException(
-                    status_code=404, detail=f"File not found: {audio_file_path}"
-                )
+                detail = f"File not found on server path: {audio_file_path}"
+                log_step(f"❌ 404 Not Found: {detail}")
+                raise HTTPException(status_code=404, detail=detail)
         else:
-            raise HTTPException(status_code=400, detail="No audio file provided.")
+            detail = "No audio source provided (neither file nor file_path)."
+            log_step(f"❌ 400 Bad Request: {detail}")
+            raise HTTPException(status_code=400, detail=detail)
 
         if not stems_list:
-            raise HTTPException(
-                status_code=400, detail="No stems specified for separation."
-            )
+            detail = "No stems specified (stems_list is empty). Required: vocals, drums, etc."
+            log_step(f"❌ 400 Bad Request: {detail}")
+            raise HTTPException(status_code=400, detail=detail)
 
         log_step(f"🎚️ Initiating stem separation for: {', '.join(stems_list)}")
         extracted_stems = run_demucs(audio_file_path, stems_to_extract=stems_list)
@@ -821,13 +846,17 @@ async def separate_stems(
             "analysis_time_seconds": elapsed(total_start),
         }
 
-    except HTTPException:
+    except HTTPException as he:
+        # Re-log the specific HTTP error
+        log_step(f"⚠️ HTTPException {he.status_code}: {he.detail}")
         raise
     except Exception as e:
         print("\n============== Traceback ==============")
         print(traceback.format_exc())
         print("============== End Traceback ==============")
-        raise HTTPException(status_code=500, detail=f"Separate stems failed: {str(e)}")
+        error_msg = f"Separate stems failed: {str(e)}"
+        log_step(f"❌ Critical Error: {error_msg}")
+        raise HTTPException(status_code=500, detail=error_msg)
     finally:
         if file:
             try:
