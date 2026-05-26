@@ -1131,32 +1131,36 @@ export default function App() {
     setIsStructureLoading(true);
 
     try {
-      const analysisPromise = authFetch(
+      const analysisRes = await authFetch(
         `${API_URL}/api/analysis/project/${p.id}`,
-      ).then((res) => (res.ok ? res.json() : null));
-      const structurePromise = authFetch(`${API_URL}/api/analysis/structure`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          artist: p.artist,
-          title: p.title,
-          duration: timeSpanToSeconds(p.duration),
-          projectId: p.id,
-          filePath: p.original_path,
-        }),
-      })).then((res) => (res.ok ? res.json() : null));
+      );
+      const analysisData = analysisRes.ok ? await analysisRes.json() : null;
 
-      const [analysisData, structData] = await Promise.all([
-        analysisPromise,
-        structurePromise,
-      ]);
+      const structureRes = await authFetch(
+        `${API_URL}/api/analysis/structure`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            artist: p.artist,
+            title: p.title,
+            duration: timeSpanToSeconds(p.duration),
+            projectId: p.id,
+            filePath: p.original_path,
+          }),
+        },
+      );
+
+      const structureData = structureRes.ok
+        ? ((await structureRes.json()) as StructureResult)
+        : null;
 
       if (analysisData && analysisData.status === "success") {
         setResult((prev) => ({ ...prev, ...analysisData }));
       }
 
-      if (structData && !structData.error) {
-        setStructure(structData);
+      if (structureData && !structureData.error) {
+        setStructure(structureData);
       }
     } catch (e) {
       console.error("Failed to load project data", e);
