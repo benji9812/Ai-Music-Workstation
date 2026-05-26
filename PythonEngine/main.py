@@ -514,8 +514,13 @@ def run_demucs(
         "-o",
         OUT_DIR,
     ]
-    if stems_to_extract:
-        cmd.extend(["--stems", ",".join(stems_to_extract)])
+
+    # Use --two-stems ONLY if exactly 1 stem is selected
+    if stems_to_extract and len(stems_to_extract) == 1:
+        cmd.extend(["--two-stems", stems_to_extract[0]])
+    # For htdemucs_6s, we run without stems-filter if more than 1 (or all) stems requested.
+    # The --stems flag is invalid and has been removed.
+
     cmd.append(file_path)
     log_step(f"🎚️ Running Demucs: {' '.join(cmd)}")
     start = now()
@@ -547,20 +552,31 @@ def run_demucs(
     stems_output_dir = os.path.join(OUT_DIR, DEMUCS_MODEL, folder_name)
 
     extracted_stems = {}
-    expected_stems = (
+
+    # Define what we actually WANT to return
+    want_stems = (
         stems_to_extract
         if stems_to_extract
         else ["vocals", "drums", "bass", "other", "guitar", "piano"]
     )
 
-    for stem in expected_stems:
-        stem_file_name = f"{stem}.mp3"
-        stem_path = os.path.join(stems_output_dir, stem_file_name)
-        if os.path.isfile(stem_path):
-            resample_mp3_to_target_sr(stem_path)
-            extracted_stems[stem] = stem_path
-        else:
-            log_step(f"⚠️ Warning: Expected stem file not found: {stem_path}")
+    if os.path.isdir(stems_output_dir):
+        # First, find and resample all files we want
+        for stem_name in want_stems:
+            stem_file_name = f"{stem_name}.mp3"
+            stem_path = os.path.join(stems_output_dir, stem_file_name)
+            if os.path.isfile(stem_path):
+                resample_mp3_to_target_sr(stem_path)
+                extracted_stems[stem_name] = stem_path
+            else:
+                log_step(f"⚠️ Warning: Expected stem file not found: {stem_path}")
+
+        # Second, if we had a specific list, delete anything else in that folder
+        if stems_to_extract:
+            for filename in os.listdir(stems_output_dir):
+                stem_name = os.path.splitext(filename)[0]
+                if stem_name not in want_stems:
+                    cleanup_file(os.path.join(stems_output_dir, filename))
 
     if not extracted_stems:
         raise RuntimeError("No stems were extracted by Demucs. Check logs for errors.")
