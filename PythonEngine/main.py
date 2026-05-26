@@ -756,75 +756,27 @@ async def analyze(
 
 class SeparateStemsRequest(BaseModel):
     stems: List[str]
-    file_path: Optional[str] = None
+    file_path: str
 
 
 @app.post("/separate-stems")
-async def separate_stems(
-    request: Request,
-    file: Optional[UploadFile] = File(None),
-    stems: Optional[str] = Form(None),
-    file_path: Optional[str] = Form(None),
-    request_data: Optional[SeparateStemsRequest] = Body(None),
-):
+async def separate_stems(request_data: SeparateStemsRequest):
     total_start = now()
-    audio_file_path = None
     try:
         # 1. Log incoming request details
-        log_step("--- Incoming /separate-stems request ---")
-        try:
-            body_bytes = await request.body()
-            log_step(f"Raw Body: {body_bytes.decode('utf-8', errors='replace')}")
-        except Exception as e:
-            log_step(f"Could not log raw body: {e}")
-
-        log_step(f"Form stems: {stems}")
-        log_step(f"Form file_path: {file_path}")
-        log_step(f"JSON data: {request_data}")
-        if file:
-            log_step(f"Uploaded file: {file.filename}")
+        log_step("--- Incoming /separate-stems JSON request ---")
+        log_step(f"Request data: {request_data}")
 
         ensure_runtime_dirs()
 
-        # Extract data from either Form or JSON Body
-        if request_data:
-            stems_list = request_data.stems
-            effective_file_path = request_data.file_path
-        else:
-            # When using Form, stems might be comma-separated or multiple fields
-            stems_list = (
-                [s.strip() for s in stems.split(",") if s.strip()] if stems else []
-            )
-            effective_file_path = file_path
+        audio_file_path = request_data.file_path
+        stems_list = request_data.stems
 
-        if not file and not effective_file_path:
-            detail = "No file uploaded (file is None) and no file_path provided."
-            log_step(f"❌ 400 Bad Request: {detail}")
-            raise HTTPException(status_code=400, detail=detail)
-
-        if file:
-            if not file.filename:
-                detail = "File object present but filename is missing."
-                log_step(f"❌ 400 Bad Request: {detail}")
-                raise HTTPException(status_code=400, detail=detail)
-            log_step("📥 /separate-stems: Processing uploaded file")
-            safe_filename = sanitize_filename(file.filename)
-            audio_file_path = os.path.join(UPLOAD_DIR, safe_filename)
-            contents = await file.read()
-            with open(audio_file_path, "wb") as f:
-                f.write(contents)
-            log_step(f"💾 Fil sparad: {audio_file_path} ({elapsed(total_start)}s)")
-        elif effective_file_path:
-            log_step(f"📥 /separate-stems: Using existing file: {effective_file_path}")
-            audio_file_path = effective_file_path
-            if not os.path.exists(audio_file_path):
-                detail = f"File not found on server path: {audio_file_path}"
-                log_step(f"❌ 404 Not Found: {detail}")
-                raise HTTPException(status_code=404, detail=detail)
-        else:
-            detail = "No audio source provided (neither file nor file_path)."
-            log_step(f"❌ 400 Bad Request: {detail}")
-            raise HTTPException(status_code=400, detail=detail)
+        log_step(f"📥 /separate-stems: Using existing file: {audio_file_path}")
+        if not os.path.exists(audio_file_path):
+            detail = f"File not found on server path: {audio_file_path}"
+            log_step(f"❌ 404 Not Found: {detail}")
+            raise HTTPException(status_code=404, detail=detail)
 
         if not stems_list:
             detail = "No stems specified (stems_list is empty). Required: vocals, drums, etc."
@@ -858,13 +810,7 @@ async def separate_stems(
         log_step(f"❌ Critical Error: {error_msg}")
         raise HTTPException(status_code=500, detail=error_msg)
     finally:
-        if file:
-            try:
-                await file.close()
-            except Exception:
-                pass
-        if audio_file_path and file:  # Only clean up if it was an uploaded file
-            cleanup_file(audio_file_path)
+        pass
 
 
 class StructureRequest(BaseModel):
