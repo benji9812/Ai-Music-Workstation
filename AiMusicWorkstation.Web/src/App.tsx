@@ -3054,6 +3054,38 @@ export default function App() {
           <div
             className={`panel-content-collapsible ${showStemMixer ? "" : "is-folded"}`}
           >
+            {/* Original Audio Player (visible when stems are missing but original path is known) */}
+            {result?.original_path &&
+              (!result?.extracted_stems ||
+                Object.keys(result.extracted_stems).length === 0) && (
+                <div
+                  style={{
+                    padding: "12px",
+                    marginBottom: "8px",
+                    background: "rgba(0,0,0,0.2)",
+                    borderRadius: "8px",
+                  }}
+                >
+                  <p
+                    style={{
+                      fontSize: "10px",
+                      fontWeight: "bold",
+                      color: "#888",
+                      marginBottom: "6px",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.05em",
+                    }}
+                  >
+                    Original Track Preview
+                  </p>
+                  <audio
+                    controls
+                    style={{ width: "100%", height: "32px" }}
+                    src={`${API_URL}/api/analysis/audio/${result.original_path}`}
+                  />
+                </div>
+              )}
+
             <div className="mixer-grid">
               {result?.extracted_stems &&
               Object.keys(result.extracted_stems).length > 0 ? (

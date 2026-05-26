@@ -29,6 +29,7 @@ from fastapi import (
     UploadFile,
 )
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -100,6 +101,21 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.get("/audio/{filename}")
+async def get_audio_upload(filename: str):
+    """Serve original audio files from UPLOAD_DIR with range support."""
+    file_path = os.path.join(UPLOAD_DIR, filename)
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="File not found")
+
+    return FileResponse(
+        file_path,
+        media_type="audio/mpeg",
+        headers={"Accept-Ranges": "bytes"},
+    )
+
 
 app.mount("/audio", StaticFiles(directory=OUT_DIR), name="audio")
 
@@ -635,7 +651,7 @@ async def analyze_quick(file: UploadFile = File(...)):
             "chords": chords,
             "lyrics": [],
             "stems_path": "",
-            "original_path": file_path,
+            "original_path": os.path.basename(file_path),
             "duration_seconds": elapsed(total_start),
             "analysis_window_seconds": AUDIO_ANALYZE_DURATION,
         }
@@ -739,7 +755,7 @@ async def analyze(
                 stem: f"/audio/{os.path.relpath(path, OUT_DIR)}"
                 for stem, path in extracted_stems.items()
             },
-            "original_path": file_path,
+            "original_path": os.path.basename(file_path),
             "duration_seconds": audio_duration,
             "analysis_time_seconds": elapsed(total_start),
             "analysis_window_seconds": AUDIO_ANALYZE_DURATION,
@@ -1695,7 +1711,9 @@ async def start_analyze_quick_job(request: ImportUrlAsyncRequest):
                 "lyrics": [],  # No lyrics in quick analysis
                 "stems_path": "",  # No stems in quick analysis
                 "extracted_stems": {},  # No stems in quick analysis
-                "original_path": file_path,  # Provide the path to the downloaded file for later stem separation
+                "original_path": os.path.basename(
+                    file_path
+                ),  # Provide the path to the downloaded file for later stem separation
                 "duration_seconds": audio_duration,
                 "analysis_window_seconds": AUDIO_ANALYZE_DURATION,
             }
