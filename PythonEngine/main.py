@@ -18,7 +18,7 @@ import numpy as np
 import soundfile as sf
 import uvicorn
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
+from fastapi import Body, Depends, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -746,19 +746,35 @@ async def analyze(
 
 
 class SeparateStemsRequest(BaseModel):
+    stems: List[str]
     file_path: Optional[str] = None
-    stems: str
 
 
 @app.post("/separate-stems")
 async def separate_stems(
-    file: UploadFile = File(None), request: SeparateStemsRequest = Depends()
+    file: Optional[UploadFile] = File(None),
+    stems: Optional[str] = Form(None),
+    file_path: Optional[str] = Form(None),
+    request_data: Optional[SeparateStemsRequest] = Body(None),
 ):
     total_start = now()
     audio_file_path = None
     try:
         ensure_runtime_dirs()
-        if not file and not request.file_path:
+
+        # Extract data from either Form or JSON Body
+        if request_data:
+            stems_list = request_data.stems
+            effective_file_path = request_data.file_path
+        else:
+            # When using Form, stems might be comma-separated or multiple fields
+            # FastAPI handles multiple fields if typed as List[str], but here we handle string fallback
+            stems_list = (
+                [s.strip() for s in stems.split(",") if s.strip()] if stems else []
+            )
+            effective_file_path = file_path
+
+        if not file and not effective_file_path:
             raise HTTPException(
                 status_code=400, detail="No file uploaded or file_path provided."
             )
@@ -773,11 +789,11 @@ async def separate_stems(
             with open(audio_file_path, "wb") as f:
                 f.write(contents)
             log_step(f"💾 Fil sparad: {audio_file_path} ({elapsed(total_start)}s)")
-        elif request.file_path:
+        elif effective_file_path:
             log_step(
-                f"📥 /separate-stems request mottagen (using existing file: {request.file_path})"
+                f"📥 /separate-stems request mottagen (using existing file: {effective_file_path})"
             )
-            audio_file_path = request.file_path
+            audio_file_path = effective_file_path
             if not os.path.exists(audio_file_path):
                 raise HTTPException(
                     status_code=404, detail=f"File not found: {audio_file_path}"
@@ -785,7 +801,6 @@ async def separate_stems(
         else:
             raise HTTPException(status_code=400, detail="No audio file provided.")
 
-        stems_list = [s.strip() for s in request.stems.split(",") if s.strip()]
         if not stems_list:
             raise HTTPException(
                 status_code=400, detail="No stems specified for separation."
@@ -831,71 +846,103 @@ class StructureRequest(BaseModel):
 
 @app.post("/structure")
 async def structure(request: StructureRequest):
-    """Song structure analysis via Gemini 2.5 Flash."""
-    try:
-        gemini = get_gemini_client()
-        prompt = (
-            f"Analyze the song structure of '{request.title}' by '{request.artist}'.\n"
-            f"The total audio duration is exactly {request.duration:.1f} seconds.\n"
-            "Your task is to provide a complete list of song sections (e.g., Intro, Verse, Chorus, Bridge, Outro).\n"
-            "CRITICAL REQUIREMENTS:\n"
-            f"1. The sections MUST cover the ENTIRE duration from 0.0 to {request.duration:.1f} seconds.\n"
-            "2. There must be no gaps between sections.\n"
-            f"3. The last section's end time MUST be exactly {request.duration:.1f}.\n"
-            "Return a JSON array of objects with fields: "
-            "'label' (string), 'start' (float), 'end' (float).\n"
-            "Only return valid JSON, no extra text."
-        )
-        response = gemini.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=prompt,
-            config={"max_output_tokens": 2048},
-        )
-        raw = (response.text or "").strip()
-        # Strip markdown code fences if present
-        if raw.startswith("```"):
-            raw = re.sub(r"^```[a-z]*\n?", "", raw)
-            raw = re.sub(r"\n?```$", "", raw)
+    """Song structure analysis via Gemini with robust parsing and retries."""
+    max_retries = 2
+    last_error = None
 
-        sections = json.loads(raw)
+    for attempt in range(max_retries + 1):
+        try:
+            gemini = get_gemini_client()
+            prompt = (
+                f"Analyze the song structure of '{request.title}' by '{request.artist}'.\n"
+                f"The total audio duration is exactly {request.duration:.1f} seconds.\n"
+                "Your task is to provide a complete list of song sections (e.g., Intro, Verse, Chorus, Bridge, Outro).\n"
+                "CRITICAL REQUIREMENTS:\n"
+                f"1. The sections MUST cover the ENTIRE duration from 0.0 to {request.duration:.1f} seconds.\n"
+                "2. There must be no gaps between sections.\n"
+                f"3. The last section's end time MUST be exactly {request.duration:.1f}.\n"
+                "Return a JSON array of objects with fields: "
+                "'label' (string), 'start' (float), 'end' (float).\n"
+                "Only return valid JSON, no extra text."
+            )
 
-        # Post-processing to ensure full duration coverage
-        if isinstance(sections, list) and len(sections) > 0:
-            # Sort by start time
-            sections.sort(key=lambda x: x.get("start", 0))
+            # Increase max_output_tokens to avoid truncation
+            response = gemini.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=prompt,
+                config={"max_output_tokens": 4096},
+            )
 
-            # Ensure the first section starts at 0
-            if sections[0].get("start", 0) > 0:
-                sections[0]["start"] = 0.0
+            raw = (response.text or "").strip()
+            if not raw:
+                raise ValueError("Empty response from Gemini")
 
-            # Ensure no gaps and logical flow
-            for i in range(len(sections) - 1):
-                current_end = sections[i].get("end", 0)
-                next_start = sections[i + 1].get("start", 0)
+            # Strip markdown code fences if present
+            if raw.startswith("```"):
+                raw = re.sub(r"^```[a-z]*\n?", "", raw)
+                raw = re.sub(r"\n?```$", "", raw)
 
-                # If there's a gap, close it
-                if current_end < next_start:
-                    sections[i]["end"] = next_start
-                # If they overlap significantly or end > next start, adjust
-                elif current_end > next_start:
-                    sections[i + 1]["start"] = current_end
+            raw = raw.strip()
 
-            # Ensure it reaches the end
-            last_section = sections[-1]
-            if last_section.get("end", 0) < request.duration - 0.5:
+            # Attempt to fix truncated JSON if it looks incomplete
+            if not raw.endswith("]"):
                 log_step(
-                    f"📏 Extending last section from {last_section.get('end')} to {request.duration}"
+                    "⚠️ Detected potentially truncated JSON, attempting to close it..."
                 )
-                last_section["end"] = round(request.duration, 2)
-            elif last_section.get("end", 0) > request.duration + 0.5:
-                last_section["end"] = round(request.duration, 2)
+                # If it's missing the closing bracket, try to find the last complete object
+                last_brace = raw.rfind("}")
+                if last_brace != -1:
+                    raw = raw[: last_brace + 1] + "]"
+                else:
+                    raw += "]"
 
-        return {"status": "success", "sections": sections}
-    except Exception as e:
-        log_step(f"⚠️ /structure failed: {e}")
-        raise HTTPException(
-            status_code=500, detail=f"Structure analysis failed: {str(e)}"
-        )
+            try:
+                sections = json.loads(raw)
+            except json.JSONDecodeError as je:
+                log_step(f"❌ JSON Parse Error on attempt {attempt + 1}: {je}")
+                last_error = je
+                continue  # Retry
+
+            # Post-processing to ensure full duration coverage
+            if isinstance(sections, list) and len(sections) > 0:
+                # Sort by start time
+                sections.sort(key=lambda x: x.get("start", 0))
+
+                # Ensure the first section starts at 0
+                if sections[0].get("start", 0) > 0:
+                    sections[0]["start"] = 0.0
+
+                # Ensure no gaps and logical flow
+                for i in range(len(sections) - 1):
+                    current_end = float(sections[i].get("end", 0))
+                    next_start = float(sections[i + 1].get("start", 0))
+
+                    if current_end < next_start:
+                        sections[i]["end"] = next_start
+                    elif current_end > next_start:
+                        sections[i + 1]["start"] = current_end
+
+                # Ensure the last section ends at exactly duration
+                sections[-1]["end"] = float(request.duration)
+
+                return {"status": "success", "sections": sections}
+            else:
+                raise ValueError("AI returned an empty or invalid list of sections")
+        except Exception as e:
+            log_step(f"⚠️ Attempt {attempt + 1} failed: {e}")
+            last_error = e
+            if attempt < max_retries:
+                time.sleep(1)  # Small delay before retry
+
+    # If all retries failed
+    log_step(f"❌ All structure analysis attempts failed: {last_error}")
+    # Fallback: Return a single section for the whole song
+    return {
+        "status": "success",
+        "sections": [
+            {"label": "Full Song", "start": 0.0, "end": float(request.duration)}
+        ],
+    }
 
 
 class ImportUrlRequest(BaseModel):

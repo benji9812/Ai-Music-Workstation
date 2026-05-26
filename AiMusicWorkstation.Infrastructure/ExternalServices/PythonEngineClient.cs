@@ -123,31 +123,44 @@ public class PythonEngineClient
         if (!await _manager.EnsureRunningAsync())
             return "{\"status\":\"error\",\"message\":\"Python engine not reachable\"}";
 
+        var stemsList = stems.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                            .Select(s => s.Trim())
+                            .ToList();
+
+        if (file == null && !string.IsNullOrEmpty(originalFilePath))
+        {
+            // Use JSON Body for metadata-only request
+            var dto = new Shared.Dto.SeparateStemsRequest
+            {
+                Stems = stemsList,
+                FilePath = originalFilePath
+            };
+            var responseJson = await _client.PostAsJsonAsync("separate-stems", dto);
+            return await responseJson.Content.ReadAsStringAsync();
+        }
+
+        // Use Multipart for file upload (or fallback)
         using var requestMessage = new HttpRequestMessage(HttpMethod.Post, "separate-stems");
+        var multipartContent = new MultipartFormDataContent();
 
         if (file != null)
         {
-            var multipartContent = await BuildMultipartAsync(file);
-            // Add stems as a string content
-            multipartContent.Add(new StringContent(stems), "request.stems");
-            // Add originalFilePath if present
-            if (!string.IsNullOrEmpty(originalFilePath))
-            {
-                multipartContent.Add(new StringContent(originalFilePath), "request.file_path");
-            }
-            requestMessage.Content = multipartContent;
-        }
-        else if (!string.IsNullOrEmpty(originalFilePath))
-        {
-            // If no file is provided, send JSON with file_path and stems
-            var payload = new { file_path = originalFilePath, stems = stems };
-            requestMessage.Content = JsonContent.Create(payload);
-        }
-        else
-        {
-            return "{\"status\":\"error\",\"message\":\"No file or file path provided for stem separation.\"}";
+            await using var stream = file.OpenReadStream();
+            using var ms = new MemoryStream();
+            await stream.CopyToAsync(ms);
+            multipartContent.Add(new ByteArrayContent(ms.ToArray()), "file", file.FileName);
         }
 
+        // Add stems as a string content (comma-separated for Form parsing in Python)
+        multipartContent.Add(new StringContent(string.Join(",", stemsList)), "stems");
+
+        // Add originalFilePath if present (snake_case)
+        if (!string.IsNullOrEmpty(originalFilePath))
+        {
+            multipartContent.Add(new StringContent(originalFilePath), "file_path");
+        }
+
+        requestMessage.Content = multipartContent;
         var response = await _client.SendAsync(requestMessage);
         return await response.Content.ReadAsStringAsync();
     }
