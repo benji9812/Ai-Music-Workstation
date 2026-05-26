@@ -115,7 +115,28 @@ public class AnalysisController : ControllerBase
         if (request == null)
             return BadRequest(new { status = "error", message = "Payload missing" });
 
-        string response = await _client.GetStructureAsync(request);
+        // Try to find the file path if it's missing but we have a projectId
+        var filePath = request.filePath;
+        if (string.IsNullOrEmpty(filePath) && !string.IsNullOrEmpty(request.projectId))
+        {
+            var userId = GetUserId();
+            var project = await _repository.GetByIdAsync(request.projectId, userId);
+            if (project != null && !string.IsNullOrEmpty(project.OriginalPath))
+            {
+                filePath = project.OriginalPath;
+            }
+        }
+
+        // Create the payload for Python Engine
+        var pythonRequest = new
+        {
+            artist = request.artist,
+            title = request.title,
+            duration = request.duration,
+            file_path = filePath
+        };
+
+        string response = await _client.GetStructureAsync(pythonRequest);
         return Content(response, "application/json");
     }
 
@@ -168,6 +189,6 @@ public class AnalysisController : ControllerBase
     }
 }
 
-public record StructureRequest(string artist, string title, double duration);
+public record StructureRequest(string artist, string title, double duration, string? projectId = null, string? filePath = null);
 public record UpdateStructureRequest(List<SectionDto> sections);
 public record SectionDto(string label, double start, double end);

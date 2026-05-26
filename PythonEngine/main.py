@@ -13,14 +13,14 @@ from functools import lru_cache
 from pathlib import Path
 from typing import List, Optional
 
+import allin1
+import essentia.standard as es
 import librosa
 import numpy as np
 import soundfile as sf
 import uvicorn
 from dotenv import load_dotenv
 from fastapi import (
-    Body,
-    Depends,
     FastAPI,
     File,
     Form,
@@ -414,105 +414,155 @@ def detect_time_signature(y, sr, bpm):
         return 4
 
 
-def detect_key(y, sr):
-    y_harmonic = librosa.effects.harmonic(y, margin=4)
-    chroma = librosa.feature.chroma_cqt(y=y_harmonic, sr=sr)
-    chroma_avg = np.mean(chroma, axis=1)
-    major_profile = [
-        6.35,
-        2.23,
-        3.48,
-        2.33,
-        4.38,
-        4.09,
-        2.52,
-        5.19,
-        2.39,
-        3.66,
-        2.29,
-        2.88,
-    ]
-    minor_profile = [
-        6.33,
-        2.68,
-        3.52,
-        5.38,
-        2.60,
-        3.53,
-        2.54,
-        4.75,
-        3.98,
-        2.69,
-        3.34,
-        3.17,
-    ]
+def detect_key(file_path: str):
+    """Detect key/scale using Essentia KeyExtractor."""
+    try:
+        # Load audio using Essentia's MonoLoader
+        audio = es.MonoLoader(filename=file_path, sampleRate=44100)()
+        # Extract key and scale
+        key, scale, strength = es.KeyExtractor()(audio)
 
-    def correlations(profile):
-        return [np.corrcoef(chroma_avg, np.roll(profile, i))[0, 1] for i in range(12)]
+        # Format to match requested output (e.g. "C major", "C# minor")
+        suffix = " minor" if scale == "minor" else " major"
+        return f"{key}{suffix}"
+    except Exception as e:
+        log_step(f"⚠️ Essentia key detection failed: {e}. Falling back to librosa.")
+        # Fallback to librosa if essentia fails
+        try:
+            y, sr = librosa.load(file_path, sr=22050, mono=True)
+            y_harmonic = librosa.effects.harmonic(y, margin=4)
+            chroma = librosa.feature.chroma_cqt(y=y_harmonic, sr=sr)
+            chroma_avg = np.mean(chroma, axis=1)
+            major_profile = [
+                6.35,
+                2.23,
+                3.48,
+                2.33,
+                4.38,
+                4.09,
+                2.52,
+                5.19,
+                2.39,
+                3.66,
+                2.29,
+                2.88,
+            ]
+            minor_profile = [
+                6.33,
+                2.68,
+                3.52,
+                5.38,
+                2.60,
+                3.53,
+                2.54,
+                4.75,
+                3.98,
+                2.69,
+                3.34,
+                3.17,
+            ]
 
-    major_corrs = correlations(major_profile)
-    minor_corrs = correlations(minor_profile)
-    if max(major_corrs) > max(minor_corrs):
-        return NOTES[np.argmax(major_corrs)]
-    return NOTES[np.argmax(minor_corrs)] + "m"
+            def correlations(profile):
+                return [
+                    np.corrcoef(chroma_avg, np.roll(profile, i))[0, 1]
+                    for i in range(12)
+                ]
+
+            major_corrs = correlations(major_profile)
+            minor_corrs = correlations(minor_profile)
+            if max(major_corrs) > max(minor_corrs):
+                res = NOTES[np.argmax(major_corrs)] + " major"
+            else:
+                res = NOTES[np.argmax(minor_corrs)] + " minor"
+            return res
+        except Exception as e2:
+            log_step(f"⚠️ Librosa fallback also failed: {e2}")
+            return "C major"
 
 
 def get_chords(file_path: str):
-    y, sr = librosa.load(
-        file_path,
-        sr=AUDIO_LOAD_SR,
-        mono=AUDIO_LOAD_MONO,
-        duration=AUDIO_CHORDS_DURATION,
-    )
-    y_harmonic = librosa.effects.harmonic(y, margin=4)
-    chroma = librosa.feature.chroma_cqt(
-        y=y_harmonic, sr=sr, hop_length=512, bins_per_octave=36
-    )
+    """Detect chords using Essentia."""
+    try:
+        # Load audio
+        audio = es.MonoLoader(filename=file_path, sampleRate=44100)()
 
-    def classify_chord(c):
-        best_score = -1
-        best_chord = "C"
-        for root in range(12):
-            candidates = {
-                NOTES[root]: c[root % 12] + c[(root + 4) % 12] + c[(root + 7) % 12],
-                NOTES[root] + "m": c[root % 12]
-                + c[(root + 3) % 12]
-                + c[(root + 7) % 12],
-                NOTES[root] + "7": c[root % 12]
-                + c[(root + 4) % 12]
-                + c[(root + 7) % 12]
-                + c[(root + 10) % 12] * 0.8,
-                NOTES[root] + "maj7": c[root % 12]
-                + c[(root + 4) % 12]
-                + c[(root + 7) % 12]
-                + c[(root + 11) % 12] * 0.8,
-                NOTES[root] + "m7": c[root % 12]
-                + c[(root + 3) % 12]
-                + c[(root + 7) % 12]
-                + c[(root + 10) % 12] * 0.8,
-                NOTES[root] + "sus2": c[root % 12]
-                + c[(root + 2) % 12]
-                + c[(root + 7) % 12],
-                NOTES[root] + "sus4": c[root % 12]
-                + c[(root + 5) % 12]
-                + c[(root + 7) % 12],
-            }
-            for chord_name, score in candidates.items():
-                if score > best_score:
-                    best_score = score
-                    best_chord = chord_name
-        return best_chord
+        # Frame-based processing for HPCP
+        hopSize = 2048
+        frameSize = 4096
 
-    chords = []
-    step = max(1, int(2.0 * sr / 512))
-    prev_chord = None
-    for i in range(0, chroma.shape[1], step):
-        chord = classify_chord(chroma[:, i])
-        timestamp = float(i * 512 / sr)
-        if chord != prev_chord:
-            chords.append({"time": timestamp, "chord": chord})
-            prev_chord = chord
-    return chords
+        # Algorithms
+        windowing = es.Windowing(type="hann")
+        spectrum = es.Spectrum()
+        spectralPeaks = es.SpectralPeaks()
+        hpcp_calc = es.HPCP()
+        chords_det = es.ChordsDetection()
+
+        hpcps = []
+        for frame in es.FrameGenerator(
+            audio, frameSize=frameSize, hopSize=hopSize, startFromZero=True
+        ):
+            spec = spectrum(windowing(frame))
+            peaks, magnitudes = spectralPeaks(spec)
+            hpcp = hpcp_calc(peaks, magnitudes)
+            hpcps.append(hpcp)
+
+        # Detect chords
+        chords, strength = chords_det(hpcps)
+
+        # Format output
+        res = []
+        prev_chord = None
+        for i, chord in enumerate(chords):
+            timestamp = float(i * hopSize / 44100.0)
+            # Essentia returns chords like "C", "Cmin", "G#maj", etc.
+            # We might want to normalize "min" to "m" and "maj" to ""
+            normalized_chord = chord.replace("min", "m").replace("maj", "")
+
+            if normalized_chord != prev_chord:
+                res.append({"time": timestamp, "chord": normalized_chord})
+                prev_chord = normalized_chord
+        return res
+    except Exception as e:
+        log_step(f"⚠️ Essentia chord detection failed: {e}. Falling back to librosa.")
+        # Fallback to current librosa-based logic
+        try:
+            y, sr = librosa.load(file_path, sr=22050, mono=True)
+            y_harmonic = librosa.effects.harmonic(y, margin=4)
+            chroma = librosa.feature.chroma_cqt(
+                y=y_harmonic, sr=sr, hop_length=512, bins_per_octave=36
+            )
+
+            def classify_chord(c):
+                best_score = -1
+                best_chord = "C"
+                for root in range(12):
+                    candidates = {
+                        NOTES[root]: c[root % 12]
+                        + c[(root + 4) % 12]
+                        + c[(root + 7) % 12],
+                        NOTES[root] + "m": c[root % 12]
+                        + c[(root + 3) % 12]
+                        + c[(root + 7) % 12],
+                    }
+                    for chord_name, score in candidates.items():
+                        if score > best_score:
+                            best_score = score
+                            best_chord = chord_name
+                return best_chord
+
+            chords = []
+            step = max(1, int(2.0 * sr / 512))
+            prev_chord = None
+            for i in range(0, chroma.shape[1], step):
+                chord = classify_chord(chroma[:, i])
+                timestamp = float(i * 512 / sr)
+                if chord != prev_chord:
+                    chords.append({"time": timestamp, "chord": chord})
+                    prev_chord = chord
+            return chords
+        except Exception as e2:
+            log_step(f"⚠️ Librosa chord fallback failed: {e2}")
+            return []
 
 
 def run_demucs(
@@ -637,7 +687,7 @@ async def analyze_quick(file: UploadFile = File(...)):
         time_signature = detect_time_signature(y_audio, sr, bpm)
         log_step(f"🥁 BPM: {bpm}, Taktart: {time_signature}/4 ({elapsed(bpm_start)}s)")
         key_start = now()
-        key = detect_key(y_audio, sr)
+        key = detect_key(file_path)
         log_step(f"🎹 Tonart: {key} ({elapsed(key_start)}s)")
         chords_start = now()
         chords = get_chords(file_path)
@@ -707,7 +757,7 @@ async def analyze(
         time_signature = detect_time_signature(y_audio, sr, bpm)
         log_step(f"🥁 BPM: {bpm}, Taktart: {time_signature}/4")
 
-        key = detect_key(y_audio, sr)
+        key = detect_key(file_path)
         log_step(f"🎹 Tonart: {key}")
 
         chords = get_chords(file_path)
@@ -849,12 +899,79 @@ class StructureRequest(BaseModel):
     artist: str
     title: str
     duration: float
+    file_path: Optional[str] = None
 
 
 @app.post("/structure")
 async def structure(request: StructureRequest):
-    """Song structure analysis via Gemini with robust parsing and retries."""
-    max_retries = 3
+    """Song structure analysis via allin1 (local) with Gemini fallback."""
+    sections = []
+    used_method = "none"
+
+    # 1. Try allin1 (Local ML)
+    if request.file_path:
+        actual_path = request.file_path
+        if not os.path.exists(actual_path):
+            # Try in UPLOAD_DIR
+            potential_path = os.path.join(
+                UPLOAD_DIR, os.path.basename(request.file_path)
+            )
+            if os.path.exists(potential_path):
+                actual_path = potential_path
+            else:
+                # Try relative to OUT_DIR if it's a stems folder
+                # but allin1 needs the original mix.
+                pass
+
+        if os.path.exists(actual_path) and os.path.isfile(actual_path):
+            try:
+                log_step(f"🧠 Running allin1 analysis on: {actual_path}")
+                # allin1.analyze returns a result object
+                result = allin1.analyze(actual_path)
+
+                # Map allin1 segments to our format
+                # Labels mapping: allin1 has many labels, we try to map to our 5 labels
+                label_map = {
+                    "intro": "Intro",
+                    "verse": "Verse",
+                    "chorus": "Chorus",
+                    "bridge": "Bridge",
+                    "outro": "Outro",
+                    "solo": "Bridge",  # Map solo to bridge for simplicity
+                    "silence": "Intro",  # Map silence to intro if at start, or just keep as is?
+                }
+
+                for segment in result.segments:
+                    label = segment.label.lower()
+                    # Find best match in our labels
+                    mapped_label = "Verse"  # Default
+                    for k, v in label_map.items():
+                        if k in label:
+                            mapped_label = v
+                            break
+
+                    sections.append(
+                        {
+                            "label": mapped_label,
+                            "start": float(segment.start),
+                            "end": float(segment.end),
+                        }
+                    )
+
+                if sections:
+                    used_method = "allin1"
+                    log_step("✅ Structure analysis completed via allin1")
+                    return {
+                        "status": "success",
+                        "sections": sections,
+                        "method": used_method,
+                    }
+
+            except Exception as e:
+                log_step(f"⚠️ allin1 analysis failed: {e}. Falling back to Gemini.")
+
+    # 2. Try Gemini (Fallback)
+    max_retries = 2
     last_error = None
 
     for attempt in range(max_retries + 1):
@@ -871,7 +988,6 @@ async def structure(request: StructureRequest):
                 "Only return valid JSON, no extra text."
             )
 
-            # Use gemini-1.5-flash and increased token limit
             response = gemini.models.generate_content(
                 model="gemini-1.5-flash",
                 contents=prompt,
@@ -882,19 +998,12 @@ async def structure(request: StructureRequest):
             if not raw:
                 raise ValueError("Empty response from Gemini")
 
-            # Strip markdown code fences if present
             if raw.startswith("```"):
                 raw = re.sub(r"^```[a-z]*\n?", "", raw)
                 raw = re.sub(r"\n?```$", "", raw)
-
             raw = raw.strip()
 
-            # Attempt to fix truncated JSON if it looks incomplete
             if not raw.endswith("]"):
-                log_step(
-                    "⚠️ Detected potentially truncated JSON, attempting to close it..."
-                )
-                # If it's missing the closing bracket, try to find the last complete object
                 last_brace = raw.rfind("}")
                 if last_brace != -1:
                     raw = raw[: last_brace + 1] + "]"
@@ -906,63 +1015,57 @@ async def structure(request: StructureRequest):
             except json.JSONDecodeError as je:
                 log_step(f"❌ JSON Parse Error on attempt {attempt + 1}: {je}")
                 last_error = je
-                continue  # Retry
+                continue
 
-            # Post-processing to ensure full duration coverage
             if isinstance(sections, list) and len(sections) > 0:
-                # Sort by start time
                 sections.sort(key=lambda x: x.get("start", 0))
-
-                # Ensure the first section starts at 0
                 if sections[0].get("start", 0) > 0:
                     sections[0]["start"] = 0.0
-
-                # Ensure no gaps and logical flow
                 for i in range(len(sections) - 1):
                     current_end = float(sections[i].get("end", 0))
                     next_start = float(sections[i + 1].get("start", 0))
-
                     if current_end < next_start:
                         sections[i]["end"] = next_start
                     elif current_end > next_start:
                         sections[i + 1]["start"] = current_end
-
-                # Ensure the last section ends at exactly duration
                 sections[-1]["end"] = float(request.duration)
 
-                return {"status": "success", "sections": sections}
+                used_method = "gemini_fallback"
+                log_step("✅ Structure analysis completed via Gemini fallback")
+                return {
+                    "status": "success",
+                    "sections": sections,
+                    "method": used_method,
+                }
             else:
                 raise ValueError("AI returned an empty or invalid list of sections")
         except Exception as e:
             err_str = str(e)
-            # Check for 503 or Unavailable (typical for high load)
             is_503 = (
                 "503" in err_str
                 or "Unavailable" in err_str
                 or "overloaded" in err_str.lower()
             )
-
             if is_503 and attempt < max_retries:
-                wait_time = [2, 4, 8][attempt]
+                wait_time = [2, 4][attempt]
                 log_step(
                     f"⚠️ Gemini 503 (attempt {attempt + 1}). Retrying in {wait_time}s..."
                 )
                 time.sleep(wait_time)
                 continue
-
             log_step(f"⚠️ Attempt {attempt + 1} failed: {e}")
             last_error = e
             if attempt < max_retries:
-                time.sleep(1)  # Normal retry delay for other errors
+                time.sleep(1)
 
-    # If all retries failed
+    # 3. Final Fallback
     log_step(f"❌ All structure analysis attempts failed: {last_error}")
-    # Fallback: Return a single section for the whole song
     return {
         "status": "success",
         "sections": [
             {"label": "Full Song", "start": 0.0, "end": float(request.duration)}
         ],
+        "method": "final_fallback",
     }
 
 
@@ -1215,7 +1318,7 @@ async def import_url(request: ImportUrlRequest):
         time_signature = detect_time_signature(y_audio, sr, bpm)
         log_step(f"🥁 BPM: {bpm}, Time sig: {time_signature}/4")
 
-        key = detect_key(y_audio, sr)
+        key = detect_key(file_path)
         log_step(f"🎹 Key: {key}")
 
         chords = get_chords(file_path)
@@ -1460,7 +1563,7 @@ async def import_url_async(request: ImportUrlAsyncRequest):
             bpm = detect_bpm_robust(y_audio, sr)
             time_signature = detect_time_signature(y_audio, sr, bpm)
             job_update(job_id, f"🥁 BPM: {bpm}  Key: detecting...", progress=25)
-            key = detect_key(y_audio, sr)
+            key = detect_key(file_path)
             job_update(job_id, "🎸 Detecting chords...", progress=35)
             chords = get_chords(file_path)
             job_update(
@@ -1707,7 +1810,7 @@ async def start_analyze_quick_job(request: ImportUrlAsyncRequest):
             bpm = detect_bpm_robust(y_audio, sr)
             time_signature = detect_time_signature(y_audio, sr, bpm)
             job_update(job_id, f"🥁 BPM: {bpm}  Key: detecting...", progress=25)
-            key = detect_key(y_audio, sr)
+            key = detect_key(file_path)
             job_update(job_id, "🎸 Detecting chords...", progress=35)
             chords = get_chords(file_path)
 

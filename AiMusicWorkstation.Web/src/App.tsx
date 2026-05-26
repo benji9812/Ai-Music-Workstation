@@ -1115,10 +1115,10 @@ export default function App() {
     }
 
     setResult({
-      bpm: p.bpm,
-      key: p.key,
       title: p.title,
       artist: p.artist,
+      bpm: p.bpm,
+      key: p.key,
       original_path: p.original_path,
       extracted_stems: p.extracted_stems,
     });
@@ -1134,7 +1134,6 @@ export default function App() {
       const analysisPromise = authFetch(
         `${API_URL}/api/analysis/project/${p.id}`,
       ).then((res) => (res.ok ? res.json() : null));
-
       const structurePromise = authFetch(`${API_URL}/api/analysis/structure`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1142,8 +1141,10 @@ export default function App() {
           artist: p.artist,
           title: p.title,
           duration: timeSpanToSeconds(p.duration),
+          projectId: p.id,
+          filePath: p.original_path,
         }),
-      }).then((res) => (res.ok ? res.json() : null));
+      })).then((res) => (res.ok ? res.json() : null));
 
       const [analysisData, structData] = await Promise.all([
         analysisPromise,
@@ -1252,6 +1253,7 @@ export default function App() {
                     artist: trackArtist,
                     title: trackTitle,
                     duration: data.duration_seconds || 180,
+                    filePath: data.original_path,
                   }),
                 },
               );
@@ -1789,6 +1791,7 @@ export default function App() {
                 artist: "Local Upload",
                 title: fileName,
                 duration: data.duration_seconds || 180,
+                filePath: data.original_path,
               }),
             },
           );
