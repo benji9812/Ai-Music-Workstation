@@ -5,9 +5,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Npgsql;
 using Scalar.AspNetCore;
-using System.Security.Claims;
-using System.Text;
-using System.Text.Json;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -35,48 +32,21 @@ builder.Services.AddCors(options =>
 // === ===
 
 // Authentication
-var jwtSecret = builder.Configuration["SUPABASE_JWT_SECRET"];
-if (!string.IsNullOrEmpty(jwtSecret))
-{
-    var key = Encoding.UTF8.GetBytes(jwtSecret);
-    builder.Services.AddAuthentication(options =>
-    {
-        options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-        options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-    })
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
+        options.Authority = "https://rsynmievakeeccdbczqy.supabase.co/auth/v1";
+        options.MetadataAddress = "https://rsynmievakeeccdbczqy.supabase.co/auth/v1/.well-known/openid-configuration";
+        options.RequireHttpsMetadata = true;
         options.TokenValidationParameters = new TokenValidationParameters
         {
-            ValidateIssuerSigningKey = true,
-            IssuerSigningKey = new SymmetricSecurityKey(key),
-            ValidateIssuer = false,
+            ValidateIssuer = true,
+            ValidIssuer = "https://rsynmievakeeccdbczqy.supabase.co/auth/v1",
             ValidateAudience = true,
             ValidAudience = "authenticated",
             ValidateLifetime = true,
-            ClockSkew = TimeSpan.Zero
-        };
-        options.Events = new JwtBearerEvents
-        {
-            OnTokenValidated = context =>
-            {
-                if (context.Principal?.Identity is ClaimsIdentity identity)
-                {
-                    var appMetadata = identity.FindFirst("app_metadata")?.Value;
-                    if (!string.IsNullOrEmpty(appMetadata))
-                    {
-                        using var doc = JsonDocument.Parse(appMetadata);
-                        if (doc.RootElement.TryGetProperty("role", out var roleElement))
-                        {
-                            identity.AddClaim(new Claim(ClaimTypes.Role, roleElement.GetString() ?? "user"));
-                        }
-                    }
-                }
-                return Task.CompletedTask;
-            }
         };
     });
-}
 
 // Services
 builder.Services.AddControllers();
