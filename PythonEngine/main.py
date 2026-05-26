@@ -13,8 +13,21 @@ from functools import lru_cache
 from pathlib import Path
 from typing import List, Optional
 
-import allin1
-import essentia.standard as es
+try:
+    import allin1
+
+    ALLIN1_AVAILABLE = True
+except ImportError:
+    allin1 = None
+    ALLIN1_AVAILABLE = False
+
+try:
+    import essentia.standard as es
+
+    ESSENTIA_AVAILABLE = True
+except ImportError:
+    es = None
+    ESSENTIA_AVAILABLE = False
 import librosa
 import numpy as np
 import soundfile as sf
@@ -416,153 +429,156 @@ def detect_time_signature(y, sr, bpm):
 
 def detect_key(file_path: str):
     """Detect key/scale using Essentia KeyExtractor."""
-    try:
-        # Load audio using Essentia's MonoLoader
-        audio = es.MonoLoader(filename=file_path, sampleRate=44100)()
-        # Extract key and scale
-        key, scale, strength = es.KeyExtractor()(audio)
-
-        # Format to match requested output (e.g. "C major", "C# minor")
-        suffix = " minor" if scale == "minor" else " major"
-        return f"{key}{suffix}"
-    except Exception as e:
-        log_step(f"⚠️ Essentia key detection failed: {e}. Falling back to librosa.")
-        # Fallback to librosa if essentia fails
+    if ESSENTIA_AVAILABLE:
         try:
-            y, sr = librosa.load(file_path, sr=22050, mono=True)
-            y_harmonic = librosa.effects.harmonic(y, margin=4)
-            chroma = librosa.feature.chroma_cqt(y=y_harmonic, sr=sr)
-            chroma_avg = np.mean(chroma, axis=1)
-            major_profile = [
-                6.35,
-                2.23,
-                3.48,
-                2.33,
-                4.38,
-                4.09,
-                2.52,
-                5.19,
-                2.39,
-                3.66,
-                2.29,
-                2.88,
-            ]
-            minor_profile = [
-                6.33,
-                2.68,
-                3.52,
-                5.38,
-                2.60,
-                3.53,
-                2.54,
-                4.75,
-                3.98,
-                2.69,
-                3.34,
-                3.17,
+            # Load audio using Essentia's MonoLoader
+            audio = es.MonoLoader(filename=file_path, sampleRate=44100)()
+            # Extract key and scale
+            key, scale, strength = es.KeyExtractor()(audio)
+
+            # Format to match requested output (e.g. "C major", "C# minor")
+            suffix = " minor" if scale == "minor" else " major"
+            return f"{key}{suffix}"
+        except Exception as e:
+            log_step(f"⚠️ Essentia key detection failed: {e}. Falling back to librosa.")
+
+    # Fallback to librosa if essentia is unavailable or fails
+    try:
+        y, sr = librosa.load(file_path, sr=22050, mono=True)
+        y_harmonic = librosa.effects.harmonic(y, margin=4)
+        chroma = librosa.feature.chroma_cqt(y=y_harmonic, sr=sr)
+        chroma_avg = np.mean(chroma, axis=1)
+        major_profile = [
+            6.35,
+            2.23,
+            3.48,
+            2.33,
+            4.38,
+            4.09,
+            2.52,
+            5.19,
+            2.39,
+            3.66,
+            2.29,
+            2.88,
+        ]
+        minor_profile = [
+            6.33,
+            2.68,
+            3.52,
+            5.38,
+            2.60,
+            3.53,
+            2.54,
+            4.75,
+            3.98,
+            2.69,
+            3.34,
+            3.17,
+        ]
+
+        def correlations(profile):
+            return [
+                np.corrcoef(chroma_avg, np.roll(profile, i))[0, 1] for i in range(12)
             ]
 
-            def correlations(profile):
-                return [
-                    np.corrcoef(chroma_avg, np.roll(profile, i))[0, 1]
-                    for i in range(12)
-                ]
-
-            major_corrs = correlations(major_profile)
-            minor_corrs = correlations(minor_profile)
-            if max(major_corrs) > max(minor_corrs):
-                res = NOTES[np.argmax(major_corrs)] + " major"
-            else:
-                res = NOTES[np.argmax(minor_corrs)] + " minor"
-            return res
-        except Exception as e2:
-            log_step(f"⚠️ Librosa fallback also failed: {e2}")
-            return "C major"
+        major_corrs = correlations(major_profile)
+        minor_corrs = correlations(minor_profile)
+        if max(major_corrs) > max(minor_corrs):
+            res = NOTES[np.argmax(major_corrs)] + " major"
+        else:
+            res = NOTES[np.argmax(minor_corrs)] + " minor"
+        return res
+    except Exception as e2:
+        log_step(f"⚠️ Librosa fallback also failed: {e2}")
+        return "C major"
 
 
 def get_chords(file_path: str):
     """Detect chords using Essentia."""
-    try:
-        # Load audio
-        audio = es.MonoLoader(filename=file_path, sampleRate=44100)()
-
-        # Frame-based processing for HPCP
-        hopSize = 2048
-        frameSize = 4096
-
-        # Algorithms
-        windowing = es.Windowing(type="hann")
-        spectrum = es.Spectrum()
-        spectralPeaks = es.SpectralPeaks()
-        hpcp_calc = es.HPCP()
-        chords_det = es.ChordsDetection()
-
-        hpcps = []
-        for frame in es.FrameGenerator(
-            audio, frameSize=frameSize, hopSize=hopSize, startFromZero=True
-        ):
-            spec = spectrum(windowing(frame))
-            peaks, magnitudes = spectralPeaks(spec)
-            hpcp = hpcp_calc(peaks, magnitudes)
-            hpcps.append(hpcp)
-
-        # Detect chords
-        chords, strength = chords_det(hpcps)
-
-        # Format output
-        res = []
-        prev_chord = None
-        for i, chord in enumerate(chords):
-            timestamp = float(i * hopSize / 44100.0)
-            # Essentia returns chords like "C", "Cmin", "G#maj", etc.
-            # We might want to normalize "min" to "m" and "maj" to ""
-            normalized_chord = chord.replace("min", "m").replace("maj", "")
-
-            if normalized_chord != prev_chord:
-                res.append({"time": timestamp, "chord": normalized_chord})
-                prev_chord = normalized_chord
-        return res
-    except Exception as e:
-        log_step(f"⚠️ Essentia chord detection failed: {e}. Falling back to librosa.")
-        # Fallback to current librosa-based logic
+    if ESSENTIA_AVAILABLE:
         try:
-            y, sr = librosa.load(file_path, sr=22050, mono=True)
-            y_harmonic = librosa.effects.harmonic(y, margin=4)
-            chroma = librosa.feature.chroma_cqt(
-                y=y_harmonic, sr=sr, hop_length=512, bins_per_octave=36
+            # Load audio
+            audio = es.MonoLoader(filename=file_path, sampleRate=44100)()
+
+            # Frame-based processing for HPCP
+            hopSize = 2048
+            frameSize = 4096
+
+            # Algorithms
+            windowing = es.Windowing(type="hann")
+            spectrum = es.Spectrum()
+            spectralPeaks = es.SpectralPeaks()
+            hpcp_calc = es.HPCP()
+            chords_det = es.ChordsDetection()
+
+            hpcps = []
+            for frame in es.FrameGenerator(
+                audio, frameSize=frameSize, hopSize=hopSize, startFromZero=True
+            ):
+                spec = spectrum(windowing(frame))
+                peaks, magnitudes = spectralPeaks(spec)
+                hpcp = hpcp_calc(peaks, magnitudes)
+                hpcps.append(hpcp)
+
+            # Detect chords
+            chords, strength = chords_det(hpcps)
+
+            # Format output
+            res = []
+            prev_chord = None
+            for i, chord in enumerate(chords):
+                timestamp = float(i * hopSize / 44100.0)
+                # Essentia returns chords like "C", "Cmin", "G#maj", etc.
+                # We might want to normalize "min" to "m" and "maj" to ""
+                normalized_chord = chord.replace("min", "m").replace("maj", "")
+
+                if normalized_chord != prev_chord:
+                    res.append({"time": timestamp, "chord": normalized_chord})
+                    prev_chord = normalized_chord
+            return res
+        except Exception as e:
+            log_step(
+                f"⚠️ Essentia chord detection failed: {e}. Falling back to librosa."
             )
 
-            def classify_chord(c):
-                best_score = -1
-                best_chord = "C"
-                for root in range(12):
-                    candidates = {
-                        NOTES[root]: c[root % 12]
-                        + c[(root + 4) % 12]
-                        + c[(root + 7) % 12],
-                        NOTES[root] + "m": c[root % 12]
-                        + c[(root + 3) % 12]
-                        + c[(root + 7) % 12],
-                    }
-                    for chord_name, score in candidates.items():
-                        if score > best_score:
-                            best_score = score
-                            best_chord = chord_name
-                return best_chord
+    # Fallback to current librosa-based logic
+    try:
+        y, sr = librosa.load(file_path, sr=22050, mono=True)
+        y_harmonic = librosa.effects.harmonic(y, margin=4)
+        chroma = librosa.feature.chroma_cqt(
+            y=y_harmonic, sr=sr, hop_length=512, bins_per_octave=36
+        )
 
-            chords = []
-            step = max(1, int(2.0 * sr / 512))
-            prev_chord = None
-            for i in range(0, chroma.shape[1], step):
-                chord = classify_chord(chroma[:, i])
-                timestamp = float(i * 512 / sr)
-                if chord != prev_chord:
-                    chords.append({"time": timestamp, "chord": chord})
-                    prev_chord = chord
-            return chords
-        except Exception as e2:
-            log_step(f"⚠️ Librosa chord fallback failed: {e2}")
-            return []
+        def classify_chord(c):
+            best_score = -1
+            best_chord = "C"
+            for root in range(12):
+                candidates = {
+                    NOTES[root]: c[root % 12] + c[(root + 4) % 12] + c[(root + 7) % 12],
+                    NOTES[root] + "m": c[root % 12]
+                    + c[(root + 3) % 12]
+                    + c[(root + 7) % 12],
+                }
+                for chord_name, score in candidates.items():
+                    if score > best_score:
+                        best_score = score
+                        best_chord = chord_name
+            return best_chord
+
+        chords = []
+        step = max(1, int(2.0 * sr / 512))
+        prev_chord = None
+        for i in range(0, chroma.shape[1], step):
+            chord = classify_chord(chroma[:, i])
+            timestamp = float(i * 512 / sr)
+            if chord != prev_chord:
+                chords.append({"time": timestamp, "chord": chord})
+                prev_chord = chord
+        return chords
+    except Exception as e2:
+        log_step(f"⚠️ Librosa chord fallback failed: {e2}")
+        return []
 
 
 def run_demucs(
@@ -909,7 +925,7 @@ async def structure(request: StructureRequest):
     used_method = "none"
 
     # 1. Try allin1 (Local ML)
-    if request.file_path:
+    if ALLIN1_AVAILABLE and request.file_path:
         actual_path = request.file_path
         if not os.path.exists(actual_path):
             # Try in UPLOAD_DIR
