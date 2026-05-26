@@ -940,8 +940,10 @@ export default function App() {
   };
 
   useEffect(() => {
-    fetchLibrary();
-  }, []);
+    if (initialized && session) {
+      fetchLibrary();
+    }
+  }, [initialized, session]);
 
   const refreshLibrary = () => {
     fetchLibrary();
