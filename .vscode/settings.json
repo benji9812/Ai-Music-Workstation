@@ -1,3 +1,20 @@
 {
-    "typescript.disableAutomaticTypeAcquisition": false
+  "typescript.disableAutomaticTypeAcquisition": false,
+  "sqltools.connections": [
+    {
+      "pgOptions": {
+        "ssl": {
+          "rejectUnauthorized": false
+        }
+      },
+      "ssh": "Disabled",
+      "previewLimit": 50,
+      "server": "aws-1-eu-north-1.pooler.supabase.com",
+      "port": 5432,
+      "driver": "PostgreSQL",
+      "name": "Supabase - AiMusicWorkstation",
+      "username": "postgres.rsynmievakeeccdbczqy",
+      "database": "postgres"
+    }
+  ]
 }
