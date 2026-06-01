@@ -869,7 +869,7 @@ export default function App() {
   const [urlInput, setUrlInput] = useState("");
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const fetchLibrary = async () => {
+  const fetchLibrary = React.useCallback(async () => {
     try {
       const [projectsResp, groupsResp] = await Promise.all([
         authFetch(`${API_URL}/api/library/projects`),
@@ -887,7 +887,7 @@ export default function App() {
     } catch (e) {
       console.error("Failed to fetch library", e);
     }
-  };
+  }, [authFetch, setProjects, setGroups]);
 
   const createGroup = async (name: string) => {
     try {
@@ -943,7 +943,7 @@ export default function App() {
     if (initialized && session) {
       fetchLibrary();
     }
-  }, [initialized, session]);
+  }, [initialized, session, fetchLibrary]);
 
   const refreshLibrary = () => {
     fetchLibrary();
@@ -1005,7 +1005,7 @@ export default function App() {
         });
       }
     });
-  }, []); // Run once on mount
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadStemsFromPath = async (stemsMap: Record<string, string>) => {
     // Clear all existing stem sources first

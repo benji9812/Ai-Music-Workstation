@@ -1,20 +1,24 @@
-﻿using NAudio.Wave;
-using NAudio.Wave.SampleProviders;
+﻿using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
+using System.Windows;
+using NAudio.Wave;
+using NAudio.Wave.SampleProviders;
 
 namespace AiMusicWorkstation.Desktop.Services
 {
     public class StemPlayer : IDisposable
     {
-        private int _semitoneShift = 0;
+        private int _semitoneShift;
         public int SemitoneShift
         {
             get => _semitoneShift;
             set
             {
                 _semitoneShift = value;
-                // Rebuild chain med ny pitch om något är laddat
-                if (_channels.Count > 0 && CurrentStemsPath != null)
+                // Rebuild chain with new pitch if something is loaded
+                if (Channels.Count > 0 && CurrentStemsPath != null)
                 {
                     bool wasPlaying = IsPlaying;
                     TimeSpan position = CurrentTime;
@@ -23,124 +27,151 @@ namespace AiMusicWorkstation.Desktop.Services
             }
         }
 
-        private void RebuildWithPitch(TimeSpan seekTo, bool autoPlay)
-        {
-            // Spara volym-state
-            var volumes = _channels.ToDictionary(k => k.Key, v => v.Value.UserVolume);
-            var mutes = _channels.ToDictionary(k => k.Key, v => v.Value.IsMuted);
-            var solos = _channels.ToDictionary(k => k.Key, v => v.Value.IsSolo);
-
-            // Stoppa och rensa gamla streams
-            if (_outputDevice != null) { _outputDevice.Stop(); _outputDevice.Dispose(); _outputDevice = null; }
-            foreach (var c in _channels.Values) c.Reader.Dispose();
-            _channels.Clear();
-
-            // Bygg om med pitch-shift
-            float pitchFactor = (float)Math.Pow(2.0, _semitoneShift / 12.0);
-            var sources = new List<ISampleProvider>();
-            bool isFile = File.Exists(CurrentStemsPath);
-            string[] stemNames = isFile ? new[] { "backing" } : new[] { "drums", "bass", "vocals", "other" };
-
-            foreach (var stem in stemNames)
-            {
-                string p = isFile
-                    ? CurrentStemsPath
-                    : Path.Combine(CurrentStemsPath, $"{stem}.mp3");
-
-                if (!isFile && !File.Exists(p))
-                    p = Path.Combine(CurrentStemsPath, $"{stem}.wav");
-
-                if (File.Exists(p))
-                {
-                    var reader = new AudioFileReader(p);
-                    reader.CurrentTime = seekTo;
-
-                    var looper = new LoopStream(reader);
-                    looper.EnableLooping = IsLooping;
-
-                    var channel = new StemChannel
-                    {
-                        Reader = reader,
-                        Looper = looper,
-                        UserVolume = volumes.ContainsKey(stem) ? volumes[stem] : (isFile ? 1.0f : 0.8f),
-                        IsMuted = mutes.ContainsKey(stem) && mutes[stem],
-                        IsSolo = solos.ContainsKey(stem) && solos[stem]
-                    };
-                    _channels.Add(stem, channel);
-
-                    ISampleProvider provider = looper.ToSampleProvider();
-
-                    // Applicera pitch-shift (hoppa över om faktor = 1.0 för att spara CPU)
-                    if (Math.Abs(_semitoneShift) > 0)
-                        provider = new SmbPitchShiftingSampleProvider(provider) { PitchFactor = pitchFactor };
-
-                    sources.Add(provider);
-                }
-            }
-
-            if (sources.Count == 0) return;
-
-            _mixer = new MixingSampleProvider(sources);
-            _outputDevice = new WaveOutEvent();
-            _outputDevice.Init(_mixer);
-            _outputDevice.PlaybackStopped += (s, e) => PlaybackStopped?.Invoke(this, EventArgs.Empty);
-
-            UpdateMix();
-            if (autoPlay) _outputDevice.Play();
-        }
-
-        private WaveOutEvent? _outputDevice;
-        private MixingSampleProvider? _mixer;
-
-        public string? CurrentStemsPath { get; private set; }
-
-        // Denna egenskap används av MainWindow för att veta om sliders ska visas
-        public bool IsSingleFileMode => _channels.ContainsKey("backing") && !_channels.ContainsKey("drums");
-
-        public event EventHandler? PlaybackStopped;
-        public bool IsPlaying => _outputDevice?.PlaybackState == PlaybackState.Playing;
-
-        private bool _isLooping = false;
+        private bool _isLooping;
         public bool IsLooping
         {
             get => _isLooping;
             set
             {
                 _isLooping = value;
-                foreach (var ch in _channels.Values)
+                foreach (var ch in Channels.Values)
                 {
-                    if (ch.Looper != null) ch.Looper.EnableLooping = value;
+                    if (ch.Looper != null)
+                        ch.Looper.EnableLooping = value;
                 }
             }
         }
+
+        public WaveOutEvent? OutputDevice { get; private set; }
+        public MixingSampleProvider? Mixer { get; private set; }
+        private readonly Dictionary<string, StemChannel> Channels = new();
+
+        private void RebuildWithPitch(TimeSpan seekTo, bool autoPlay)
+        {
+            // Save volume state
+            var volumes = Channels.ToDictionary(k => k.Key, v => v.Value.UserVolume);
+            var mutes = Channels.ToDictionary(k => k.Key, v => v.Value.IsMuted);
+            var solos = Channels.ToDictionary(k => k.Key, v => v.Value.IsSolo);
+
+            // Stop and clear old streams
+            if (OutputDevice != null) { OutputDevice.Stop(); OutputDevice.Dispose(); OutputDevice = null; }
+            foreach (StemChannel c in Channels.Values)
+            {
+                c.Reader?.Dispose();
+            }
+            Channels.Clear();
+
+            // Rebuild with pitch-shift
+            float pitchFactor = (float)Math.Pow(2.0, _semitoneShift / 12.0);
+            var sources = new List<ISampleProvider>();
+            if (CurrentStemsPath == null) return;
+            bool isFile = File.Exists(CurrentStemsPath);
+            string[] stemNames = isFile ? new[] { "backing" } : new[] { "drums", "bass", "vocals", "other", "mp3", "wav" };
+
+            foreach (string stem in stemNames)
+            {
+                string? p = isFile
+                    ? CurrentStemsPath
+                    : Path.Combine(CurrentStemsPath, $"{stem}.mp3");
+
+                if (!isFile && !File.Exists(p))
+                {
+                    p = Path.Combine(CurrentStemsPath, $"{stem}.wav");
+                }
+
+                if (File.Exists(p))
+                {
+                    var reader = new AudioFileReader(p)
+                    {
+                        CurrentTime = seekTo
+                    };
+
+                    var looper = new LoopStream(reader)
+                    {
+                        EnableLooping = _isLooping
+                    };
+
+                    var channel = new StemChannel
+                    {
+                        Reader = reader,
+                        Looper = looper,
+                        UserVolume = volumes.TryGetValue(stem, out float value) ? value : (isFile ? 1.0f : 0.8f),
+                        IsMuted = mutes.ContainsKey(stem) && mutes[stem],
+                        IsSolo = solos.ContainsKey(stem) && solos[stem]
+                    };
+                    Channels.Add(stem, channel);
+
+                    ISampleProvider provider = looper.ToSampleProvider();
+
+                    // Apply pitch-shift (skip if factor = 1.0 to save CPU)
+                    if (Math.Abs(_semitoneShift) > 0)
+                    {
+                        provider = new SmbPitchShiftingSampleProvider(provider) { PitchFactor = pitchFactor };
+                    }
+
+                    sources.Add(provider);
+                }
+            }
+
+            if (sources.Count == 0)
+            {
+                return;
+            }
+
+            Mixer = new MixingSampleProvider(sources);
+            OutputDevice = new WaveOutEvent();
+            OutputDevice.Init(Mixer);
+            OutputDevice.PlaybackStopped += (s, e) => PlaybackStopped?.Invoke(this, EventArgs.Empty);
+
+            UpdateMix();
+            if (autoPlay)
+            {
+                OutputDevice.Play();
+            }
+        }
+
+        public string? CurrentStemsPath { get; private set; }
+
+        // This property is used by MainWindow to know if sliders should be shown
+        public bool IsSingleFileMode => Channels.ContainsKey("backing") && !Channels.ContainsKey("drums");
+
+        public event EventHandler? PlaybackStopped;
+        public bool IsPlaying => OutputDevice?.PlaybackState == PlaybackState.Playing;
 
         private class StemChannel
         {
             public AudioFileReader? Reader { get; set; }
             public LoopStream? Looper { get; set; }
             public float UserVolume { get; set; } = 0.8f;
-            public bool IsMuted { get; set; } = false;
-            public bool IsSolo { get; set; } = false;
+            public bool IsMuted { get; set; }
+            public bool IsSolo { get; set; }
         }
-
-        private Dictionary<string, StemChannel> _channels = new Dictionary<string, StemChannel>();
 
         public TimeSpan CurrentTime
         {
-            get => _channels.Count > 0 ? _channels.Values.First().Reader.CurrentTime : TimeSpan.Zero;
+            get => Channels.Count > 0 && Channels.Values.First().Reader != null ? Channels.Values.First().Reader!.CurrentTime : TimeSpan.Zero;
             set
             {
-                foreach (var ch in _channels.Values)
+                foreach (var ch in Channels.Values)
                 {
-                    TimeSpan t = value;
-                    if (t >= ch.Reader.TotalTime) t = ch.Reader.TotalTime - TimeSpan.FromMilliseconds(1);
-                    if (t < TimeSpan.Zero) t = TimeSpan.Zero;
+                    if (ch.Reader == null) continue;
+                    var t = value;
+                    if (t >= ch.Reader.TotalTime)
+                    {
+                        t = ch.Reader.TotalTime - TimeSpan.FromMilliseconds(1);
+                    }
+
+                    if (t < TimeSpan.Zero)
+                    {
+                        t = TimeSpan.Zero;
+                    }
+
                     ch.Reader.CurrentTime = t;
                 }
             }
         }
 
-        public TimeSpan TotalTime => _channels.Count > 0 ? _channels.Values.First().Reader.TotalTime : TimeSpan.Zero;
+        public TimeSpan TotalTime => Channels.Count > 0 && Channels.Values.First().Reader != null ? Channels.Values.First().Reader!.TotalTime : TimeSpan.Zero;
 
         public void LoadStems(string pathInput)
         {
@@ -156,11 +187,13 @@ namespace AiMusicWorkstation.Desktop.Services
                 try
                 {
                     var reader = new AudioFileReader(pathInput);
-                    var looper = new LoopStream(reader);
-                    looper.EnableLooping = IsLooping;
+                    var looper = new LoopStream(reader)
+                    {
+                        EnableLooping = _isLooping
+                    };
 
                     var channel = new StemChannel { Reader = reader, Looper = looper, UserVolume = 1.0f };
-                    _channels.Add("backing", channel);
+                    Channels.Add("backing", channel);
                     sources.Add(looper.ToSampleProvider());
                 }
                 catch (Exception ex) { System.Windows.MessageBox.Show("Error loading audio: " + ex.Message); return; }
@@ -169,39 +202,50 @@ namespace AiMusicWorkstation.Desktop.Services
             {
                 // LOAD STEMS FOLDER
                 string[] stems = { "drums", "bass", "vocals", "other" };
-                foreach (var stem in stems)
+                foreach (string stem in stems)
                 {
                     string p = Path.Combine(pathInput, $"{stem}.mp3");
-                    if (!File.Exists(p)) p = Path.Combine(pathInput, $"{stem}.wav");
+                    if (!File.Exists(p))
+                    {
+                        p = Path.Combine(pathInput, $"{stem}.wav");
+                    }
 
                     if (File.Exists(p))
                     {
                         var reader = new AudioFileReader(p);
-                        var looper = new LoopStream(reader);
-                        looper.EnableLooping = IsLooping;
+                        var looper = new LoopStream(reader)
+                        {
+                            EnableLooping = _isLooping
+                        };
                         var channel = new StemChannel { Reader = reader, Looper = looper };
-                        _channels.Add(stem, channel);
+                        Channels.Add(stem, channel);
                         sources.Add(looper.ToSampleProvider());
                     }
                 }
             }
 
-            if (sources.Count == 0) return;
+            if (sources.Count == 0)
+            {
+                return;
+            }
 
-            _mixer = new MixingSampleProvider(sources);
-            _outputDevice = new WaveOutEvent();
-            _outputDevice.Init(_mixer);
-            _outputDevice.PlaybackStopped += (s, e) => PlaybackStopped?.Invoke(this, EventArgs.Empty);
+            Mixer = new MixingSampleProvider(sources);
+            OutputDevice = new WaveOutEvent();
+            OutputDevice.Init(Mixer);
+            OutputDevice.PlaybackStopped += (s, e) => PlaybackStopped?.Invoke(this, EventArgs.Empty);
 
-            UpdateMix(); // Sätt initiala volymer
+            UpdateMix(); // Set initial volumes
         }
 
         // --- EXPORT ---
         public void ExportMix(string outputPath, float drumsVol, float bassVol, float otherVol, float vocalsVol)
         {
-            if (string.IsNullOrEmpty(CurrentStemsPath)) return;
+            if (string.IsNullOrEmpty(CurrentStemsPath))
+            {
+                return;
+            }
 
-            // Vi tvingar mixern att köra i 44.1kHz Stereo
+            // We force the mixer to run at 44.1kHz Stereo
             var mixer = new MixingSampleProvider(WaveFormat.CreateIeeeFloatWaveFormat(44100, 2));
             var readers = new List<AudioFileReader>();
 
@@ -213,81 +257,113 @@ namespace AiMusicWorkstation.Desktop.Services
                 for (int i = 0; i < stems.Length; i++)
                 {
                     string p = Path.Combine(CurrentStemsPath, $"{stems[i]}.mp3");
-                    if (!File.Exists(p)) p = Path.Combine(CurrentStemsPath, $"{stems[i]}.wav");
+                    if (!File.Exists(p))
+                    {
+                        p = Path.Combine(CurrentStemsPath, $"{stems[i]}.wav");
+                    }
 
                     if (File.Exists(p))
                     {
-                        var reader = new AudioFileReader(p);
-                        reader.Volume = volumes[i];
+                        var reader = new AudioFileReader(p)
+                        {
+                            Volume = volumes[i]
+                        };
                         readers.Add(reader);
 
-                        // LÖSNING: Vi anropar ToSampleProvider() för att ta bort tvetydigheten
+                        // SOLUTION: We call ToSampleProvider() to remove the ambiguity
                         mixer.AddMixerInput(reader.ToSampleProvider());
                     }
                 }
 
-                // Spara den mixade filen
+                // Save the mixed file
                 WaveFileWriter.CreateWaveFile16(outputPath, mixer);
             }
             finally
             {
-                foreach (var r in readers) r.Dispose();
+                foreach (var r in readers)
+                {
+                    r.Dispose();
+                }
             }
         }
 
-        public void Play() { if (_outputDevice?.PlaybackState != PlaybackState.Playing) _outputDevice?.Play(); }
-        public void Pause() => _outputDevice?.Pause();
+        public void Play()
+        {
+            if (OutputDevice?.PlaybackState != PlaybackState.Playing)
+            {
+                OutputDevice?.Play();
+            }
+        }
+        public void Pause()
+        {
+            OutputDevice?.Pause();
+        }
 
         public void Stop()
         {
-            _outputDevice?.Stop();
+            OutputDevice?.Stop();
             ResetPosition();
         }
 
         public void ResetPosition()
         {
-            foreach (var ch in _channels.Values)
-                ch.Reader.CurrentTime = TimeSpan.Zero;
+            foreach (var ch in Channels.Values)
+            {
+                if (ch.Reader != null)
+                    ch.Reader.CurrentTime = TimeSpan.Zero;
+            }
         }
 
         public void Reinitialize()
         {
-            if (_outputDevice == null || _channels.Count == 0) return;
+            if (OutputDevice == null || Channels.Count == 0)
+            {
+                return;
+            }
 
             var sources = new List<ISampleProvider>();
-            float masterVol = _outputDevice.Volume;
+            float masterVol = OutputDevice.Volume;
 
-            _outputDevice.Stop();
-            _outputDevice.Dispose();
+            OutputDevice.Stop();
+            OutputDevice.Dispose();
 
             float pitchFactor = (float)Math.Pow(2.0, _semitoneShift / 12.0);
 
-            foreach (var kvp in _channels)
+            foreach (var kvp in Channels)
             {
+                if (kvp.Value.Reader == null || kvp.Value.Looper == null) continue;
                 kvp.Value.Reader.CurrentTime = TimeSpan.Zero;
                 ISampleProvider provider = kvp.Value.Looper.ToSampleProvider();
                 if (Math.Abs(_semitoneShift) > 0)
+                {
                     provider = new SmbPitchShiftingSampleProvider(provider) { PitchFactor = pitchFactor };
+                }
+
                 sources.Add(provider);
             }
 
-            _mixer = new MixingSampleProvider(sources);
-            _outputDevice = new WaveOutEvent();
-            _outputDevice.Volume = masterVol;
-            _outputDevice.Init(_mixer);
-            _outputDevice.PlaybackStopped += (s, e) => PlaybackStopped?.Invoke(this, EventArgs.Empty);
+            Mixer = new MixingSampleProvider(sources);
+            OutputDevice = new WaveOutEvent
+            {
+                Volume = masterVol
+            };
+            OutputDevice.Init(Mixer);
+            OutputDevice.PlaybackStopped += (s, e) => PlaybackStopped?.Invoke(this, EventArgs.Empty);
 
             UpdateMix();
         }
 
         public void RestartAndPlay()
         {
-            if (string.IsNullOrEmpty(CurrentStemsPath)) return;
+            if (string.IsNullOrEmpty(CurrentStemsPath))
+            {
+                return;
+            }
 
-            var volumes = _channels.ToDictionary(k => k.Key, v => v.Value.UserVolume);
-            var mutes = _channels.ToDictionary(k => k.Key, v => v.Value.IsMuted);
-            var solos = _channels.ToDictionary(k => k.Key, v => v.Value.IsSolo);
-            float masterVol = _outputDevice?.Volume ?? 1f;
+            var volumes = Channels.ToDictionary(k => k.Key, v => v.Value.UserVolume);
+            var mutes = Channels.ToDictionary(k => k.Key, v => v.Value.IsMuted);
+            var solos = Channels.ToDictionary(k => k.Key, v => v.Value.IsSolo);
+            float masterVol = OutputDevice?.Volume ?? 1f;
             bool wasLooping = _isLooping;
 
             DisposeOldStreams();
@@ -297,91 +373,115 @@ namespace AiMusicWorkstation.Desktop.Services
             bool isFile = File.Exists(CurrentStemsPath);
             string[] stems = isFile ? new[] { "backing" } : new[] { "drums", "bass", "vocals", "other" };
 
-            foreach (var stem in stems)
+            foreach (string stem in stems)
             {
                 string p = isFile ? CurrentStemsPath : Path.Combine(CurrentStemsPath, $"{stem}.mp3");
-                if (!isFile && !File.Exists(p)) p = Path.Combine(CurrentStemsPath, $"{stem}.wav");
+                if (!isFile && !File.Exists(p))
+                {
+                    p = Path.Combine(CurrentStemsPath, $"{stem}.wav");
+                }
+
                 if (File.Exists(p))
                 {
-                    var reader = new AudioFileReader(p);
-                    reader.CurrentTime = TimeSpan.Zero;
+                    var reader = new AudioFileReader(p)
+                    {
+                        CurrentTime = TimeSpan.Zero
+                    };
                     var looper = new LoopStream(reader) { EnableLooping = _isLooping };
                     var channel = new StemChannel
                     {
                         Reader = reader,
                         Looper = looper,
-                        UserVolume = volumes.ContainsKey(stem) ? volumes[stem] : (isFile ? 1.0f : 0.8f),
+                        UserVolume = volumes.TryGetValue(stem, out float value) ? value : (isFile ? 1.0f : 0.8f),
                         IsMuted = mutes.ContainsKey(stem) && mutes[stem],
                         IsSolo = solos.ContainsKey(stem) && solos[stem]
                     };
-                    _channels.Add(stem, channel);
+                    Channels.Add(stem, channel);
                     sources.Add(looper.ToSampleProvider());
                 }
             }
 
-            if (sources.Count == 0) return;
+            if (sources.Count == 0)
+            {
+                return;
+            }
 
-            _mixer = new MixingSampleProvider(sources);
-            _outputDevice = new WaveOutEvent();
-            _outputDevice.Volume = masterVol;
-            _outputDevice.Init(_mixer);
-            _outputDevice.PlaybackStopped += (s, e) => PlaybackStopped?.Invoke(this, EventArgs.Empty);
+            Mixer = new MixingSampleProvider(sources);
+            OutputDevice = new WaveOutEvent
+            {
+                Volume = masterVol
+            };
+            OutputDevice.Init(Mixer);
+            OutputDevice.PlaybackStopped += (s, e) => PlaybackStopped?.Invoke(this, EventArgs.Empty);
             UpdateMix();
-            _outputDevice.Play();
+            OutputDevice.Play();
         }
-
 
         public void SetMasterVolume(float volume)
         {
-            if (_outputDevice != null) _outputDevice.Volume = Math.Clamp(volume, 0, 1);
+            if(OutputDevice != null)
+                OutputDevice.Volume = Math.Clamp(volume, 0, 1);
         }
 
         public void SetVolume(string name, float volume)
         {
-            if (_channels.ContainsKey(name))
+            if (Channels.TryGetValue(name, out var value))
             {
-                _channels[name].UserVolume = volume;
+                value.UserVolume = volume;
                 UpdateMix();
             }
         }
 
         public void SetMute(string name, bool isMuted)
         {
-            if (_channels.ContainsKey(name))
+            if (Channels.TryGetValue(name, out var value))
             {
-                _channels[name].IsMuted = isMuted;
+                value.IsMuted = isMuted;
                 UpdateMix();
             }
         }
 
         public void SetSolo(string name, bool isSolo)
         {
-            if (_channels.ContainsKey(name))
+            if (Channels.TryGetValue(name, out var value))
             {
-                _channels[name].IsSolo = isSolo;
+                value.IsSolo = isSolo;
                 UpdateMix();
             }
         }
 
         private void UpdateMix()
         {
-            bool anySolo = _channels.Values.Any(c => c.IsSolo);
-            foreach (var ch in _channels.Values)
+            bool anySolo = Channels.Values.Any(static c => c.IsSolo);
+            foreach (var ch in Channels.Values)
             {
+                if (ch.Reader == null) continue;
                 float finalVolume = ch.UserVolume;
-                if (anySolo && !ch.IsSolo) finalVolume = 0;
-                if (ch.IsMuted) finalVolume = 0;
+                if (anySolo && !ch.IsSolo)
+                {
+                    finalVolume = 0;
+                }
+
+                if (ch.IsMuted)
+                {
+                    finalVolume = 0;
+                }
+
                 ch.Reader.Volume = finalVolume;
             }
         }
 
         private void DisposeOldStreams()
         {
-            if (_outputDevice != null) { _outputDevice.Stop(); _outputDevice.Dispose(); _outputDevice = null; }
-            foreach (var c in _channels.Values) { c.Reader.Dispose(); }
-            _channels.Clear();
+            if (OutputDevice != null) { OutputDevice.Stop(); OutputDevice.Dispose(); OutputDevice = null; }
+            foreach (var c in Channels.Values) { c.Reader?.Dispose(); }
+            Channels.Clear();
         }
 
-        public void Dispose() => DisposeOldStreams();
+        public void Dispose()
+        {
+            DisposeOldStreams();
+            GC.SuppressFinalize(this);
+        }
     }
 }

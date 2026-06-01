@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import List, Optional
 
 try:
-    import allin1
+    import allin1  # pyright: ignore[reportMissingImports]
 
     ALLIN1_AVAILABLE = True
 except ImportError:
@@ -22,7 +22,7 @@ except ImportError:
     ALLIN1_AVAILABLE = False
 
 try:
-    import essentia.standard as es
+    import essentia.standard as es  # pyright: ignore[reportMissingImports]
 
     ESSENTIA_AVAILABLE = True
 except ImportError:
@@ -36,9 +36,7 @@ from dotenv import load_dotenv
 from fastapi import (
     FastAPI,
     File,
-    Form,
     HTTPException,
-    Request,
     UploadFile,
 )
 from fastapi.middleware.cors import CORSMiddleware
@@ -95,7 +93,7 @@ origins = [
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI):  # pyright: ignore[reportUnusedParameter]
     ensure_runtime_dirs()
     print("🚀 AI Music Engine starting up...", flush=True)
     print(f"📁 BASE_DIR: {BASE_DIR}", flush=True)
@@ -178,13 +176,13 @@ def cleanup_file(path: str):
     try:
         if path and os.path.exists(path):
             os.remove(path)
-    except Exception:
-        pass
+    except Exception as e:
+        log_step(f"⚠️  Could not cleanup file {path}: {e}")
 
 
 def require_file(path: str, label: str):
     if not os.path.exists(path):
-        raise RuntimeError(f"{label} saknas: {path}")
+        raise RuntimeError(f"{label} is missing: {path}")
 
 
 def resample_mp3_to_target_sr(path: str, target_sr: int = TARGET_AUDIO_SR):
@@ -287,7 +285,7 @@ def get_gemini_client():
 
     api_key = os.getenv("GOOGLE_API_KEY")
     if not api_key:
-        raise RuntimeError("GOOGLE_API_KEY saknas.")
+        raise RuntimeError("GOOGLE_API_KEY is missing.")
     return google_genai.Client(api_key=api_key)
 
 
@@ -297,7 +295,7 @@ def get_groq_client():
 
     api_key = os.getenv("GROQ_API_KEY")
     if not api_key:
-        raise RuntimeError("GROQ_API_KEY saknas.")
+        raise RuntimeError("GROQ_API_KEY is missing.")
     log_step("✅ Groq Whisper Large v3 redo")
     return Groq(api_key=api_key)
 
@@ -432,9 +430,9 @@ def detect_key(file_path: str):
     if ESSENTIA_AVAILABLE:
         try:
             # Load audio using Essentia's MonoLoader
-            audio = es.MonoLoader(filename=file_path, sampleRate=44100)()
+            audio = es.MonoLoader(filename=file_path, sampleRate=44100)()  # pyright: ignore[reportOptionalMemberAccess]
             # Extract key and scale
-            key, scale, strength = es.KeyExtractor()(audio)
+            key, scale, strength = es.KeyExtractor()(audio)  # pyright: ignore[reportUnusedVariable, reportOptionalMemberAccess]
 
             # Format to match requested output (e.g. "C major", "C# minor")
             suffix = " minor" if scale == "minor" else " major"
@@ -499,21 +497,21 @@ def get_chords(file_path: str):
     if ESSENTIA_AVAILABLE:
         try:
             # Load audio
-            audio = es.MonoLoader(filename=file_path, sampleRate=44100)()
+            audio = es.MonoLoader(filename=file_path, sampleRate=44100)()  # pyright: ignore[reportOptionalMemberAccess]
 
             # Frame-based processing for HPCP
             hopSize = 2048
             frameSize = 4096
 
             # Algorithms
-            windowing = es.Windowing(type="hann")
-            spectrum = es.Spectrum()
-            spectralPeaks = es.SpectralPeaks()
-            hpcp_calc = es.HPCP()
-            chords_det = es.ChordsDetection()
+            windowing = es.Windowing(type="hann")  # pyright: ignore[reportOptionalMemberAccess]
+            spectrum = es.Spectrum()  # pyright: ignore[reportOptionalMemberAccess]
+            spectralPeaks = es.SpectralPeaks()  # pyright: ignore[reportOptionalMemberAccess]
+            hpcp_calc = es.HPCP()  # pyright: ignore[reportOptionalMemberAccess]
+            chords_det = es.ChordsDetection()  # pyright: ignore[reportOptionalMemberAccess]
 
             hpcps = []
-            for frame in es.FrameGenerator(
+            for frame in es.FrameGenerator(  # pyright: ignore[reportOptionalMemberAccess]
                 audio, frameSize=frameSize, hopSize=hopSize, startFromZero=True
             ):
                 spec = spectrum(windowing(frame))
@@ -522,7 +520,7 @@ def get_chords(file_path: str):
                 hpcps.append(hpcp)
 
             # Detect chords
-            chords, strength = chords_det(hpcps)
+            chords, strength = chords_det(hpcps)  # pyright: ignore[reportUnusedVariable, reportUnusedVariable, reportUnusedVariable, reportUnusedVariable, reportUnusedVariable, reportUnusedVariable, reportUnusedVariable, reportUnusedVariable, reportUnusedVariable, reportUnusedVariable, reportUnusedVariable, reportUnusedVariable, reportUnusedVariable, reportUnusedVariable, reportUnusedVariable, reportUnusedVariable, reportUnusedVariable]
 
             # Format output
             res = []
@@ -629,7 +627,7 @@ def run_demucs(
             process.returncode, cmd, "\n".join(stderr_lines)
         )
 
-    log_step(f"✅ Demucs klart på {elapsed(start)}s")
+    log_step(f"✅ Demucs finished in {elapsed(start)}s")
     folder_name = os.path.splitext(os.path.basename(file_path))[0]
     stems_output_dir = os.path.join(OUT_DIR, DEMUCS_MODEL, folder_name)
 
@@ -673,8 +671,8 @@ async def analyze_quick(file: UploadFile = File(...)):
     try:
         ensure_runtime_dirs()
         if not file.filename:
-            raise HTTPException(status_code=400, detail="Ingen fil skickades.")
-        log_step("📥 /analyze-quick request mottagen")
+            raise HTTPException(status_code=400, detail="No file was sent.")
+        log_step("📥 /analyze-quick request received")
         safe_filename = sanitize_filename(file.filename)
         file_path = os.path.join(UPLOAD_DIR, safe_filename)
         # Limit file size to prevent OOM in cloud
@@ -687,7 +685,7 @@ async def analyze_quick(file: UploadFile = File(...)):
             )
         with open(file_path, "wb") as f:
             f.write(contents)
-        log_step(f"💾 Fil sparad: {file_path} ({elapsed(total_start)}s)")
+        log_step(f"💾 File saved: {file_path} ({elapsed(total_start)}s)")
         load_start = now()
         y_audio, sr = librosa.load(
             file_path,
@@ -696,19 +694,21 @@ async def analyze_quick(file: UploadFile = File(...)):
             duration=AUDIO_ANALYZE_DURATION,
         )
         log_step(
-            f"🎵 Audio laddad ({elapsed(load_start)}s), samples={len(y_audio)}, sr={sr}"
+            f"🎵 Audio loaded ({elapsed(load_start)}s), samples={len(y_audio)}, sr={sr}"
         )
         bpm_start = now()
         bpm = detect_bpm_robust(y_audio, sr)
         time_signature = detect_time_signature(y_audio, sr, bpm)
-        log_step(f"🥁 BPM: {bpm}, Taktart: {time_signature}/4 ({elapsed(bpm_start)}s)")
+        log_step(
+            f"🥁 BPM: {bpm}, Time Signature: {time_signature}/4 ({elapsed(bpm_start)}s)"
+        )
         key_start = now()
         key = detect_key(file_path)
-        log_step(f"🎹 Tonart: {key} ({elapsed(key_start)}s)")
+        log_step(f"🎹 Key: {key} ({elapsed(key_start)}s)")
         chords_start = now()
         chords = get_chords(file_path)
-        log_step(f"🎸 Ackord: {len(chords)} detekterade ({elapsed(chords_start)}s)")
-        log_step(f"✅ /analyze-quick klar på {elapsed(total_start)}s")
+        log_step(f"🎸 Chords: {len(chords)} detected ({elapsed(chords_start)}s)")
+        log_step(f"✅ /analyze-quick finished in {elapsed(total_start)}s")
         return {
             "status": "success",
             "bpm": bpm,
@@ -748,14 +748,14 @@ async def analyze(
     try:
         ensure_runtime_dirs()
         if not file.filename:
-            raise HTTPException(status_code=400, detail="Ingen fil skickades.")
-        log_step(f"📥 /analyze request mottagen (title={title}, artist={artist})")
+            raise HTTPException(status_code=400, detail="No file was sent.")
+        log_step(f"📥 /analyze request received (title={title}, artist={artist})")
         safe_filename = sanitize_filename(file.filename)
         file_path = os.path.join(UPLOAD_DIR, safe_filename)
         contents = await file.read()
         with open(file_path, "wb") as f:
             f.write(contents)
-        log_step(f"💾 Fil sparad: {file_path} ({elapsed(total_start)}s)")
+        log_step(f"💾 File saved: {file_path} ({elapsed(total_start)}s)")
 
         load_start = now()
         y_audio, sr = librosa.load(
@@ -771,13 +771,13 @@ async def analyze(
 
         bpm = detect_bpm_robust(y_audio, sr)
         time_signature = detect_time_signature(y_audio, sr, bpm)
-        log_step(f"🥁 BPM: {bpm}, Taktart: {time_signature}/4")
+        log_step(f"🥁 BPM: {bpm}, Time Signature: {time_signature}/4")
 
         key = detect_key(file_path)
-        log_step(f"🎹 Tonart: {key}")
+        log_step(f"🎹 Key: {key}")
 
         chords = get_chords(file_path)
-        log_step(f"🎸 Ackord: {len(chords)} detekterade")
+        log_step(f"🎸 Chords: {len(chords)} detected")
 
         demucs_start = now()
         extracted_stems = run_demucs(file_path)
@@ -787,13 +787,10 @@ async def analyze(
             else None
         )
         vocals_path = extracted_stems.get("vocals")
-        drums_path = extracted_stems.get("drums")
-        bass_path = extracted_stems.get("bass")
-        other_path = extracted_stems.get("other")
-        log_step(f"🎚️ Demucs klart ({elapsed(demucs_start)}s)")
+        log_step(f"🎚️ Demucs finished ({elapsed(demucs_start)}s)")
 
         lyrics = []
-        # 1. Whisper transkription (Nu den enda källan i Python-motorn)
+        # 1. Whisper transcription
         if vocals_path:
             try:
                 clean_vocals = prepare_vocals_for_whisper(vocals_path)
@@ -802,7 +799,7 @@ async def analyze(
                     cleanup_file(clean_vocals)
                 log_step(f"🗣️ Lyrics (Whisper): {len(lyrics)} segments")
             except Exception as e:
-                log_step(f"⚠️ Lyrics-transkription misslyckades: {e}")
+                log_step(f"⚠️ Lyrics transcription failed: {e}")
 
         # 2. Quality fixes
         lyrics = post_process_lyrics(lyrics, audio_duration)
@@ -836,7 +833,7 @@ async def analyze(
             except Exception as e:
                 log_step(f"⚠️ Could not save analysis JSON: {e}")
 
-        log_step(f"✅ /analyze klar på {elapsed(total_start)}s")
+        log_step(f"✅ /analyze finished in {elapsed(total_start)}s")
         return result
     except HTTPException:
         raise
@@ -889,7 +886,7 @@ async def separate_stems(request_data: SeparateStemsRequest):
             for stem, path in extracted_stems.items()
         }
 
-        log_step(f"✅ /separate-stems klar på {elapsed(total_start)}s")
+        log_step(f"✅ /separate-stems finished in {elapsed(total_start)}s")
         return {
             "status": "success",
             "extracted_stems": result_stems_urls,
@@ -907,8 +904,6 @@ async def separate_stems(request_data: SeparateStemsRequest):
         error_msg = f"Separate stems failed: {str(e)}"
         log_step(f"❌ Critical Error: {error_msg}")
         raise HTTPException(status_code=500, detail=error_msg)
-    finally:
-        pass
 
 
 class StructureRequest(BaseModel):
@@ -943,7 +938,7 @@ async def structure(request: StructureRequest):
             try:
                 log_step(f"🧠 Running allin1 analysis on: {actual_path}")
                 # allin1.analyze returns a result object
-                result = allin1.analyze(actual_path)
+                result = allin1.analyze(actual_path)  # pyright: ignore[reportOptionalMemberAccess]
 
                 # Map allin1 segments to our format
                 # Labels mapping: allin1 has many labels, we try to map to our 5 labels
@@ -1493,7 +1488,7 @@ async def import_url_async(request: ImportUrlAsyncRequest):
 
             job_update(job_id, f"⬇️ Downloading: {artist} - {title}...", progress=8)
 
-            import glob as glob_mod
+            import glob
 
             unique_id = uuid.uuid4().hex[:8]
             output_template = os.path.join(UPLOAD_DIR, f"dl_{unique_id}.%(ext)s")
@@ -1564,7 +1559,7 @@ async def import_url_async(request: ImportUrlAsyncRequest):
                     raise RuntimeError(f"yt-dlp failed: {r.stderr[:400]}")
 
             log_step(f"✅ Download done ({elapsed(dl_start)}s)")
-            candidates = glob_mod.glob(os.path.join(UPLOAD_DIR, f"dl_{unique_id}.*"))
+            candidates = glob.glob(os.path.join(UPLOAD_DIR, f"dl_{unique_id}.*"))
             if not candidates:
                 raise RuntimeError("yt-dlp produced no output file")
             file_path = candidates[0]
@@ -1739,7 +1734,7 @@ async def start_analyze_quick_job(request: ImportUrlAsyncRequest):
 
             job_update(job_id, f"⬇️ Downloading: {artist} - {title}...", progress=8)
 
-            import glob as glob_mod
+            import glob
 
             unique_id = uuid.uuid4().hex[:8]
             output_template = os.path.join(UPLOAD_DIR, f"dl_{unique_id}.%(ext)s")
@@ -1810,7 +1805,7 @@ async def start_analyze_quick_job(request: ImportUrlAsyncRequest):
                     raise RuntimeError(f"yt-dlp failed: {r.stderr[:400]}")
 
             log_step(f"✅ Download done ({elapsed(dl_start)}s)")
-            candidates = glob_mod.glob(os.path.join(UPLOAD_DIR, f"dl_{unique_id}.*"))
+            candidates = glob.glob(os.path.join(UPLOAD_DIR, f"dl_{unique_id}.*"))
             if not candidates:
                 raise RuntimeError("yt-dlp produced no output file")
             file_path = candidates[0]
