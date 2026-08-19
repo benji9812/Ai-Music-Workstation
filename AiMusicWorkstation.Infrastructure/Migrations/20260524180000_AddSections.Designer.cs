@@ -5,12 +5,14 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
 namespace AiMusicWorkstation.Infrastructure.Migrations
 {
     [DbContext(typeof(AiMusicWorkstationDbContext))]
+    [Migration("20260524180000_AddSections")]
     partial class AddSections
     {
         /// <inheritdoc />
