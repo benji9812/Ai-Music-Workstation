@@ -841,6 +841,13 @@ export default function App() {
   // Tracks the async structure fetch independently so the Song Structure panel
   // can show a skeleton and the global "ready" state waits for it.
   const [isStructureLoading, setIsStructureLoading] = useState(false);
+  
+  // Lyrics polling states
+  const [isLyricsLoading, setIsLyricsLoading] = useState(false);
+  const [lyricsError, setLyricsError] = useState<string | null>(null);
+  const activeLyricsJob = React.useRef<string | null>(null);
+  const lyricsPollRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
+
   const [error, setError] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState(false);
   const [nowPlaying, setNowPlaying] = useState<{
@@ -948,6 +955,75 @@ export default function App() {
   const refreshLibrary = () => {
     fetchLibrary();
   };
+
+  const fetchLyricsAsync = async (originalPath: string, projectId: string | null) => {
+    if (!originalPath) return;
+    setIsLyricsLoading(true);
+    setLyricsError(null);
+    if (lyricsPollRef.current) {
+      clearInterval(lyricsPollRef.current);
+      lyricsPollRef.current = null;
+    }
+
+    try {
+      const startResp = await authFetch(`${API_URL}/api/import/start-lyrics-job`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filePath: originalPath }),
+      });
+      const startData = await startResp.json();
+      if (!startResp.ok || startData.status === "error") {
+        setLyricsError(startData.message || "Failed to start lyrics job");
+        setIsLyricsLoading(false);
+        return;
+      }
+
+      const jobId: string = startData.job_id;
+      activeLyricsJob.current = jobId;
+      let attempts = 0;
+      const maxAttempts = 60; // 2 mins at 2s interval
+
+      lyricsPollRef.current = setInterval(async () => {
+        try {
+          attempts++;
+          const statusResp = await authFetch(`${API_URL}/api/import/status/${jobId}`);
+          const statusData = await statusResp.json();
+
+          if (statusData.status === "done" && statusData.result?.lyrics) {
+            if (lyricsPollRef.current) {
+              clearInterval(lyricsPollRef.current);
+              lyricsPollRef.current = null;
+            }
+            if (activeLyricsJob.current === jobId) {
+              setIsLyricsLoading(false);
+              const lyrics = statusData.result.lyrics;
+              setResult((prev) => prev ? { ...prev, lyrics } : null);
+              
+              // No Supabase persist since we're lacking a Lyrics column, but we update React state
+            }
+          } else if (statusData.status === "error") {
+            if (lyricsPollRef.current) clearInterval(lyricsPollRef.current);
+            if (activeLyricsJob.current === jobId) {
+              setIsLyricsLoading(false);
+              setLyricsError(statusData.error || "Failed to transcribe lyrics");
+            }
+          } else if (attempts >= maxAttempts) {
+            if (lyricsPollRef.current) clearInterval(lyricsPollRef.current);
+            if (activeLyricsJob.current === jobId) {
+              setIsLyricsLoading(false);
+              setLyricsError("Lyrics transcription timed out");
+            }
+          }
+        } catch (e) {
+          console.error("Lyrics poll error", e);
+        }
+      }, 2000);
+    } catch (e) {
+      setIsLyricsLoading(false);
+      setLyricsError("Failed to initiate lyrics job");
+    }
+  };
+
   __testHooks.refreshLibrary = refreshLibrary;
 
   const deleteProject = async (id: string) => {
@@ -1297,6 +1373,10 @@ export default function App() {
             // Sync with the real DB record (replaces the optimistic entry with
             // the persisted one that has the correct id and full metadata).
             refreshLibrary();
+
+            if (data.original_path) {
+              fetchLyricsAsync(data.original_path, null);
+            }
           } else if (statusData.status === "error") {
             clearInterval(pollRef.current!);
             pollRef.current = null;
@@ -1826,6 +1906,10 @@ export default function App() {
           /* structure is optional */
         } finally {
           setIsStructureLoading(false);
+        }
+
+        if (data.original_path) {
+          fetchLyricsAsync(data.original_path, null);
         }
       };
 
@@ -3033,7 +3117,7 @@ export default function App() {
               className="lyrics-container"
               style={{ flex: 1, paddingRight: "5px" }}
             >
-              {result?.lyrics ? (
+              {result?.lyrics && result.lyrics.length > 0 ? (
                 result.lyrics.map((seg, idx) => (
                   <p
                     key={idx}
@@ -3050,14 +3134,16 @@ export default function App() {
                 <div
                   style={{
                     fontSize: "12px",
-                    color: "#555",
+                    color: lyricsError ? "#ff4444" : "#555",
                     textAlign: "center",
                     marginTop: "20px",
                   }}
                 >
-                  {loading
-                    ? "Transcribing lyrics with Whisper..."
-                    : "No lyrics data"}
+                  {lyricsError 
+                    ? lyricsError 
+                    : isLyricsLoading 
+                        ? "Transcribing lyrics with Whisper..." 
+                        : "No lyrics data"}
                 </div>
               )}
             </div>

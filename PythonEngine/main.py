@@ -1867,6 +1867,56 @@ async def start_analyze_quick_job(request: ImportUrlAsyncRequest):
     return {"job_id": job_id, "status": "started"}
 
 
+class StartLyricsJobRequest(BaseModel):
+    file_path: str
+
+
+@app.post("/start-lyrics-job")
+async def start_lyrics_job(request: StartLyricsJobRequest):
+    job_id = uuid.uuid4().hex[:12]
+    jobs[job_id] = {
+        "status": "running",
+        "stage": "⏳ Starting lyrics transcription...",
+        "progress": 0,
+        "result": None,
+        "error": None,
+    }
+
+    def run_lyrics_job():
+        total_start = now()
+        try:
+            ensure_runtime_dirs()
+            file_path = request.file_path
+            if not file_path or not os.path.exists(file_path):
+                alt_path = os.path.join(UPLOAD_DIR, os.path.basename(file_path or ""))
+                if os.path.exists(alt_path):
+                    file_path = alt_path
+                else:
+                    raise FileNotFoundError(f"Audio file not found: {file_path}")
+
+            job_update(job_id, "🗣️ Transcribing lyrics with Whisper...", progress=10)
+            lyrics = transcribe_with_groq(file_path)
+            audio_duration = float(librosa.get_duration(path=file_path))
+            lyrics = post_process_lyrics(lyrics, audio_duration)
+            
+            jobs[job_id]["result"] = {"lyrics": lyrics}
+            jobs[job_id]["status"] = "done"
+            jobs[job_id]["stage"] = "✅ Lyrics transcription complete!"
+            jobs[job_id]["progress"] = 100
+            
+            log_step(f"✅ Lyrics job {job_id} complete in {elapsed(total_start)}s")
+
+        except Exception as e:
+            log_step(f"❌ Lyrics job {job_id} failed: {e}")
+            jobs[job_id]["status"] = "error"
+            jobs[job_id]["error"] = str(e)
+            jobs[job_id]["stage"] = f"❌ Failed: {str(e)[:100]}"
+
+    t = threading.Thread(target=run_lyrics_job, daemon=True)
+    t.start()
+    return {"job_id": job_id, "status": "started"}
+
+
 @app.get("/job-status/{job_id}")
 async def job_status(job_id: str):
     """Poll status of a background import job."""

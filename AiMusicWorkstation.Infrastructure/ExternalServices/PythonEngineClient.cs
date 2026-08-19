@@ -79,6 +79,16 @@ public class PythonEngineClient
         return await response.Content.ReadAsStringAsync();
     }
 
+    public async Task<string> StartLyricsJobAsync(string filePath)
+    {
+        if (!await _manager.EnsureRunningAsync())
+            return "{\"status\":\"error\",\"message\":\"Python engine not reachable\"}";
+        var response = await _client.PostAsJsonAsync("start-lyrics-job", new { file_path = filePath });
+        if (!response.IsSuccessStatusCode)
+            return $"{{\"status\":\"error\",\"message\":\"Job not found or engine restarted\",\"code\":{(int)response.StatusCode}}}";
+        return await response.Content.ReadAsStringAsync();
+    }
+
     public async Task<string> GetJobStatusAsync(string jobId)
     {
         if (!await _manager.EnsureRunningAsync())

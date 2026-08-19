@@ -214,6 +214,23 @@ public class ImportController : ControllerBase
         }
     }
 
+    [HttpPost("start-lyrics-job")]
+    public async Task<IActionResult> StartLyricsJob([FromBody] LyricsRequest request)
+    {
+        if (string.IsNullOrEmpty(request?.FilePath))
+            return BadRequest(new { status = "error", message = "FilePath missing" });
+        try
+        {
+            var resultJson = await _pythonClient.StartLyricsJobAsync(request.FilePath);
+            return Content(resultJson, "application/json");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to start async lyrics job for {FilePath}", request.FilePath);
+            return StatusCode(500, new { status = "error", message = ex.Message });
+        }
+    }
+
     [HttpPost("separate-stems")]
     public async Task<IActionResult> SeparateStems([FromForm] IFormFile? file, [FromForm] string stems, [FromForm] string? originalFilePath)
     {
@@ -260,4 +277,9 @@ public class ImportRequest
 {
     public string Url { get; set; } = string.Empty;
     public string? FilePath { get; set; }
+}
+
+public class LyricsRequest
+{
+    public string FilePath { get; set; } = string.Empty;
 }
