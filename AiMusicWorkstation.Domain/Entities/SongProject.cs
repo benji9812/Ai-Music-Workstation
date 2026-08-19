@@ -30,6 +30,7 @@ namespace AiMusicWorkstation.Domain.Entities
         public int TimeSignature { get; set; } = 4;
         public string Sections { get; set; } = "[]";
         public DataSource SectionsSource { get; set; } = DataSource.Unknown;
+        public string Lyrics { get; set; } = "[]";
 
         // Grouping
         public Guid? GroupId { get; set; }

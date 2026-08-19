@@ -954,6 +954,13 @@ export default function App() {
     }
   }, [initialized, session, fetchLibrary]);
 
+  useEffect(() => {
+    return () => {
+      if (structurePollRef.current) clearInterval(structurePollRef.current);
+      if (lyricsPollRef.current) clearInterval(lyricsPollRef.current);
+    };
+  }, []);
+
   const refreshLibrary = () => {
     fetchLibrary();
   };
@@ -1019,7 +1026,7 @@ export default function App() {
     }
   };
 
-  const fetchLyricsAsync = async (originalPath: string, projectId: string | null) => {
+  const fetchLyricsAsync = async (originalPath: string) => {
     if (!originalPath) return;
     setIsLyricsLoading(true);
     setLyricsError(null);
@@ -1422,7 +1429,7 @@ export default function App() {
             });
 
             if (data.original_path) {
-              fetchLyricsAsync(data.original_path, null);
+              fetchLyricsAsync(data.original_path);
             }
           } else if (statusData.status === "error") {
             clearInterval(pollRef.current!);
@@ -1940,7 +1947,7 @@ export default function App() {
         });
 
         if (data.original_path) {
-          fetchLyricsAsync(data.original_path, null);
+          fetchLyricsAsync(data.original_path);
         }
       };
 
