@@ -998,7 +998,7 @@ export default function App() {
 
   // Initialize stems with empty Audio elements if they don't exist
   useEffect(() => {
-    DEFAULT_STEMS.forEach((stem) => {
+    [...DEFAULT_STEMS, "original"].forEach((stem) => {
       if (!stems.current[stem]) {
         stems.current[stem] = Object.assign(new Audio(), {
           crossOrigin: "anonymous",
@@ -1007,68 +1007,73 @@ export default function App() {
     });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const loadStemsFromPath = async (stemsMap: Record<string, string>) => {
-    // Clear all existing stem sources first
-    Object.values(stems.current).forEach((audio) => {
-      audio.src = "";
-    });
-    Object.values(stemObjectUrls.current).forEach((url) => {
-      URL.revokeObjectURL(url);
-    });
-    stemObjectUrls.current = {};
+  const loadStemsFromPath = (stemsMap: Record<string, string>): Promise<void> => {
+    return new Promise(async (resolve) => {
+      // Clear all existing stem sources first
+      Object.values(stems.current).forEach((audio) => {
+        audio.src = "";
+      });
+      Object.values(stemObjectUrls.current).forEach((url) => {
+        URL.revokeObjectURL(url);
+      });
+      stemObjectUrls.current = {};
 
-    const firstStemKey = Object.keys(stemsMap)[0];
-    if (!firstStemKey) return;
-
-    setDurationReady(false);
-    // Register the handler BEFORE assigning src so the event is never missed,
-    // even if the browser resolves metadata from cache synchronously.
-    const firstStemEl = stems.current[firstStemKey];
-    const onMetadata = () => {
-      const rawDuration = firstStemEl.duration;
-      if (Number.isFinite(rawDuration) && rawDuration > 0) {
-        durationGuardRef.current = rawDuration;
-        setDuration(rawDuration);
-        setDurationReady(true);
-      } else {
-        // Duration not yet known (e.g. VBR/streaming) — wait for durationchange
-        const onDurationChange = () => {
-          const d = firstStemEl.duration;
-          if (Number.isFinite(d) && d > 0) {
-            durationGuardRef.current = d;
-            setDuration(d);
-            setDurationReady(true);
-            firstStemEl.removeEventListener("durationchange", onDurationChange);
-          }
-        };
-        firstStemEl.addEventListener("durationchange", onDurationChange);
+      const firstStemKey = Object.keys(stemsMap)[0];
+      if (!firstStemKey) {
+        resolve();
+        return;
       }
-      if (!isDragging) setSliderTime(0);
-      firstStemEl.removeEventListener("loadedmetadata", onMetadata);
-    };
-    firstStemEl.addEventListener("loadedmetadata", onMetadata);
 
-    await Promise.all(
-      Object.entries(stemsMap).map(async ([stemName, url]) => {
-        if (!stems.current[stemName]) {
-          stems.current[stemName] = Object.assign(new Audio(), {
-            crossOrigin: "anonymous",
-          });
+      setDurationReady(false);
+      // Register the handler BEFORE assigning src so the event is never missed,
+      // even if the browser resolves metadata from cache synchronously.
+      const firstStemEl = stems.current[firstStemKey];
+      const onMetadata = () => {
+        const rawDuration = firstStemEl.duration;
+        if (Number.isFinite(rawDuration) && rawDuration > 0) {
+          durationGuardRef.current = rawDuration;
+          setDuration(rawDuration);
+          setDurationReady(true);
+        } else {
+          // Duration not yet known (e.g. VBR/streaming) — wait for durationchange
+          const onDurationChange = () => {
+            const d = firstStemEl.duration;
+            if (Number.isFinite(d) && d > 0) {
+              durationGuardRef.current = d;
+              setDuration(d);
+              setDurationReady(true);
+              firstStemEl.removeEventListener("durationchange", onDurationChange);
+            }
+          };
+          firstStemEl.addEventListener("durationchange", onDurationChange);
         }
-        try {
-          const resp = await authFetch(url);
-          if (!resp.ok) {
-            console.error(`Failed to load stem ${stemName}`, await resp.text());
-            return;
+        firstStemEl.removeEventListener("loadedmetadata", onMetadata);
+        resolve();
+      };
+      firstStemEl.addEventListener("loadedmetadata", onMetadata);
+
+      await Promise.all(
+        Object.entries(stemsMap).map(async ([stemName, url]) => {
+          if (!stems.current[stemName]) {
+            stems.current[stemName] = Object.assign(new Audio(), {
+              crossOrigin: "anonymous",
+            });
           }
-          const blobUrl = URL.createObjectURL(await resp.blob());
-          stemObjectUrls.current[stemName] = blobUrl;
-          stems.current[stemName].src = blobUrl;
-        } catch (e) {
-          console.error(`Failed to load stem ${stemName}`, e);
-        }
-      }),
-    );
+          try {
+            const resp = await authFetch(url);
+            if (!resp.ok) {
+              console.error(`Failed to load stem ${stemName}`, await resp.text());
+              return;
+            }
+            const blobUrl = URL.createObjectURL(await resp.blob());
+            stemObjectUrls.current[stemName] = blobUrl;
+            stems.current[stemName].src = blobUrl;
+          } catch (e) {
+            console.error(`Failed to load stem ${stemName}`, e);
+          }
+        }),
+      );
+    });
   };
 
   const loadProject = async (p: SongProject) => {
@@ -1104,6 +1109,26 @@ export default function App() {
       setVolumes({ drums: 80, bass: 80, other: 80, vocals: 80 });
       setMutes({ drums: false, bass: false, other: false, vocals: false });
       setSolos({ drums: false, bass: false, other: false, vocals: false });
+    } else if (p.original_path) {
+      // If no stems but we have original track, load it into original for playback
+      Object.values(stems.current).forEach((audio) => (audio.src = ""));
+      setDurationReady(false);
+      const originalEl = stems.current.original;
+      const onLocalMetadata = () => {
+        const rawDuration = originalEl.duration;
+        if (Number.isFinite(rawDuration) && rawDuration > 0) {
+          durationGuardRef.current = rawDuration;
+          setDuration(rawDuration);
+          setDurationReady(true);
+        }
+        originalEl.removeEventListener("loadedmetadata", onLocalMetadata);
+      };
+      originalEl.addEventListener("loadedmetadata", onLocalMetadata);
+      
+      stems.current.original.src = `${API_URL}/api/analysis/audio/${p.original_path}`;
+      setVolumes({ original: 80 });
+      setMutes({ original: false });
+      setSolos({ original: false });
     } else {
       // If no stems, clear all audio elements
       Object.values(stems.current).forEach((audio) => (audio.src = ""));
@@ -1352,9 +1377,9 @@ export default function App() {
     return Math.max(0, Math.min(value, max));
   };
   const readDuration = () => {
-    const firstStemKey = Object.keys(stems.current)[0];
-    if (!firstStemKey) return 0;
-    const rawDuration = stems.current[firstStemKey].duration;
+    const activeStemKey = Object.keys(stems.current).find(k => stems.current[k].src) || Object.keys(stems.current)[0];
+    if (!activeStemKey) return 0;
+    const rawDuration = stems.current[activeStemKey].duration;
     if (Number.isFinite(rawDuration) && rawDuration > 0) {
       durationGuardRef.current = rawDuration;
       return rawDuration;
@@ -1468,9 +1493,9 @@ export default function App() {
   useEffect(() => {
     const interval = setInterval(() => {
       if (isPlaying) {
-        const firstStemKey = Object.keys(stems.current)[0];
-        if (!firstStemKey) return; // No stems to play
-        const current = stems.current[firstStemKey].currentTime;
+        const activeStemKey = Object.keys(stems.current).find(k => stems.current[k].src) || Object.keys(stems.current)[0];
+        if (!activeStemKey) return; // No stems to play
+        const current = stems.current[activeStemKey].currentTime;
         const safeDuration = readDuration();
         const safeCurrent = clampTime(current, safeDuration);
         setCurrentTime(safeCurrent);
@@ -1517,9 +1542,9 @@ export default function App() {
 
   // Handle playback end (repeat and play/pause icon)
   useEffect(() => {
-    const firstStemKey = Object.keys(stems.current)[0];
-    if (!firstStemKey) return;
-    const firstAudioElement = stems.current[firstStemKey];
+    const activeStemKey = Object.keys(stems.current).find(k => stems.current[k].src) || Object.keys(stems.current)[0];
+    if (!activeStemKey) return;
+    const firstAudioElement = stems.current[activeStemKey];
     const handleEnded = () => {
       if (repeatEnabled) {
         syncStemsToTime(0);
@@ -1607,10 +1632,10 @@ export default function App() {
 
   const seekTime = (offset: number) => {
     // Use the latest audio clock if playing, otherwise the state
-    const firstStemKey = Object.keys(stems.current)[0];
+    const activeStemKey = Object.keys(stems.current).find(k => stems.current[k].src) || Object.keys(stems.current)[0];
     const baseTime =
-      isPlaying && firstStemKey
-        ? stems.current[firstStemKey].currentTime
+      isPlaying && activeStemKey
+        ? stems.current[activeStemKey].currentTime
         : currentTime;
     syncStemsToTime(baseTime + offset);
   };
@@ -1758,31 +1783,27 @@ export default function App() {
         }
 
         // No stems are loaded yet with analyze-quick, so don't call loadStemsFromPath
-        // Instead, load the original file into the drums stem for playback
+        // Instead, load the original file into the original stem for playback
         const objectUrl = URL.createObjectURL(selectedFile);
         setDurationReady(false); // Reset while loading local original
-        const localDrumsEl = stems.current.drums;
+        Object.values(stems.current).forEach((audio) => (audio.src = ""));
+        const originalEl = stems.current.original;
         const onLocalMetadata = () => {
-          const rawDuration = localDrumsEl.duration;
+          const rawDuration = originalEl.duration;
           if (Number.isFinite(rawDuration) && rawDuration > 0) {
             durationGuardRef.current = rawDuration;
             setDuration(rawDuration);
             setDurationReady(true);
           }
-          if (!isDragging) setSliderTime(0);
-          localDrumsEl.removeEventListener("loadedmetadata", onLocalMetadata);
+          originalEl.removeEventListener("loadedmetadata", onLocalMetadata);
         };
-        localDrumsEl.addEventListener("loadedmetadata", onLocalMetadata);
-        // Only load the "drums" stem (which will effectively be the original track)
-        // The other stems should be cleared/reset as they are not present.
-        stems.current.drums.src = objectUrl;
-        stems.current.bass.src = "";
-        stems.current.other.src = "";
-        stems.current.vocals.src = "";
-        // Reset current mixer states as only "drums" (original) is playing
-        setVolumes({ drums: 80, bass: 0, other: 0, vocals: 0 });
-        setMutes({ drums: false, bass: true, other: true, vocals: true });
-        setSolos({ drums: false, bass: false, other: false, vocals: false });
+        originalEl.addEventListener("loadedmetadata", onLocalMetadata);
+        // Only load the "original" stem
+        stems.current.original.src = objectUrl;
+        // Reset current mixer states as only "original" is playing
+        setVolumes({ original: 80 });
+        setMutes({ original: false });
+        setSolos({ original: false });
 
         setIsStructureLoading(true);
         try {
@@ -1909,6 +1930,10 @@ export default function App() {
         data.extracted_stems &&
         Object.keys(data.extracted_stems).length > 0
       ) {
+        // Preserve current time and play state
+        const savedTime = currentTime;
+        const wasPlaying = isPlaying;
+
         // Update the result state with the new extracted stems
         setResult((prev) => ({
           ...prev,
@@ -1929,6 +1954,14 @@ export default function App() {
         setVolumes(initialVolumes);
         setMutes(initialMutes);
         setSolos(initialSolos);
+
+        // Restore time and playback
+        syncStemsToTime(savedTime);
+        if (wasPlaying) {
+          Object.values(stems.current).forEach((a) => {
+            if (a.src) a.play();
+          });
+        }
       } else {
         setError("Stem separation returned no stems.");
       }
@@ -3061,42 +3094,12 @@ export default function App() {
           <div
             className={`panel-content-collapsible ${showStemMixer ? "" : "is-folded"}`}
           >
-            {/* Original Audio Player (visible when stems are missing but original path is known) */}
-            {result?.original_path &&
-              (!result?.extracted_stems ||
-                Object.keys(result.extracted_stems).length === 0) && (
-                <div
-                  style={{
-                    padding: "12px",
-                    marginBottom: "8px",
-                    background: "rgba(0,0,0,0.2)",
-                    borderRadius: "8px",
-                  }}
-                >
-                  <p
-                    style={{
-                      fontSize: "10px",
-                      fontWeight: "bold",
-                      color: "#888",
-                      marginBottom: "6px",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.05em",
-                    }}
-                  >
-                    Original Track Preview
-                  </p>
-                  <audio
-                    controls
-                    style={{ width: "100%", height: "32px" }}
-                    src={`${API_URL}/api/analysis/audio/${result.original_path}`}
-                  />
-                </div>
-              )}
+            {/* The original track preview is now handled by the global transport (routed through drums) */}
 
             <div className="mixer-grid">
               {result?.extracted_stems &&
               Object.keys(result.extracted_stems).length > 0 ? (
-                Object.keys(stems.current).map((stem) => (
+                Object.keys(stems.current).filter(s => s !== "original").map((stem) => (
                   <div key={stem} className="mixer-channel">
                     <span
                       style={{
@@ -3159,26 +3162,26 @@ export default function App() {
                       className="vertical-slider"
                       min="1"
                       max="100"
-                      value={volumes["drums"] ?? 80} // Use drums volume for original
+                      value={volumes["original"] ?? 80}
                       onChange={(e) =>
-                        setMixerVolume("drums", Number(e.target.value))
+                        setMixerVolume("original", Number(e.target.value))
                       }
                     />
                   </div>
                   <VolumeInput
-                    value={volumes["drums"] ?? 80}
-                    onChange={(val) => setMixerVolume("drums", val)}
+                    value={volumes["original"] ?? 80}
+                    onChange={(val) => setMixerVolume("original", val)}
                   />
                   <div className="flex gap-1">
                     <button
-                      className={`toggle-btn toggle-mute ${mutes["drums"] ? "active" : ""}`}
-                      onClick={() => toggleMute("drums")}
+                      className={`toggle-btn toggle-mute ${mutes["original"] ? "active" : ""}`}
+                      onClick={() => toggleMute("original")}
                     >
                       M
                     </button>
                     <button
-                      className={`toggle-btn toggle-solo ${solos["drums"] ? "active" : ""}`}
-                      onClick={() => toggleSolo("drums")}
+                      className={`toggle-btn toggle-solo ${solos["original"] ? "active" : ""}`}
+                      onClick={() => toggleSolo("original")}
                     >
                       S
                     </button>
