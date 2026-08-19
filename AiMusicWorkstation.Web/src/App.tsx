@@ -841,6 +841,8 @@ export default function App() {
   // Tracks the async structure fetch independently so the Song Structure panel
   // can show a skeleton and the global "ready" state waits for it.
   const [isStructureLoading, setIsStructureLoading] = useState(false);
+  const activeStructureJob = React.useRef<string | null>(null);
+  const structurePollRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
   
   // Lyrics polling states
   const [isLyricsLoading, setIsLyricsLoading] = useState(false);
@@ -954,6 +956,67 @@ export default function App() {
 
   const refreshLibrary = () => {
     fetchLibrary();
+  };
+
+  const fetchStructureAsync = async (payload: any) => {
+    setIsStructureLoading(true);
+    if (structurePollRef.current) {
+      clearInterval(structurePollRef.current);
+      structurePollRef.current = null;
+    }
+
+    try {
+      const startResp = await authFetch(`${API_URL}/api/analysis/start-structure-job`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const startData = await startResp.json();
+      if (!startResp.ok || startData.status === "error") {
+        setIsStructureLoading(false);
+        return;
+      }
+
+      const jobId: string = startData.job_id;
+      activeStructureJob.current = jobId;
+      let attempts = 0;
+      const maxAttempts = 60; // 2 mins at 2s interval
+
+      structurePollRef.current = setInterval(async () => {
+        try {
+          attempts++;
+          const statusResp = await authFetch(`${API_URL}/api/import/status/${jobId}`);
+          const statusData = await statusResp.json();
+
+          if (statusData.status === "done" && statusData.result) {
+            if (structurePollRef.current) {
+              clearInterval(structurePollRef.current);
+              structurePollRef.current = null;
+            }
+            if (activeStructureJob.current === jobId) {
+              setIsStructureLoading(false);
+              if (!statusData.result.error) {
+                setStructure(statusData.result);
+              }
+            }
+          } else if (statusData.status === "error") {
+            if (structurePollRef.current) clearInterval(structurePollRef.current);
+            if (activeStructureJob.current === jobId) {
+              setIsStructureLoading(false);
+            }
+          } else if (attempts >= maxAttempts) {
+            if (structurePollRef.current) clearInterval(structurePollRef.current);
+            if (activeStructureJob.current === jobId) {
+              setIsStructureLoading(false);
+            }
+          }
+        } catch (e) {
+          console.error("Structure poll error", e);
+        }
+      }, 2000);
+    } catch (e) {
+      setIsStructureLoading(false);
+    }
   };
 
   const fetchLyricsAsync = async (originalPath: string, projectId: string | null) => {
@@ -1347,32 +1410,16 @@ export default function App() {
             setMutes({});
             setSolos({});
 
-            setIsStructureLoading(true);
-            try {
-              const structResp = await authFetch(
-                `${API_URL}/api/analysis/structure`,
-                {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    artist: trackArtist,
-                    title: trackTitle,
-                    duration: data.duration_seconds || 180,
-                    filePath: data.original_path,
-                  }),
-                },
-              );
-              const structData = await structResp.json();
-              if (structResp.ok && !structData.error) setStructure(structData);
-            } catch {
-              /* optional */
-            } finally {
-              setIsStructureLoading(false);
-            }
-
             // Sync with the real DB record (replaces the optimistic entry with
             // the persisted one that has the correct id and full metadata).
             refreshLibrary();
+
+            fetchStructureAsync({
+              artist: trackArtist,
+              title: trackTitle,
+              duration: data.duration_seconds || 180,
+              filePath: data.original_path,
+            });
 
             if (data.original_path) {
               fetchLyricsAsync(data.original_path, null);
@@ -1885,28 +1932,12 @@ export default function App() {
         setMutes({ original: false });
         setSolos({ original: false });
 
-        setIsStructureLoading(true);
-        try {
-          const structResp = await authFetch(
-            `${API_URL}/api/analysis/structure`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                artist: "Local Upload",
-                title: fileName,
-                duration: data.duration_seconds || 180,
-                filePath: data.original_path,
-              }),
-            },
-          );
-          const structData = await structResp.json();
-          if (structResp.ok && !structData.error) setStructure(structData);
-        } catch {
-          /* structure is optional */
-        } finally {
-          setIsStructureLoading(false);
-        }
+        fetchStructureAsync({
+          artist: "Local Upload",
+          title: fileName,
+          duration: data.duration_seconds || 180,
+          filePath: data.original_path,
+        });
 
         if (data.original_path) {
           fetchLyricsAsync(data.original_path, null);

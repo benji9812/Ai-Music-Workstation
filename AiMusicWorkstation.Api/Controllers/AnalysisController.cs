@@ -140,6 +140,36 @@ public class AnalysisController : ControllerBase
         return Content(response, "application/json");
     }
 
+    // POST /api/analysis/start-structure-job
+    [HttpPost("start-structure-job")]
+    public async Task<IActionResult> StartStructureJob([FromBody] StructureRequest request)
+    {
+        if (request == null)
+            return BadRequest(new { status = "error", message = "Payload missing" });
+
+        var filePath = request.filePath;
+        if (string.IsNullOrEmpty(filePath) && !string.IsNullOrEmpty(request.projectId))
+        {
+            var userId = GetUserId();
+            var project = await _repository.GetByIdAsync(request.projectId, userId);
+            if (project != null && !string.IsNullOrEmpty(project.OriginalPath))
+            {
+                filePath = project.OriginalPath;
+            }
+        }
+
+        var pythonRequest = new
+        {
+            artist = request.artist,
+            title = request.title,
+            duration = request.duration,
+            file_path = filePath
+        };
+
+        string response = await _client.StartStructureJobAsync(pythonRequest);
+        return Content(response, "application/json");
+    }
+
     // GET /api/analysis/audio/{path}
     [AllowAnonymous]
     [HttpGet("audio/{*path}")]

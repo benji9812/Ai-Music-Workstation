@@ -919,8 +919,8 @@ async def structure(request: StructureRequest):
     sections = []
     used_method = "none"
 
-    # 1. Try allin1 (Local ML)
-    if ALLIN1_AVAILABLE and request.file_path:
+    actual_path = None
+    if request.file_path:
         actual_path = request.file_path
         if not os.path.exists(actual_path):
             # Try in UPLOAD_DIR
@@ -929,10 +929,9 @@ async def structure(request: StructureRequest):
             )
             if os.path.exists(potential_path):
                 actual_path = potential_path
-            else:
-                # Try relative to OUT_DIR if it's a stems folder
-                # but allin1 needs the original mix.
-                pass
+
+    # 1. Try allin1 (Local ML)
+    if ALLIN1_AVAILABLE and actual_path:
 
         if os.path.exists(actual_path) and os.path.isfile(actual_path):
             try:
@@ -998,12 +997,25 @@ async def structure(request: StructureRequest):
                 'Return a JSON array: [{"label": "...", "start": 0.0, "end": 10.0}, ...]\n'
                 "Only return valid JSON, no extra text."
             )
+            
+            contents = [prompt]
+            gemini_file = None
+            if actual_path and os.path.exists(actual_path):
+                log_step("⬆️ Uploading audio to Gemini for structure analysis...")
+                gemini_file = gemini.files.upload(file=actual_path)
+                contents = [gemini_file, prompt]
 
             response = gemini.models.generate_content(
                 model="gemini-1.5-flash",
-                contents=prompt,
+                contents=contents,
                 config={"max_output_tokens": 8192},
             )
+            
+            if gemini_file:
+                try:
+                    gemini.files.delete(name=gemini_file.name)
+                except Exception as e:
+                    log_step(f"⚠️ Failed to delete Gemini file: {e}")
 
             raw = (response.text or "").strip()
             if not raw:
@@ -1915,6 +1927,47 @@ async def start_lyrics_job(request: StartLyricsJobRequest):
     t = threading.Thread(target=run_lyrics_job, daemon=True)
     t.start()
     return {"job_id": job_id, "status": "started"}
+
+@app.post("/start-structure-job")
+async def start_structure_job(request: StructureRequest):
+    job_id = uuid.uuid4().hex[:12]
+    jobs[job_id] = {
+        "status": "running",
+        "stage": "⏳ Starting structure analysis...",
+        "progress": 0,
+        "result": None,
+        "error": None,
+    }
+
+    def run_structure_job():
+        total_start = now()
+        try:
+            job_update(job_id, "🧠 Analyzing song structure...", progress=10)
+            
+            # Call the async structure function from a new event loop
+            import asyncio
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            res = loop.run_until_complete(structure(request))
+            loop.close()
+            
+            jobs[job_id]["result"] = res
+            jobs[job_id]["status"] = "done"
+            jobs[job_id]["stage"] = "✅ Structure analysis complete!"
+            jobs[job_id]["progress"] = 100
+            
+            log_step(f"✅ Structure job {job_id} complete in {elapsed(total_start)}s")
+
+        except Exception as e:
+            log_step(f"❌ Structure job {job_id} failed: {e}")
+            jobs[job_id]["status"] = "error"
+            jobs[job_id]["error"] = str(e)
+            jobs[job_id]["stage"] = f"❌ Failed: {str(e)[:100]}"
+
+    t = threading.Thread(target=run_structure_job, daemon=True)
+    t.start()
+    return {"job_id": job_id, "status": "started"}
+
 
 
 @app.get("/job-status/{job_id}")
