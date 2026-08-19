@@ -1,0 +1,30 @@
+name: Deploy PythonEngine to Azure VM
+
+on:
+  push:
+    branches:
+      - dev
+    paths:
+      - 'PythonEngine/**'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Execute remote SSH commands
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.AZURE_VM_HOST }}
+          username: ${{ secrets.AZURE_VM_USER }}
+          key: ${{ secrets.AZURE_VM_SSH_KEY }}
+          script: |
+            cd Ai-Music-Workstation
+            git fetch
+            git pull origin dev
+            cd PythonEngine
+            source venv/bin/activate
+            pip install -r requirements.txt
+            
+            pkill -f uvicorn || true
+            sleep 2
+            nohup uvicorn main:app --host 0.0.0.0 --port 8000 > uvicorn.log 2>&1 &
