@@ -1026,7 +1026,10 @@ export default function App() {
     }
   };
 
-  const fetchLyricsAsync = async (originalPath: string) => {
+  const fetchLyricsAsync = async (
+    originalPath: string,
+    projectId: string | null,
+  ) => {
     if (!originalPath) return;
     setIsLyricsLoading(true);
     setLyricsError(null);
@@ -1067,9 +1070,19 @@ export default function App() {
             if (activeLyricsJob.current === jobId) {
               setIsLyricsLoading(false);
               const lyrics = statusData.result.lyrics;
-              setResult((prev) => prev ? { ...prev, lyrics } : null);
-              
-              // No Supabase persist since we're lacking a Lyrics column, but we update React state
+              setResult((prev) => (prev ? { ...prev, lyrics } : null));
+
+              if (projectId) {
+                try {
+                  await authFetch(`${API_URL}/api/songs/${projectId}/lyrics`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ lyrics }),
+                  });
+                } catch (e) {
+                  console.error("Failed to sync lyrics to server", e);
+                }
+              }
             }
           } else if (statusData.status === "error") {
             if (lyricsPollRef.current) clearInterval(lyricsPollRef.current);
@@ -1429,7 +1442,7 @@ export default function App() {
             });
 
             if (data.original_path) {
-              fetchLyricsAsync(data.original_path);
+              fetchLyricsAsync(data.original_path, data.id || currentProjectId);
             }
           } else if (statusData.status === "error") {
             clearInterval(pollRef.current!);
@@ -1947,7 +1960,7 @@ export default function App() {
         });
 
         if (data.original_path) {
-          fetchLyricsAsync(data.original_path);
+          fetchLyricsAsync(data.original_path, data.id || currentProjectId);
         }
       };
 
