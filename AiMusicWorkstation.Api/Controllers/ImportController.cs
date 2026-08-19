@@ -145,6 +145,10 @@ public class ImportController : ControllerBase
                     int    timeSig    = resultProp.TryGetProperty("time_signature", out var ts) ? ts.GetInt32() : 4;
                     double durationSec= resultProp.TryGetProperty("duration_seconds", out var ds) ? ds.GetDouble() : 180.0;
 
+                    // TODO: denna dedupliceringslogik triggar oavsiktligt databas-sparning
+                    // för URL-import/lyrics/stem-jobb utan att användaren explicit sparat.
+                    // Bör refaktoreras för att skilja "avsiktlig save" från "temporär cache".
+                    
                     // Deduplicate: skip save if a record with the same stems path already exists for this user
                     bool isDuplicate = false;
                     if (!string.IsNullOrEmpty(stemsPath))
@@ -178,10 +182,24 @@ public class ImportController : ControllerBase
                         await _repository.AddAsync(project);
                         await _repository.SaveAsync();
                         _logger.LogInformation("Saved async imported project: {Title} for user {UserId}", project.Title, userId);
+                        
+                        var jObj = System.Text.Json.Nodes.JsonObject.Parse(resultJson)!.AsObject();
+                        jObj["result"]!["id"] = project.Id;
+                        resultJson = jObj.ToJsonString();
                     }
                     else
                     {
                         _logger.LogInformation("Skipped duplicate save for project: {Title} (stems path already exists for user {UserId})", title, userId);
+                        var userProjects = await _repository.GetAllAsync(userId);
+                        var existing = userProjects.FirstOrDefault(p =>
+                            !string.IsNullOrEmpty(p.StemsPath) &&
+                            string.Equals(p.StemsPath, stemsPath, StringComparison.OrdinalIgnoreCase));
+                        if (existing != null)
+                        {
+                            var jObj = System.Text.Json.Nodes.JsonObject.Parse(resultJson)!.AsObject();
+                            jObj["result"]!["id"] = existing.Id;
+                            resultJson = jObj.ToJsonString();
+                        }
                     }
                 }
             }

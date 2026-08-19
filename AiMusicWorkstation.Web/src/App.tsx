@@ -1794,6 +1794,28 @@ export default function App() {
     syncStemsToTime(parsed);
   };
 
+  // Auto-sync lyrics if a project is created AFTER lyrics were loaded
+  React.useEffect(() => {
+    if (currentProjectId && result?.lyrics && result.lyrics.length > 0) {
+      authFetch(`${API_URL}/api/songs/${currentProjectId}/lyrics`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lyrics: result.lyrics }),
+      }).catch((e) => console.error("Failed to auto-sync lyrics to library:", e));
+    }
+  }, [currentProjectId, result?.lyrics, authFetch]);
+
+  // Auto-sync structure if a project is created AFTER structure was loaded
+  React.useEffect(() => {
+    if (currentProjectId && structure?.sections && structure.sections.length > 0) {
+      authFetch(`${API_URL}/api/songs/${currentProjectId}/structure`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sections: structure.sections }),
+      }).catch((e) => console.error("Failed to auto-sync structure to library:", e));
+    }
+  }, [currentProjectId, structure?.sections, authFetch]);
+
   const saveStructureSections = async (sections: Section[]) => {
     setStructure({ sections });
     if (!currentProjectId) return;
