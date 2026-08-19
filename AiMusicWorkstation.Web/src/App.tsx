@@ -1442,7 +1442,7 @@ export default function App() {
             });
 
             if (data.original_path) {
-              fetchLyricsAsync(data.original_path, data.id || currentProjectId);
+              fetchLyricsAsync(data.original_path, currentProjectId);
             }
           } else if (statusData.status === "error") {
             clearInterval(pollRef.current!);
@@ -1960,7 +1960,7 @@ export default function App() {
         });
 
         if (data.original_path) {
-          fetchLyricsAsync(data.original_path, data.id || currentProjectId);
+          fetchLyricsAsync(data.original_path, currentProjectId);
         }
       };
 
