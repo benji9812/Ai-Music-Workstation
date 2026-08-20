@@ -127,3 +127,4 @@ watchfiles==1.1.1
 websockets==16.0
 yarl==1.22.0
 yt-dlp==2026.3.17
+huggingface-hub==1.16.1
