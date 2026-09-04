@@ -45,6 +45,8 @@ public class AiMusicWorkstationDbContext : DbContext
             entity.Property(p => p.SectionsSource).HasColumnName("StructureSource");
             entity.Property(p => p.Lyrics).HasColumnName("lyrics");
             entity.Property(p => p.LyricsSource).HasColumnName("LyricsSource");
+            entity.Property(p => p.Chords).HasColumnName("chords");
+            entity.Property(p => p.ChordsSource).HasColumnName("ChordsSource");
 
             entity.Ignore(p => p.DurationDisplay);
         });

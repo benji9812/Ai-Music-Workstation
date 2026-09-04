@@ -32,6 +32,8 @@ namespace AiMusicWorkstation.Domain.Entities
         public DataSource SectionsSource { get; set; } = DataSource.Unknown;
         public string Lyrics { get; set; } = "[]";
         public DataSource LyricsSource { get; set; } = DataSource.Unknown;
+        public string Chords { get; set; } = "[]";
+        public DataSource ChordsSource { get; set; } = DataSource.Unknown;
 
         // Grouping
         public Guid? GroupId { get; set; }

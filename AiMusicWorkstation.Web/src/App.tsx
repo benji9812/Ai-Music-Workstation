@@ -1816,6 +1816,17 @@ export default function App() {
     }
   }, [currentProjectId, structure?.sections, authFetch]);
 
+  // Auto-sync chords if a project is created AFTER chords were loaded
+  React.useEffect(() => {
+    if (currentProjectId && result?.chords && result.chords.length > 0) {
+      authFetch(`${API_URL}/api/songs/${currentProjectId}/chords`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chords: result.chords }),
+      }).catch((e) => console.error("Failed to auto-sync chords to library:", e));
+    }
+  }, [currentProjectId, result?.chords, authFetch]);
+
   const saveStructureSections = async (sections: Section[]) => {
     setStructure({ sections });
     if (!currentProjectId) return;
@@ -2244,14 +2255,21 @@ export default function App() {
   // ── Scale data (derived, recomputed on every render) ──────────────────────
   const { root: _scaleRoot, type: _scaleType } = parseKey(result?.key ?? "");
   const scaleNotes = getScale(_scaleRoot, _scaleType, transposeSteps);
-  // Fallback: ensure last chord remains active if analysis ends early.
-  const activeChordIdx =
-    result?.chords && result.chords.length > 0
-      ? result.chords.reduce(
-          (bestIdx, ch, idx) => (ch.time <= currentTime ? idx : bestIdx),
-          0,
-        )
-      : -1;
+  // Binary search for the active chord
+  let activeChordIdx = -1;
+  if (result?.chords && result.chords.length > 0) {
+    let low = 0;
+    let high = result.chords.length - 1;
+    while (low <= high) {
+      const mid = Math.floor((low + high) / 2);
+      if (result.chords[mid].time <= currentTime) {
+        activeChordIdx = mid;
+        low = mid + 1;
+      } else {
+        high = mid - 1;
+      }
+    }
+  }
 
   const activeChordDisplay =
     activeChordIdx !== -1
@@ -2266,7 +2284,7 @@ export default function App() {
 
   const upcomingChords =
     result?.chords && activeChordIdx !== -1
-      ? result.chords.slice(activeChordIdx + 1, activeChordIdx + 5)
+      ? result.chords.slice(activeChordIdx + 1, activeChordIdx + 4)
       : [];
 
   const _scaleDegreesLabel =

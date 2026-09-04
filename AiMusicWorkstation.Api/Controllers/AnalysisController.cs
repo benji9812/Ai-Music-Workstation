@@ -236,6 +236,25 @@ public class AnalysisController : ControllerBase
 
         return Ok(new { status = "success" });
     }
+
+    [HttpPatch("/api/songs/{id}/chords")]
+    public async Task<IActionResult> UpdateChords(string id, [FromBody] UpdateChordsRequest request)
+    {
+        var userId = GetUserId();
+        var project = await _repository.GetByIdAsync(id, userId);
+        if (project == null)
+        {
+            return NotFound(new { status = "error", message = "Project not found." });
+        }
+
+        project.Chords = JsonSerializer.Serialize(request.chords);
+        project.ChordsSource = DataSource.Analysis;
+
+        await _repository.UpdateAsync(project);
+        await _repository.SaveAsync();
+
+        return Ok(new { status = "success" });
+    }
 }
 
 public record StructureRequest(string artist, string title, double duration, string? projectId = null, string? filePath = null);
@@ -244,3 +263,6 @@ public record SectionDto(string label, double start, double end);
 
 public record UpdateLyricsRequest(List<LyricSegmentDto> lyrics);
 public record LyricSegmentDto(double start, double end, string text);
+
+public record UpdateChordsRequest(List<ChordEventDto> chords);
+public record ChordEventDto(double time, string chord);
