@@ -49,7 +49,7 @@ jobs:
               sudo systemctl enable pythonengine
             fi
 
-            pkill -f "uvicorn main:app" || true
+            sudo fuser -k 8000/tcp 2>/dev/null || true
             sleep 2
 
             sudo systemctl restart pythonengine
