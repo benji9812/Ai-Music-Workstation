@@ -1,3 +1,3 @@
 # Trigger file to force PythonEngine redeploy
-# Created: 2026-09-04T16:07:00Z
-# Reason: migrate from nohup to systemd (Restart=always) service
+# Created: 2026-09-04T16:12:30Z
+# Reason: retry after fixing pkill self-match bug (use fuser -k 8000/tcp)
