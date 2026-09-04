@@ -25,7 +25,33 @@ jobs:
             cd PythonEngine
             source venv/bin/activate
             pip install -r requirements.txt
-            
-            pkill -f uvicorn || true
+
+            if [ ! -f /etc/systemd/system/pythonengine.service ]; then
+              sudo tee /etc/systemd/system/pythonengine.service > /dev/null <<'EOF'
+            [Unit]
+            Description=AI Music Workstation PythonEngine (Uvicorn)
+            After=network.target
+
+            [Service]
+            Type=simple
+            User=${{ secrets.AZURE_VM_USER }}
+            WorkingDirectory=/home/${{ secrets.AZURE_VM_USER }}/Ai-Music-Workstation/PythonEngine
+            ExecStart=/home/${{ secrets.AZURE_VM_USER }}/Ai-Music-Workstation/PythonEngine/venv/bin/uvicorn main:app --host 0.0.0.0 --port 8000
+            Restart=always
+            RestartSec=5
+            StandardOutput=append:/home/${{ secrets.AZURE_VM_USER }}/Ai-Music-Workstation/PythonEngine/uvicorn.log
+            StandardError=append:/home/${{ secrets.AZURE_VM_USER }}/Ai-Music-Workstation/PythonEngine/uvicorn.log
+
+            [Install]
+            WantedBy=multi-user.target
+            EOF
+              sudo systemctl daemon-reload
+              sudo systemctl enable pythonengine
+            fi
+
+            pkill -f "uvicorn main:app" || true
             sleep 2
-            nohup uvicorn main:app --host 0.0.0.0 --port 8000 > uvicorn.log 2>&1 < /dev/null &
+
+            sudo systemctl restart pythonengine
+            sleep 3
+            sudo systemctl status pythonengine --no-pager
