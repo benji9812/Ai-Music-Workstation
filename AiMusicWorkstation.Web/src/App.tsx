@@ -1423,12 +1423,31 @@ export default function App() {
               setDurationReady(true);
             }
 
-            // No stems are loaded yet with analyze-quick, so clear existing audio elements.
-            // Playback will only be possible after explicit stem separation for URL-imported tracks.
+            // Load the original track for playback
             Object.values(stems.current).forEach((audio) => (audio.src = ""));
-            setVolumes({});
-            setMutes({});
-            setSolos({});
+            if (originalPathOnServer) {
+              const originalEl = stems.current.original;
+              setDurationReady(false);
+              const onLocalMetadata = () => {
+                const rawDuration = originalEl.duration;
+                if (Number.isFinite(rawDuration) && rawDuration > 0) {
+                  durationGuardRef.current = rawDuration;
+                  setDuration(rawDuration);
+                  setDurationReady(true);
+                }
+                originalEl.removeEventListener("loadedmetadata", onLocalMetadata);
+              };
+              originalEl.addEventListener("loadedmetadata", onLocalMetadata);
+              
+              originalEl.src = `${API_URL}/api/analysis/audio/${originalPathOnServer}`;
+              setVolumes({ original: 80 });
+              setMutes({ original: false });
+              setSolos({ original: false });
+            } else {
+              setVolumes({});
+              setMutes({});
+              setSolos({});
+            }
 
             // Sync with the real DB record (replaces the optimistic entry with
             // the persisted one that has the correct id and full metadata).
