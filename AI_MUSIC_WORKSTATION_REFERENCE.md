@@ -1,5 +1,6 @@
 # AI Music Workstation – Projektöversikt & Referens
 > Skapad: 2026-05-14 | Branch: `Solution/Remodelling_To_Web` | Repo: `benji9812/Ai-Music-Workstation`
+> ⚠️ **Historisk snapshot:** Sektionerna i detta block är från 2026-05-14 och kan innehålla legacy-referenser (t.ex. Desktop/WPF). För aktuell repo-layout och workflows, använd den senare sektionen **"AI Music Workstation – Kom igång & Referens (2026)"** i samma fil.
 
 ---
 

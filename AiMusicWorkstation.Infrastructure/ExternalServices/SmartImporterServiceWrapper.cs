@@ -3,8 +3,8 @@ using Microsoft.Extensions.Logging;
 
 namespace AiMusicWorkstation.Infrastructure.ExternalServices;
 
-/// Wrapper for ISmartImporterService. The concrete implementation (SmartImporter)
-/// is injected at runtime from Desktop layer.
+/// Wrapper for ISmartImporterService. The concrete implementation
+/// is injected at runtime.
 
 public class SmartImporterServiceWrapper : ISmartImporterService
 {

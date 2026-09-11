@@ -86,10 +86,10 @@ function resolveChordFrets(chordName: string): number[] | null {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Adapter: convert desktop fret array → svguitar Chord object
+// Adapter: convert the fret array → svguitar Chord object
 //
 // svguitar string numbering: 1 = high e (thin), 6 = low E (thick)
-// desktop array index 0 = low E (string 6), index 5 = high e (string 1)
+// Array index 0 = low E (string 6), index 5 = high e (string 1)
 //   → svguitarString = 6 - desktopIndex
 //
 // svguitar fret positions are RELATIVE to the displayed window.
@@ -104,7 +104,7 @@ function toSvguitarChord(frets: number[], title: string): Chord {
   const fingers: Chord["fingers"] = [];
   for (let i = 0; i < 6; i++) {
     const fret = frets[i];
-    const stringNum = 6 - i; // map desktop index → svguitar string number
+    const stringNum = 6 - i; // map the array index → svguitar string number
     if (fret === -1) {
       fingers.push([stringNum, SILENT]);
     } else if (fret === 0) {

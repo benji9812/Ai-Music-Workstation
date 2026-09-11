@@ -4,8 +4,8 @@ using Microsoft.Extensions.Logging;
 namespace AiMusicWorkstation.Infrastructure.ExternalServices;
 
 /// <summary>
-/// Wrapper for IAudioPlayer. The concrete implementation (StemPlayer) 
-/// is injected at runtime from Desktop layer.
+/// Wrapper for IAudioPlayer. The concrete implementation
+/// is injected at runtime.
 /// </summary>
 public class AudioPlayerService : IAudioPlayer
 {

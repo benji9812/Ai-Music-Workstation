@@ -2918,7 +2918,7 @@ export default function App() {
         </div>
       </div>
 
-      {/* COLUMN 3: MAIN WORKSTATION (Now strictly matches Desktop layout) */}
+      {/* COLUMN 3: MAIN WORKSTATION */}
       <div className="col-main">
         {/* ── Main header row ── */}
         <div
