@@ -50,6 +50,22 @@ public class LibraryRepository : ILibraryRepository
         }
     }
 
+    public async Task<SongProject?> GetByImportJobIdAsync(
+        string importJobId,
+        Guid? userId = null,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return await _inner.GetByImportJobIdAsync(importJobId, userId, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get project for import job {ImportJobId}", importJobId);
+            throw;
+        }
+    }
+
     public async Task AddAsync(SongProject project, CancellationToken cancellationToken = default)
     {
         try

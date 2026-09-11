@@ -1424,6 +1424,7 @@ async def import_url_async(request: ImportUrlAsyncRequest):
     """Start an async import job. Returns job_id immediately."""
     job_id = uuid.uuid4().hex[:12]
     jobs[job_id] = {
+        "job_type": "import",
         "status": "running",
         "stage": "⏳ Starting...",
         "progress": 0,
@@ -1671,6 +1672,7 @@ async def start_analyze_quick_job(request: ImportUrlAsyncRequest):
     """Start an async quick analysis job. Returns job_id immediately."""
     job_id = uuid.uuid4().hex[:12]
     jobs[job_id] = {
+        "job_type": "quick_import",
         "status": "running",
         "stage": "⏳ Starting quick analysis...",
         "progress": 0,
@@ -1887,6 +1889,7 @@ class StartLyricsJobRequest(BaseModel):
 async def start_lyrics_job(request: StartLyricsJobRequest):
     job_id = uuid.uuid4().hex[:12]
     jobs[job_id] = {
+        "job_type": "lyrics",
         "status": "running",
         "stage": "⏳ Starting lyrics transcription...",
         "progress": 0,
@@ -1932,6 +1935,7 @@ async def start_lyrics_job(request: StartLyricsJobRequest):
 async def start_structure_job(request: StructureRequest):
     job_id = uuid.uuid4().hex[:12]
     jobs[job_id] = {
+        "job_type": "structure",
         "status": "running",
         "stage": "⏳ Starting structure analysis...",
         "progress": 0,
@@ -1978,6 +1982,7 @@ async def job_status(job_id: str):
     job = jobs[job_id]
     return {
         "job_id": job_id,
+        "job_type": job.get("job_type"),
         "status": job["status"],
         "stage": job["stage"],
         "progress": job.get("progress", 0),

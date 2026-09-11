@@ -17,6 +17,7 @@ namespace AiMusicWorkstation.Domain.Entities
         public string Key { get; set; } = string.Empty;
         public string StemsPath { get; set; } = string.Empty;
         public string OriginalPath { get; set; } = string.Empty;
+        public string? ImportJobId { get; set; }
         public string SpotifyId { get; set; } = string.Empty;
         public TimeSpan Duration { get; set; }
         public string Genre { get; set; } = "Uncategorized";

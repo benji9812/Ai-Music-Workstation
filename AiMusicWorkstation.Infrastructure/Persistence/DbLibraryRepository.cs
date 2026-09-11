@@ -44,6 +44,18 @@ public class DbLibraryRepository : ILibraryRepository
             .FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
     }
 
+    public Task<SongProject?> GetByImportJobIdAsync(
+        string importJobId,
+        Guid? userId = null,
+        CancellationToken cancellationToken = default)
+    {
+        var query = _context.Projects.AsQueryable();
+        if (userId.HasValue)
+            query = query.Where(p => p.UserId == userId.Value);
+
+        return query.FirstOrDefaultAsync(p => p.ImportJobId == importJobId, cancellationToken);
+    }
+
     public async Task AddAsync(SongProject project, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(project);

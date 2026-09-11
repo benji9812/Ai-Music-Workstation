@@ -35,6 +35,7 @@ public class AiMusicWorkstationDbContext : DbContext
             entity.Property(p => p.GroupId).HasColumnName("group_id");
             entity.Property(p => p.IsOfficialData).HasColumnName("is_official_data");
             entity.Property(p => p.OriginalPath).HasColumnName("original_path");
+            entity.Property(p => p.ImportJobId).HasColumnName("import_job_id");
             entity.Property(p => p.Sections).HasColumnName("sections");
             entity.Property(p => p.SpotifyId).HasColumnName("spotify_id");
             entity.Property(p => p.StemsPath).HasColumnName("stems_path");
@@ -49,6 +50,7 @@ public class AiMusicWorkstationDbContext : DbContext
             entity.Property(p => p.ChordsSource).HasColumnName("ChordsSource");
 
             entity.Ignore(p => p.DurationDisplay);
+            entity.HasIndex(p => p.ImportJobId).IsUnique();
         });
 
         modelBuilder.Entity<SongGroup>(entity =>
