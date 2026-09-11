@@ -178,20 +178,18 @@ def resolve_uploaded_audio_path(file_path: str) -> Optional[str]:
         return None
 
     upload_root = Path(UPLOAD_DIR).resolve()
-    requested_path = Path(file_path)
 
     try:
-        if requested_path.is_absolute():
-            resolved_path = requested_path.resolve()
-            if resolved_path.is_relative_to(upload_root) and resolved_path.is_file():
-                return str(resolved_path)
+        normalized_input = file_path.replace("\\", "/")
+        candidate_name = os.path.basename(normalized_input)
+
+        if not candidate_name or candidate_name in {".", ".."}:
             return None
 
-        normalized_path = file_path.replace("\\", "/")
-        if "/" in normalized_path or normalized_path in {".", ".."}:
+        if "/" in candidate_name or "\\" in candidate_name:
             return None
 
-        resolved_path = (upload_root / normalized_path).resolve()
+        resolved_path = (upload_root / candidate_name).resolve()
         if resolved_path.is_relative_to(upload_root) and resolved_path.is_file():
             return str(resolved_path)
     except OSError:
