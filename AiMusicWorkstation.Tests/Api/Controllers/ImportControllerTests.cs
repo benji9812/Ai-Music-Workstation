@@ -6,6 +6,7 @@ using AiMusicWorkstation.Api.Controllers;
 using AiMusicWorkstation.Domain.Entities;
 using AiMusicWorkstation.Domain.Repositories;
 using AiMusicWorkstation.Infrastructure.ExternalServices;
+using AiMusicWorkstation.Shared.Dto;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -190,6 +191,78 @@ public class ImportControllerTests
         Assert.Equal(StatusCodes.Status500InternalServerError, response.StatusCode);
         Assert.Contains("persistence_failed", body);
         Assert.DoesNotContain("\"status\":\"done\"", body);
+    }
+
+    [Fact]
+    public async Task SeparateStems_ForwardsJsonPathReferenceToPythonEngine()
+    {
+        HttpRequestMessage? separationRequest = null;
+        var handler = new StubHttpMessageHandler(request =>
+        {
+            if (request.RequestUri?.AbsolutePath.EndsWith("/health", StringComparison.Ordinal) == true)
+            {
+                return new HttpResponseMessage(HttpStatusCode.OK);
+            }
+
+            separationRequest = request;
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("{\"status\":\"success\",\"extracted_stems\":{}}", Encoding.UTF8, "application/json")
+            };
+        });
+        var config = new PythonEngineConfig { BaseUrl = "http://python.test/" };
+        var manager = new PythonEngineManager(
+            new HttpClient(handler) { BaseAddress = new Uri(config.BaseUrl) },
+            config,
+            NullLogger<PythonEngineManager>.Instance);
+        var controller = new ImportController(
+            new PythonEngineClient(new HttpClient(handler) { BaseAddress = new Uri(config.BaseUrl) }, manager),
+            new Mock<ILibraryRepository>().Object,
+            NullLogger<ImportController>.Instance);
+
+        var result = Assert.IsType<ContentResult>(await controller.SeparateStems(new SeparateStemsRequest
+        {
+            Stems = ["vocals", "drums"],
+            FilePath = "track.mp3"
+        }));
+
+        Assert.Equal("application/json", separationRequest?.Content?.Headers.ContentType?.MediaType);
+        using var document = JsonDocument.Parse(await separationRequest!.Content!.ReadAsStringAsync());
+        Assert.Equal("track.mp3", document.RootElement.GetProperty("file_path").GetString());
+        Assert.Equal(2, document.RootElement.GetProperty("stems").GetArrayLength());
+        Assert.Equal("application/json", result.ContentType);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    public async Task SeparateStems_RejectsMissingOriginalFilePath(string? filePath)
+    {
+        var response = Assert.IsType<BadRequestObjectResult>(await CreateController(
+            new Mock<ILibraryRepository>(),
+            "{}").SeparateStems(new SeparateStemsRequest { Stems = ["vocals"], FilePath = filePath }));
+
+        Assert.Equal(StatusCodes.Status400BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task SeparateStems_RejectsMissingStems()
+    {
+        var response = Assert.IsType<BadRequestObjectResult>(await CreateController(
+            new Mock<ILibraryRepository>(),
+            "{}").SeparateStems(new SeparateStemsRequest { FilePath = "track.mp3", Stems = [] }));
+
+        Assert.Equal(StatusCodes.Status400BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task SeparateStems_RejectsNullRequest()
+    {
+        var response = Assert.IsType<BadRequestObjectResult>(await CreateController(
+            new Mock<ILibraryRepository>(),
+            "{}").SeparateStems(null));
+
+        Assert.Equal(StatusCodes.Status400BadRequest, response.StatusCode);
     }
 
     private static ImportController CreateController(

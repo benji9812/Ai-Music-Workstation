@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Http;
 using System.Net.Http.Json;
+using AiMusicWorkstation.Shared.Dto;
 
 namespace AiMusicWorkstation.Infrastructure.ExternalServices;
 
@@ -138,50 +139,12 @@ public class PythonEngineClient
         return await response.Content.ReadAsStringAsync();
     }
 
-    public async Task<string> SeparateStemsAsync(IFormFile? file, string stems, string? originalFilePath)
+    public async Task<string> SeparateStemsAsync(SeparateStemsRequest request)
     {
         if (!await _manager.EnsureRunningAsync())
             return "{\"status\":\"error\",\"message\":\"Python engine not reachable\"}";
 
-        var stemsList = stems.Split(',', StringSplitOptions.RemoveEmptyEntries)
-                            .Select(s => s.Trim())
-                            .ToList();
-
-        if (file == null && !string.IsNullOrEmpty(originalFilePath))
-        {
-            // Use JSON Body for metadata-only request
-            var dto = new Shared.Dto.SeparateStemsRequest
-            {
-                Stems = stemsList,
-                FilePath = originalFilePath
-            };
-            var responseJson = await _client.PostAsJsonAsync("separate-stems", dto);
-            return await responseJson.Content.ReadAsStringAsync();
-        }
-
-        // Use Multipart for file upload (or fallback)
-        using var requestMessage = new HttpRequestMessage(HttpMethod.Post, "separate-stems");
-        var multipartContent = new MultipartFormDataContent();
-
-        if (file != null)
-        {
-            await using var stream = file.OpenReadStream();
-            using var ms = new MemoryStream();
-            await stream.CopyToAsync(ms);
-            multipartContent.Add(new ByteArrayContent(ms.ToArray()), "file", file.FileName);
-        }
-
-        // Add stems as a string content (comma-separated for Form parsing in Python)
-        multipartContent.Add(new StringContent(string.Join(",", stemsList)), "stems");
-
-        // Add originalFilePath if present (snake_case)
-        if (!string.IsNullOrEmpty(originalFilePath))
-        {
-            multipartContent.Add(new StringContent(originalFilePath), "file_path");
-        }
-
-        requestMessage.Content = multipartContent;
-        var response = await _client.SendAsync(requestMessage);
+        var response = await _client.PostAsJsonAsync("separate-stems", request);
         return await response.Content.ReadAsStringAsync();
     }
 

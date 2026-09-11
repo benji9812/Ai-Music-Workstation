@@ -10,7 +10,7 @@ import uuid
 import warnings
 from contextlib import asynccontextmanager
 from functools import lru_cache
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from typing import List, Optional
 
 try:
@@ -170,6 +170,40 @@ def sanitize_filename(filename: str) -> str:
         ext = ".mp3"
     unique = uuid.uuid4().hex[:8]
     return f"{name}_{unique}{ext}"
+
+
+def resolve_uploaded_audio_path(file_path: str) -> Optional[str]:
+    """Resolve a validated upload reference directly beneath UPLOAD_DIR."""
+    if not file_path or file_path != file_path.strip():
+        return None
+
+    if "/" in file_path or "\\" in file_path:
+        return None
+
+    if PureWindowsPath(file_path).is_absolute():
+        return None
+
+    filename_match = re.fullmatch(r"[A-Za-z0-9._-]+", file_path)
+    if not filename_match:
+        return None
+
+    validated_basename = filename_match.group(0)
+    if validated_basename in {".", ".."}:
+        return None
+
+    try:
+        trusted_upload_dir = Path(UPLOAD_DIR).resolve()
+        for entry in trusted_upload_dir.iterdir():
+            if entry.name != validated_basename:
+                continue
+
+            resolved_entry = entry.resolve()
+            if resolved_entry.parent == trusted_upload_dir and resolved_entry.is_file():
+                return str(resolved_entry)
+    except OSError:
+        return None
+
+    return None
 
 
 def cleanup_file(path: str):
@@ -864,19 +898,19 @@ async def separate_stems(request_data: SeparateStemsRequest):
 
         ensure_runtime_dirs()
 
-        audio_file_path = request_data.file_path
         stems_list = request_data.stems
-
-        log_step(f"📥 /separate-stems: Using existing file: {audio_file_path}")
-        if not os.path.exists(audio_file_path):
-            detail = f"File not found on server path: {audio_file_path}"
-            log_step(f"❌ 404 Not Found: {detail}")
-            raise HTTPException(status_code=404, detail=detail)
-
         if not stems_list:
             detail = "No stems specified (stems_list is empty). Required: vocals, drums, etc."
             log_step(f"❌ 400 Bad Request: {detail}")
             raise HTTPException(status_code=400, detail=detail)
+
+        audio_file_path = resolve_uploaded_audio_path(request_data.file_path)
+
+        log_step(f"📥 /separate-stems: Resolving stored upload: {request_data.file_path}")
+        if not audio_file_path:
+            detail = "Uploaded audio file was not found."
+            log_step(f"❌ 404 Not Found: {detail}")
+            raise HTTPException(status_code=404, detail=detail)
 
         log_step(f"🎚️ Initiating stem separation for: {', '.join(stems_list)}")
         extracted_stems = run_demucs(audio_file_path, stems_to_extract=stems_list)

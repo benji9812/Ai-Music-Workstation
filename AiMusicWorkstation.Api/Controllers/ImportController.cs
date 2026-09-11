@@ -1,6 +1,7 @@
 using AiMusicWorkstation.Infrastructure.ExternalServices;
 using AiMusicWorkstation.Domain.Entities;
 using AiMusicWorkstation.Domain.Repositories;
+using AiMusicWorkstation.Shared.Dto;
 using Microsoft.AspNetCore.Mvc;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -312,18 +313,19 @@ public class ImportController : ControllerBase
     }
 
     [HttpPost("separate-stems")]
-    public async Task<IActionResult> SeparateStems([FromForm] IFormFile? file, [FromForm] string stems, [FromForm] string? originalFilePath)
+    [Consumes("application/json")]
+    public async Task<IActionResult> SeparateStems([FromBody] SeparateStemsRequest? request)
     {
-        if (string.IsNullOrEmpty(stems))
+        if (request?.Stems == null || request.Stems.Count == 0)
             return BadRequest(new { status = "error", message = "Stems list missing." });
 
-        if (file == null && string.IsNullOrEmpty(originalFilePath))
-            return BadRequest(new { status = "error", message = "No file uploaded or file path provided." });
+        if (string.IsNullOrWhiteSpace(request.FilePath))
+            return BadRequest(new { status = "error", message = "Original file path missing." });
 
         try
         {
             _logger.LogInformation("SeparateStems: delegating to Python Engine for stem separation.");
-            var resultJson = await _pythonClient.SeparateStemsAsync(file, stems, originalFilePath);
+            var resultJson = await _pythonClient.SeparateStemsAsync(request);
             return Content(resultJson, "application/json");
         }
         catch (Exception ex)
