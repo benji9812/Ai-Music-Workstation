@@ -27,15 +27,18 @@ public class DeleteProjectCommandHandler : ICommandHandler<DeleteProjectCommand>
         {
             if (string.IsNullOrWhiteSpace(command.ProjectId))
                 throw new ArgumentException("ProjectId is required", nameof(command.ProjectId));
+
+            if (command.UserId == Guid.Empty)
+                throw new ArgumentException("UserId is required", nameof(command.UserId));
             
-            var project = await _repository.GetByIdAsync(command.ProjectId, cancellationToken);
+            var project = await _repository.GetByIdAsync(command.ProjectId, command.UserId, cancellationToken);
             if (project == null)
             {
                 _logger.LogWarning("Project not found for deletion: {ProjectId}", command.ProjectId);
                 return;
             }
 
-            await _repository.DeleteAsync(command.ProjectId, cancellationToken);
+            await _repository.DeleteAsync(command.ProjectId, command.UserId, cancellationToken);
             await _repository.SaveAsync(cancellationToken);
             if (command.DeleteFiles)
             {
