@@ -56,5 +56,20 @@ jobs:
             sleep 2
 
             sudo systemctl restart pythonengine
-            sleep 3
-            sudo systemctl status pythonengine --no-pager
+
+            DEPLOY_SHA="${{ github.sha }}"
+            logger -t pythonengine-deploy \
+              "sha=$DEPLOY_SHA run=${{ github.run_id }} deployed_at=$(date -u +%FT%TZ)"
+            
+            if ! curl \
+              --fail \
+              --silent \
+              --show-error \
+              --retry 10 \
+              --retry-delay 3 \
+              --retry-connrefused \
+              http://127.0.0.1:8000/health; then
+              sudo systemctl status pythonengine --no-pager || true
+              sudo journalctl -u pythonengine --since "5 minutes ago" --no-pager || true
+              exit 1
+            fi
