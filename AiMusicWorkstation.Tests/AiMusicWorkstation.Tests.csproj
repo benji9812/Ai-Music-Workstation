@@ -19,6 +19,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
+		<ProjectReference Include="..\AiMusicWorkstation.Api\AiMusicWorkstation.Api.csproj" />
 		<ProjectReference Include="..\AiMusicWorkstation.Application\AiMusicWorkstation.Application.csproj" />
 		<ProjectReference Include="..\AiMusicWorkstation.Domain\AiMusicWorkstation.Domain.csproj" />
 		<ProjectReference Include="..\AiMusicWorkstation.Infrastructure\AiMusicWorkstation.Infrastructure.csproj" />

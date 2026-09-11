@@ -122,6 +122,10 @@ namespace AiMusicWorkstation.Infrastructure.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("is_official_data");
 
+                    b.Property<string>("ImportJobId")
+                        .HasColumnType("text")
+                        .HasColumnName("import_job_id");
+
                     b.Property<string>("Key")
                         .IsRequired()
                         .HasColumnType("text")
@@ -184,6 +188,9 @@ namespace AiMusicWorkstation.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("GroupId");
+
+                    b.HasIndex("ImportJobId")
+                        .IsUnique();
 
                     b.ToTable("songs", (string)null);
                 });

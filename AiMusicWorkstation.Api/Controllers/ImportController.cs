@@ -3,6 +3,7 @@ using AiMusicWorkstation.Domain.Entities;
 using AiMusicWorkstation.Domain.Repositories;
 using Microsoft.AspNetCore.Mvc;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Net.Http;
 using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
@@ -128,92 +129,147 @@ public class ImportController : ControllerBase
         try
         {
             var resultJson = await _pythonClient.GetJobStatusAsync(jobId);
-
-            // If job is done, save to DB
+            JsonObject? jobStatus;
             try
             {
-                using var doc = JsonDocument.Parse(resultJson);
-                var root = doc.RootElement;
-                if (root.TryGetProperty("status", out var s) && s.GetString() == "done" &&
-                    root.TryGetProperty("result", out var resultProp) && resultProp.ValueKind == JsonValueKind.Object)
+                jobStatus = JsonNode.Parse(resultJson) as JsonObject;
+            }
+            catch (JsonException)
+            {
+                return Content(resultJson, "application/json");
+            }
+
+            if (ReadString(jobStatus, "status") != "done")
+                return Content(resultJson, "application/json");
+
+            var jobType = ReadString(jobStatus, "job_type");
+            if (string.IsNullOrEmpty(jobType) &&
+                jobStatus?["result"] is JsonObject legacyResult &&
+                !string.IsNullOrWhiteSpace(ReadString(legacyResult, "title")) &&
+                (!string.IsNullOrWhiteSpace(ReadString(legacyResult, "stems_path")) ||
+                 !string.IsNullOrWhiteSpace(ReadString(legacyResult, "original_path"))))
+            {
+                jobType = "import";
+            }
+
+            if (jobType is not ("import" or "quick_import"))
+                return Content(resultJson, "application/json");
+
+            if (jobStatus?["result"] is not JsonObject result)
+                return InvalidImportResult(jobId);
+
+            var title = ReadString(result, "title");
+            var stemsPath = ReadString(result, "stems_path");
+            var originalPath = ReadString(result, "original_path");
+            if (string.IsNullOrWhiteSpace(title) ||
+                (string.IsNullOrWhiteSpace(stemsPath) && string.IsNullOrWhiteSpace(originalPath)))
+            {
+                return InvalidImportResult(jobId);
+            }
+
+            SongProject? persistedProject = null;
+            try
+            {
+                persistedProject = await _repository.GetByImportJobIdAsync(jobId, userId);
+                if (persistedProject == null)
                 {
-                    string title      = resultProp.TryGetProperty("title",  out var tp) && tp.ValueKind != JsonValueKind.Null ? tp.GetString() ?? "Unknown Track" : "Unknown Track";
-                    string artist     = resultProp.TryGetProperty("artist", out var ap) && ap.ValueKind != JsonValueKind.Null ? ap.GetString() ?? "Unknown Artist" : "Unknown Artist";
-                    double bpm        = resultProp.TryGetProperty("bpm",    out var bp)  ? bp.GetDouble()  : 120.0;
-                    string key        = resultProp.TryGetProperty("key",    out var kp)  && kp.ValueKind != JsonValueKind.Null ? kp.GetString() ?? "C" : "C";
-                    string stemsPath  = resultProp.TryGetProperty("stems_path", out var sp) && sp.ValueKind != JsonValueKind.Null ? sp.GetString() ?? "" : "";
-                    int    timeSig    = resultProp.TryGetProperty("time_signature", out var ts) ? ts.GetInt32() : 4;
-                    double durationSec= resultProp.TryGetProperty("duration_seconds", out var ds) ? ds.GetDouble() : 180.0;
+                    persistedProject = new SongProject
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        ImportJobId = jobId,
+                        Title = title,
+                        Artist = ReadString(result, "artist", "Unknown Artist"),
+                        Bpm = ReadDouble(result, "bpm", 120.0),
+                        Key = ReadString(result, "key", "C"),
+                        StemsPath = stemsPath,
+                        OriginalPath = originalPath,
+                        Duration = TimeSpan.FromSeconds(ReadDouble(result, "duration_seconds", 180.0)),
+                        TimeSignature = ReadInt32(result, "time_signature", 4),
+                        Genre = "Uncategorized",
+                        DateAdded = DateTime.UtcNow,
+                        BpmSource = DataSource.Analysis,
+                        KeySource = DataSource.Analysis,
+                        TimeSigSource = DataSource.Analysis,
+                        UserId = userId
+                    };
 
-                    // TODO: denna dedupliceringslogik triggar oavsiktligt databas-sparning
-                    // för URL-import/lyrics/stem-jobb utan att användaren explicit sparat.
-                    // Bör refaktoreras för att skilja "avsiktlig save" från "temporär cache".
-                    
-                    // Deduplicate: skip save if a record with the same stems path already exists for this user
-                    bool isDuplicate = false;
-                    if (!string.IsNullOrEmpty(stemsPath))
-                    {
-                        var userProjects = await _repository.GetAllAsync(userId);
-                        isDuplicate = userProjects.Any(p =>
-                            !string.IsNullOrEmpty(p.StemsPath) &&
-                            string.Equals(p.StemsPath, stemsPath, StringComparison.OrdinalIgnoreCase));
-                    }
-
-                    if (!isDuplicate)
-                    {
-                        var project = new SongProject
-                        {
-                            Id            = Guid.NewGuid().ToString(),
-                            Title         = title,
-                            Artist        = artist,
-                            Bpm           = bpm,
-                            Key           = key,
-                            StemsPath     = stemsPath,
-                            OriginalPath  = "",
-                            Duration      = TimeSpan.FromSeconds(durationSec),
-                            TimeSignature = timeSig,
-                            Genre         = "Uncategorized",
-                            DateAdded     = DateTime.Now,
-                            BpmSource     = DataSource.Analysis,
-                            KeySource     = DataSource.Analysis,
-                            TimeSigSource = DataSource.Analysis,
-                            UserId        = userId
-                        };
-                        await _repository.AddAsync(project);
-                        await _repository.SaveAsync();
-                        _logger.LogInformation("Saved async imported project: {Title} for user {UserId}", project.Title, userId);
-                        
-                        var jObj = System.Text.Json.Nodes.JsonObject.Parse(resultJson)!.AsObject();
-                        jObj["result"]!["id"] = project.Id;
-                        resultJson = jObj.ToJsonString();
-                    }
-                    else
-                    {
-                        _logger.LogInformation("Skipped duplicate save for project: {Title} (stems path already exists for user {UserId})", title, userId);
-                        var userProjects = await _repository.GetAllAsync(userId);
-                        var existing = userProjects.FirstOrDefault(p =>
-                            !string.IsNullOrEmpty(p.StemsPath) &&
-                            string.Equals(p.StemsPath, stemsPath, StringComparison.OrdinalIgnoreCase));
-                        if (existing != null)
-                        {
-                            var jObj = System.Text.Json.Nodes.JsonObject.Parse(resultJson)!.AsObject();
-                            jObj["result"]!["id"] = existing.Id;
-                            resultJson = jObj.ToJsonString();
-                        }
-                    }
+                    await _repository.AddAsync(persistedProject);
+                    await _repository.SaveAsync();
+                    _logger.LogInformation(
+                        "Saved completed import job as project {ProjectId} for user {UserId}",
+                        persistedProject.Id, userId);
                 }
             }
             catch (Exception dbEx)
             {
-                _logger.LogError(dbEx, "Failed to save job result to DB for jobId {JobId}", jobId);
+                persistedProject = null;
+                try
+                {
+                    persistedProject = await _repository.GetByImportJobIdAsync(jobId, userId);
+                }
+                catch (Exception recoveryEx)
+                {
+                    _logger.LogWarning(recoveryEx, "Failed to recover import job after persistence error");
+                }
+
+                if (persistedProject == null)
+                {
+                    _logger.LogError(dbEx, "Failed to persist completed import job");
+                    return StatusCode(500, new
+                    {
+                        status = "error",
+                        error_code = "persistence_failed",
+                        message = "Job completed, but the imported song could not be saved.",
+                        job_id = jobId
+                    });
+                }
+
+                _logger.LogInformation(
+                    "Recovered project {ProjectId} after concurrent persistence of import job",
+                    persistedProject.Id);
             }
 
-            return Content(resultJson, "application/json");
+            result["id"] = persistedProject.Id;
+            return Content(jobStatus.ToJsonString(), "application/json");
         }
         catch (Exception ex)
         {
+            _logger.LogError(ex, "Failed to get status for import job");
             return StatusCode(500, new { status = "error", message = ex.Message });
         }
+    }
+
+    private IActionResult InvalidImportResult(string jobId)
+    {
+        return UnprocessableEntity(new
+        {
+            status = "error",
+            error_code = "invalid_import_result",
+            message = "Completed import result is missing a title or audio path.",
+            job_id = jobId
+        });
+    }
+
+    private static string ReadString(JsonObject? source, string propertyName, string fallback = "")
+    {
+        return source?[propertyName] is JsonValue value && value.TryGetValue<string>(out var result) &&
+               !string.IsNullOrWhiteSpace(result)
+            ? result
+            : fallback;
+    }
+
+    private static double ReadDouble(JsonObject source, string propertyName, double fallback)
+    {
+        return source[propertyName] is JsonValue value && value.TryGetValue<double>(out var result)
+            ? result
+            : fallback;
+    }
+
+    private static int ReadInt32(JsonObject source, string propertyName, int fallback)
+    {
+        return source[propertyName] is JsonValue value && value.TryGetValue<int>(out var result)
+            ? result
+            : fallback;
     }
     [HttpPost("start-analyze-quick-job")]
     public async Task<IActionResult> StartAnalyzeQuickJob([FromBody] ImportRequest request)

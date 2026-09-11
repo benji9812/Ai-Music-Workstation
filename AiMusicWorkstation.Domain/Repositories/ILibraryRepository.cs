@@ -6,6 +6,7 @@ public interface ILibraryRepository
 {
     Task<List<SongProject>> GetAllAsync(Guid? userId = null, CancellationToken cancellationToken = default);
     Task<SongProject?> GetByIdAsync(string id, Guid? userId = null, CancellationToken cancellationToken = default);
+    Task<SongProject?> GetByImportJobIdAsync(string importJobId, Guid? userId = null, CancellationToken cancellationToken = default);
     Task AddAsync(SongProject project, CancellationToken cancellationToken = default);
     Task UpdateAsync(SongProject project, CancellationToken cancellationToken = default);
     Task DeleteAsync(string id, Guid? userId = null, CancellationToken cancellationToken = default);
