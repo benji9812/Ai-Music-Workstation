@@ -170,7 +170,10 @@ public class ImportController : ControllerBase
             SongProject? persistedProject = null;
             try
             {
-                persistedProject = await _repository.GetByImportJobIdAsync(jobId, userId);
+                persistedProject = await _repository.GetByImportJobIdAsync(jobId);
+                if (persistedProject != null && persistedProject.UserId != userId)
+                    return NotFound();
+
                 if (persistedProject == null)
                 {
                     persistedProject = new SongProject
@@ -205,7 +208,7 @@ public class ImportController : ControllerBase
                 persistedProject = null;
                 try
                 {
-                    persistedProject = await _repository.GetByImportJobIdAsync(jobId, userId);
+                    persistedProject = await _repository.GetByImportJobIdAsync(jobId);
                 }
                 catch (Exception recoveryEx)
                 {
@@ -223,6 +226,9 @@ public class ImportController : ControllerBase
                         job_id = jobId
                     });
                 }
+
+                if (persistedProject.UserId != userId)
+                    return NotFound();
 
                 _logger.LogInformation(
                     "Recovered project {ProjectId} after concurrent persistence of import job",
