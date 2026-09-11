@@ -4,8 +4,8 @@ using Microsoft.Extensions.Logging;
 namespace AiMusicWorkstation.Infrastructure.ExternalServices;
 
 /// <summary>
-/// Wrapper for IMetronome. The concrete implementation (Metronome)
-/// is injected at runtime from Desktop layer.
+/// Wrapper for IMetronome. The concrete implementation
+/// is injected at runtime.
 /// </summary>
 public class MetronomeService : IMetronome
 {

@@ -23,10 +23,10 @@ jobs:
           dotnet-version: 10.0.x
 
       - name: Restore
-        run: dotnet restore AiMusicWorkstation.slnx /p:EnableWindowsTargeting=true
+        run: dotnet restore AiMusicWorkstation.slnx
 
       - name: Build
-        run: dotnet build AiMusicWorkstation.slnx -c Release /p:EnableWindowsTargeting=true --no-restore
+        run: dotnet build AiMusicWorkstation.slnx -c Release --no-restore
 
       - name: Test
-        run: dotnet test AiMusicWorkstation.slnx -c Release /p:EnableWindowsTargeting=true --no-build
+        run: dotnet test AiMusicWorkstation.slnx -c Release --no-build

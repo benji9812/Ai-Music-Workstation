@@ -5,8 +5,8 @@ using Microsoft.Extensions.Logging;
 namespace AiMusicWorkstation.Infrastructure.ExternalServices;
 
 /// <summary>
-/// Wrapper for IPythonAnalysisService. The concrete implementation (PythonBridge)
-/// is injected at runtime from Desktop layer.
+/// Wrapper for IPythonAnalysisService. The concrete implementation
+/// is injected at runtime.
 /// </summary>
 public class PythonBridgeService : IPythonAnalysisService
 {

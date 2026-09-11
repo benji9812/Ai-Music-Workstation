@@ -18,7 +18,6 @@ AiMusicWorkstation.Infrastructure/  EF Core, ExternalServices (PythonEngineClien
 AiMusicWorkstation.Shared/    Shared DTOs
 AiMusicWorkstation.Tests/     xUnit tests
 AiMusicWorkstation.Web/       React + Vite + TypeScript frontend
-AiMusicWorkstation.Desktop/   Legacy WPF app (kept for reference)
 PythonEngine/                 FastAPI music analysis backend
 ```
 
