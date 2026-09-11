@@ -143,6 +143,15 @@ public class ImportController : ControllerBase
                 return Content(resultJson, "application/json");
 
             var jobType = ReadString(jobStatus, "job_type");
+            if (string.IsNullOrEmpty(jobType) &&
+                jobStatus?["result"] is JsonObject legacyResult &&
+                !string.IsNullOrWhiteSpace(ReadString(legacyResult, "title")) &&
+                (!string.IsNullOrWhiteSpace(ReadString(legacyResult, "stems_path")) ||
+                 !string.IsNullOrWhiteSpace(ReadString(legacyResult, "original_path"))))
+            {
+                jobType = "import";
+            }
+
             if (jobType is not ("import" or "quick_import"))
                 return Content(resultJson, "application/json");
 
