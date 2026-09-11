@@ -4,6 +4,7 @@ namespace AiMusicWorkstation.Application.Queries.Library;
 
 public class FilterProjectsQuery : IQuery<List<SongProjectDto>>
 {
+    public Guid UserId { get; set; }
     public string SearchTerm { get; set; } = string.Empty;
     public string SelectedGenre { get; set; } = string.Empty;
     public string SortBy { get; set; } = "Latest"; // "Latest", "A-Z", "BPM"

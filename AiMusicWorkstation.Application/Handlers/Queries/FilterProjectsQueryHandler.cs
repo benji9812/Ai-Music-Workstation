@@ -19,7 +19,10 @@ public class FilterProjectsQueryHandler : IQueryHandler<FilterProjectsQuery, Lis
     {
         try
         {
-            var projects = await _repository.GetAllAsync(cancellationToken);
+            if (query.UserId == Guid.Empty)
+                throw new ArgumentException("UserId is required", nameof(query.UserId));
+
+            var projects = await _repository.GetAllAsync(query.UserId, cancellationToken);
             
             var dtos = projects
                 .ConvertAll(p => new SongProjectDto
