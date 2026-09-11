@@ -17,6 +17,8 @@ namespace AiMusicWorkstation.Tests.Api.Controllers;
 public class ImportControllerTests
 {
     private const string JobId = "job-123";
+    private static readonly Guid UserA = Guid.Parse("11111111-1111-1111-1111-111111111111");
+    private static readonly Guid UserB = Guid.Parse("22222222-2222-2222-2222-222222222222");
 
     [Fact]
     public async Task GetImportStatus_RepeatedPolling_PersistsFullImportOnceAndReturnsSameId()
@@ -42,6 +44,36 @@ public class ImportControllerTests
         Assert.NotNull(storedProject);
         Assert.Equal(storedProject.Id, ReadResultId(first.Content));
         Assert.Equal(storedProject.Id, ReadResultId(second.Content));
+        repository.Verify(r => r.AddAsync(It.IsAny<SongProject>(), It.IsAny<CancellationToken>()), Times.Once);
+        repository.Verify(r => r.SaveAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task GetImportStatus_ImportJobOwnedByAnotherUser_ReturnsNotFoundWithoutPersisting()
+    {
+        SongProject? storedProject = null;
+        var repository = new Mock<ILibraryRepository>();
+        repository
+            .Setup(r => r.GetByImportJobIdAsync(JobId, null, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() => storedProject);
+        repository
+            .Setup(r => r.AddAsync(It.IsAny<SongProject>(), It.IsAny<CancellationToken>()))
+            .Callback<SongProject, CancellationToken>((project, _) => storedProject = project)
+            .Returns(Task.CompletedTask);
+        repository
+            .Setup(r => r.SaveAsync(It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var ownerController = CreateController(repository, CompletedImportJson("import", "stems/song"), UserA);
+        var otherUserController = CreateController(repository, CompletedImportJson("import", "stems/song"), UserB);
+
+        var ownerResponse = Assert.IsType<ContentResult>(await ownerController.GetImportStatus(JobId));
+        var otherUserResponse = Assert.IsType<NotFoundResult>(await otherUserController.GetImportStatus(JobId));
+
+        Assert.NotNull(storedProject);
+        Assert.Equal(UserA, storedProject.UserId);
+        Assert.Equal(storedProject.Id, ReadResultId(ownerResponse.Content));
+        Assert.Equal(StatusCodes.Status404NotFound, otherUserResponse.StatusCode);
         repository.Verify(r => r.AddAsync(It.IsAny<SongProject>(), It.IsAny<CancellationToken>()), Times.Once);
         repository.Verify(r => r.SaveAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
@@ -78,7 +110,7 @@ public class ImportControllerTests
     [Fact]
     public async Task GetImportStatus_ConcurrentInsertWonRace_ReturnsExistingProject()
     {
-        var winner = new SongProject { Id = "winner-id", ImportJobId = JobId, Title = "Track" };
+        var winner = new SongProject { Id = "winner-id", ImportJobId = JobId, Title = "Track", UserId = UserA };
         var repository = new Mock<ILibraryRepository>();
         repository
             .SetupSequence(r => r.GetByImportJobIdAsync(JobId, It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
@@ -160,7 +192,10 @@ public class ImportControllerTests
         Assert.DoesNotContain("\"status\":\"done\"", body);
     }
 
-    private static ImportController CreateController(Mock<ILibraryRepository> repository, string statusJson)
+    private static ImportController CreateController(
+        Mock<ILibraryRepository> repository,
+        string statusJson,
+        Guid? userId = null)
     {
         var handler = new StubHttpMessageHandler(request =>
         {
@@ -183,7 +218,7 @@ public class ImportControllerTests
             NullLogger<ImportController>.Instance);
 
         var identity = new ClaimsIdentity(
-            [new Claim(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString())],
+            [new Claim(ClaimTypes.NameIdentifier, (userId ?? UserA).ToString())],
             "test");
         controller.ControllerContext = new ControllerContext
         {
