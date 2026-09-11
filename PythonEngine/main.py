@@ -188,9 +188,20 @@ def resolve_uploaded_audio_path(file_path: str) -> Optional[str]:
         return None
 
     validated_basename = filename_match.group(0)
-    upload_path = Path(UPLOAD_DIR) / validated_basename
-    if upload_path.is_file():
-        return str(upload_path)
+    if validated_basename in {".", ".."}:
+        return None
+
+    try:
+        trusted_upload_dir = Path(UPLOAD_DIR).resolve()
+        for entry in trusted_upload_dir.iterdir():
+            if entry.name != validated_basename:
+                continue
+
+            resolved_entry = entry.resolve()
+            if resolved_entry.parent == trusted_upload_dir and resolved_entry.is_file():
+                return str(resolved_entry)
+    except OSError:
+        return None
 
     return None
 
