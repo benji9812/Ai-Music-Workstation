@@ -187,8 +187,8 @@ public class ImportController : ControllerBase
                     await _repository.AddAsync(persistedProject);
                     await _repository.SaveAsync();
                     _logger.LogInformation(
-                        "Saved completed {JobType} job {JobId} as project {ProjectId} for user {UserId}",
-                        jobType, jobId, persistedProject.Id, userId);
+                        "Saved completed import job as project {ProjectId} for user {UserId}",
+                        persistedProject.Id, userId);
                 }
             }
             catch (Exception dbEx)
@@ -200,12 +200,12 @@ public class ImportController : ControllerBase
                 }
                 catch (Exception recoveryEx)
                 {
-                    _logger.LogWarning(recoveryEx, "Failed to recover import job {JobId} after persistence error", jobId);
+                    _logger.LogWarning(recoveryEx, "Failed to recover import job after persistence error");
                 }
 
                 if (persistedProject == null)
                 {
-                    _logger.LogError(dbEx, "Failed to persist completed import job {JobId}", jobId);
+                    _logger.LogError(dbEx, "Failed to persist completed import job");
                     return StatusCode(500, new
                     {
                         status = "error",
@@ -216,8 +216,8 @@ public class ImportController : ControllerBase
                 }
 
                 _logger.LogInformation(
-                    "Recovered project {ProjectId} after concurrent persistence of import job {JobId}",
-                    persistedProject.Id, jobId);
+                    "Recovered project {ProjectId} after concurrent persistence of import job",
+                    persistedProject.Id);
             }
 
             result["id"] = persistedProject.Id;
@@ -225,7 +225,7 @@ public class ImportController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to get status for job {JobId}", jobId);
+            _logger.LogError(ex, "Failed to get status for import job");
             return StatusCode(500, new { status = "error", message = ex.Message });
         }
     }

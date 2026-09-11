@@ -61,7 +61,7 @@ public class LibraryRepository : ILibraryRepository
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to get project for import job {ImportJobId}", importJobId);
+            _logger.LogError(ex, "Failed to get project for import job");
             throw;
         }
     }
