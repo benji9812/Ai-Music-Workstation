@@ -7,6 +7,7 @@ import { LoginForm } from "./components/LoginForm";
 import { RegisterForm } from "./components/RegisterForm";
 import { Landing } from "./Landing";
 import { useAuthStore } from "./store/authStore";
+import { calculateStemGain } from "./mixerGain";
 
 type LyricSegment = { start: number; end: number; text: string };
 type ChordEntry = { time: number; chord: string };
@@ -1574,10 +1575,13 @@ export default function App() {
   useEffect(() => {
     const anySolo = Object.values(solos).some((s) => s);
     Object.keys(stems.current).forEach((k) => {
-      let vol = (volumes[k] ?? 0 / 100) * (masterVol / 100);
-      if (mutes[k]) vol = 0;
-      if (anySolo && !solos[k]) vol = 0;
-      vol = Math.min(Math.max(vol, 0), 1);
+      const vol = calculateStemGain(
+        volumes[k],
+        masterVol,
+        Boolean(mutes[k]),
+        Boolean(solos[k]),
+        anySolo,
+      );
 
       const gainNode = stemGainNodesRef.current[k];
       if (gainNode) {
@@ -2064,16 +2068,11 @@ export default function App() {
     }); // Reuse import progress indicator for now
 
     try {
-      const formData = new FormData();
-      formData.append("stems", selectedStems.join(","));
-
       const apiEndpoint = `${API_URL}/api/import/separate-stems`;
 
       // If we have an original_path (from local upload or URL quick analysis)
       // use that to tell the backend where the file is.
-      if (result.original_path) {
-        formData.append("originalFilePath", result.original_path);
-      } else if (currentProjectId) {
+      if (!result.original_path && currentProjectId) {
         // If it's a library project without separated stems, we need to
         // figure out how to pass the source file to the Python engine.
         // For now, this branch is not fully implemented as original_path
@@ -2084,7 +2083,8 @@ export default function App() {
         setIsSeparatingStems(false);
         setImportProgress(null);
         return;
-      } else {
+      }
+      if (!result.original_path) {
         setError("Cannot determine source file for stem separation.");
         setIsSeparatingStems(false);
         setImportProgress(null);
@@ -2093,7 +2093,11 @@ export default function App() {
 
       const resp = await authFetch(apiEndpoint, {
         method: "POST",
-        body: formData,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          stems: selectedStems,
+          file_path: result.original_path,
+        }),
       });
 
       if (!resp.ok) {
@@ -2105,8 +2109,6 @@ export default function App() {
           // response is not json
         }
         setError(errorMsg);
-        setIsSeparatingStems(false);
-        setImportProgress(null);
         return;
       }
 
@@ -2225,10 +2227,13 @@ export default function App() {
         const buf = decoded[i];
         if (!buf) return;
 
-        let vol = (volumes[k] ?? 0 / 100) * (masterVol / 100);
-        if (mutes[k]) vol = 0;
-        if (anySolo && !solos[k]) vol = 0;
-        vol = Math.max(0, Math.min(1, vol));
+        const vol = calculateStemGain(
+          volumes[k],
+          masterVol,
+          Boolean(mutes[k]),
+          Boolean(solos[k]),
+          anySolo,
+        );
 
         const source = offlineCtx.createBufferSource();
         source.buffer = buf;
