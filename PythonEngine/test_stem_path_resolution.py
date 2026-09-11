@@ -24,16 +24,14 @@ class ResolveUploadedAudioPathTests(unittest.TestCase):
             str(self.uploaded_file.resolve()),
         )
 
-    def test_accepts_absolute_path_inside_upload_directory(self):
-        self.assertEqual(
-            main.resolve_uploaded_audio_path(str(self.uploaded_file.resolve())),
-            str(self.uploaded_file.resolve()),
-        )
-
-    def test_rejects_paths_outside_upload_directory_and_traversal(self):
-        with tempfile.NamedTemporaryFile(suffix=".mp3") as external_file:
-            self.assertIsNone(main.resolve_uploaded_audio_path(external_file.name))
+    def test_rejects_traversal_and_directory_components(self):
         self.assertIsNone(main.resolve_uploaded_audio_path("../track.mp3"))
+        self.assertIsNone(main.resolve_uploaded_audio_path("nested/track.mp3"))
+        self.assertIsNone(main.resolve_uploaded_audio_path("nested\\track.mp3"))
+
+    def test_rejects_absolute_and_invalid_references(self):
+        self.assertIsNone(main.resolve_uploaded_audio_path(str(self.uploaded_file.resolve())))
+        self.assertIsNone(main.resolve_uploaded_audio_path("track name.mp3"))
 
     def test_returns_none_for_missing_upload(self):
         self.assertIsNone(main.resolve_uploaded_audio_path("missing.mp3"))

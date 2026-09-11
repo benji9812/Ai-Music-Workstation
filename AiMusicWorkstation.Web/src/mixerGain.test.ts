@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calculateStemGain } from "./mixerGain";
+import { applyLiveStemGain, calculateStemGain } from "./mixerGain";
 
 describe("calculateStemGain", () => {
   it("normalizes the stem and master sliders", () => {
@@ -20,5 +20,22 @@ describe("calculateStemGain", () => {
     expect(calculateStemGain(80, 100, true, true, true)).toBe(0);
     expect(calculateStemGain(80, 100, false, false, true)).toBe(0);
     expect(calculateStemGain(80, 100, false, true, true)).toBeCloseTo(0.8);
+  });
+});
+
+describe("applyLiveStemGain", () => {
+  it("moves gain from the media element to the GainNode when routing begins", () => {
+    const mediaElement = { volume: 0.8 } as HTMLAudioElement;
+    const gainNode = { gain: { value: 1 } } as GainNode;
+
+    applyLiveStemGain(mediaElement, gainNode, 0.4);
+
+    expect(mediaElement.volume).toBe(1);
+    expect(gainNode.gain.value).toBe(0.4);
+
+    applyLiveStemGain(mediaElement, gainNode, 0.6);
+
+    expect(mediaElement.volume).toBe(1);
+    expect(gainNode.gain.value).toBe(0.6);
   });
 });

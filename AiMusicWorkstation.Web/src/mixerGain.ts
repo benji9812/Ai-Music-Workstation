@@ -10,3 +10,20 @@ export function calculateStemGain(
   const gain = ((stemVolume ?? 0) / 100) * (masterVolume / 100);
   return Math.min(Math.max(gain, 0), 1);
 }
+
+type VolumeTarget = Pick<HTMLAudioElement, "volume">;
+type GainTarget = Pick<GainNode, "gain">;
+
+export function applyLiveStemGain(
+  mediaElement: VolumeTarget,
+  gainNode: GainTarget | undefined,
+  gain: number,
+): void {
+  if (gainNode) {
+    mediaElement.volume = 1;
+    gainNode.gain.value = gain;
+    return;
+  }
+
+  mediaElement.volume = gain;
+}

@@ -7,7 +7,7 @@ import { LoginForm } from "./components/LoginForm";
 import { RegisterForm } from "./components/RegisterForm";
 import { Landing } from "./Landing";
 import { useAuthStore } from "./store/authStore";
-import { calculateStemGain } from "./mixerGain";
+import { applyLiveStemGain, calculateStemGain } from "./mixerGain";
 
 type LyricSegment = { start: number; end: number; text: string };
 type ChordEntry = { time: number; chord: string };
@@ -1507,6 +1507,18 @@ export default function App() {
           const source = toneCtx.createMediaElementSource(stems.current[k]);
           const gain = toneCtx.createGain();
           stemGainNodesRef.current[k] = gain;
+          const anySolo = Object.values(solos).some((isSoloed) => isSoloed);
+          applyLiveStemGain(
+            stems.current[k],
+            gain,
+            calculateStemGain(
+              volumes[k],
+              masterVol,
+              Boolean(mutes[k]),
+              Boolean(solos[k]),
+              anySolo,
+            ),
+          );
           source.connect(gain);
           // ps.input is a Tone.Gain wrapper; .input on that gives the native GainNode
           gain.connect((ps as any).input.input as GainNode);
@@ -1584,11 +1596,7 @@ export default function App() {
       );
 
       const gainNode = stemGainNodesRef.current[k];
-      if (gainNode) {
-        gainNode.gain.value = vol;
-      } else {
-        stems.current[k].volume = vol;
-      }
+      applyLiveStemGain(stems.current[k], gainNode, vol);
     });
   }, [volumes, mutes, solos, masterVol]);
 

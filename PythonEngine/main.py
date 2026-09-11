@@ -10,7 +10,7 @@ import uuid
 import warnings
 from contextlib import asynccontextmanager
 from functools import lru_cache
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from typing import List, Optional
 
 try:
@@ -173,37 +173,24 @@ def sanitize_filename(filename: str) -> str:
 
 
 def resolve_uploaded_audio_path(file_path: str) -> Optional[str]:
-    """Resolve a stored upload reference without allowing arbitrary paths."""
-    if not file_path:
+    """Resolve a validated upload reference directly beneath UPLOAD_DIR."""
+    if not file_path or file_path != file_path.strip():
         return None
 
-    upload_root = Path(UPLOAD_DIR).resolve()
-
-    try:
-        normalized_input = file_path.replace("\\", "/").strip()
-        candidate_name = os.path.basename(normalized_input)
-
-        if not candidate_name or candidate_name in {".", ".."}:
-            return None
-
-        if "/" in candidate_name or "\\" in candidate_name:
-            return None
-
-        # Accept only sanitized upload-style filenames.
-        if not re.fullmatch(r"[A-Za-z0-9._-]+", candidate_name):
-            return None
-
-        upload_root_str = str(upload_root)
-        candidate_path_str = os.path.normpath(os.path.join(upload_root_str, candidate_name))
-        root_prefix = upload_root_str if upload_root_str.endswith(os.sep) else upload_root_str + os.sep
-        if not (candidate_path_str == upload_root_str or candidate_path_str.startswith(root_prefix)):
-            return None
-
-        resolved_path = Path(candidate_path_str).resolve()
-        if resolved_path.is_file():
-            return str(resolved_path)
-    except OSError:
+    if "/" in file_path or "\\" in file_path:
         return None
+
+    if PureWindowsPath(file_path).is_absolute():
+        return None
+
+    filename_match = re.fullmatch(r"[A-Za-z0-9._-]+", file_path)
+    if not filename_match:
+        return None
+
+    validated_basename = filename_match.group(0)
+    upload_path = Path(UPLOAD_DIR) / validated_basename
+    if upload_path.is_file():
+        return str(upload_path)
 
     return None
 
