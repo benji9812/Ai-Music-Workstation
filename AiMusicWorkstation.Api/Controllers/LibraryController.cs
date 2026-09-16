@@ -8,6 +8,7 @@ using System.Text.Json;
 using Npgsql;
 using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
+using AiMusicWorkstation.Api.Models;
 
 namespace AiMusicWorkstation.Api.Controllers;
 
@@ -17,10 +18,12 @@ namespace AiMusicWorkstation.Api.Controllers;
 public class LibraryController : ControllerBase
 {
     private readonly ILibraryRepository _repository;
+    private readonly ILogger<LibraryController> _logger;
 
-    public LibraryController(ILibraryRepository repository)
+    public LibraryController(ILibraryRepository repository, ILogger<LibraryController> logger)
     {
         _repository = repository ?? throw new ArgumentNullException(nameof(repository));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
     private Guid? GetUserId()
@@ -106,7 +109,7 @@ public class LibraryController : ControllerBase
     public async Task<IActionResult> GetProjects()
     {
         var projects = await _repository.GetAllAsync(GetUserId());
-        return Ok(projects);
+        return Ok(projects.Select(project => SavedSongProjectMapper.Map(project, _logger)));
     }
 
     [HttpDelete("projects/{id}")]

@@ -1,5 +1,8 @@
 using System.Net;
+using System.Security.Claims;
 using AiMusicWorkstation.Api.Controllers;
+using AiMusicWorkstation.Api.Models;
+using AiMusicWorkstation.Domain.Entities;
 using AiMusicWorkstation.Domain.Repositories;
 using AiMusicWorkstation.Infrastructure.ExternalServices;
 using Microsoft.AspNetCore.Http;
@@ -12,6 +15,70 @@ namespace AiMusicWorkstation.Tests.Api.Controllers;
 
 public class AnalysisControllerTests
 {
+    private static readonly Guid UserId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+
+    [Fact]
+    public async Task GetProjectAnalysis_ProjectWithoutStems_ReturnsSavedProjectWithoutCallingPython()
+    {
+        var pythonWasCalled = false;
+        var project = new SongProject
+        {
+            Id = "project-1",
+            Title = "Original only",
+            StemsPath = "",
+            OriginalPath = "imports/original.mp3",
+            Duration = TimeSpan.FromSeconds(123),
+            Lyrics = "[{\"start\":0,\"end\":2,\"text\":\"Hello\"}]",
+            Sections = "[{\"label\":\"Intro\",\"start\":0,\"end\":12}]"
+        };
+        var repository = new Mock<ILibraryRepository>();
+        repository
+            .Setup(r => r.GetByIdAsync(project.Id, UserId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(project);
+        var controller = CreateController(_ =>
+        {
+            pythonWasCalled = true;
+            return new HttpResponseMessage(HttpStatusCode.InternalServerError);
+        }, repository.Object, UserId);
+
+        var response = Assert.IsType<OkObjectResult>(await controller.GetProjectAnalysis(project.Id));
+        var dto = Assert.IsType<SavedSongProjectDto>(response.Value);
+
+        Assert.Equal(project.OriginalPath, dto.OriginalPath);
+        Assert.Empty(dto.StemsPath);
+        Assert.Equal(123, dto.DurationSeconds);
+        Assert.Single(dto.Lyrics);
+        Assert.Single(dto.Sections);
+        Assert.False(pythonWasCalled);
+    }
+
+    [Fact]
+    public async Task GetProjectAnalysis_MissingProject_ReturnsNotFound()
+    {
+        var repository = new Mock<ILibraryRepository>();
+        repository
+            .Setup(r => r.GetByIdAsync("missing", UserId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((SongProject?)null);
+        var controller = CreateController(_ => AudioResponse(HttpStatusCode.OK, []), repository.Object, UserId);
+
+        Assert.IsType<NotFoundObjectResult>(await controller.GetProjectAnalysis("missing"));
+    }
+
+    [Fact]
+    public async Task GetProjectAnalysis_UserCannotAccessProject_ReturnsNotFoundAndKeepsUserScope()
+    {
+        var repository = new Mock<ILibraryRepository>();
+        repository
+            .Setup(r => r.GetByIdAsync("other-users-project", UserId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((SongProject?)null);
+        var controller = CreateController(_ => AudioResponse(HttpStatusCode.OK, []), repository.Object, UserId);
+
+        Assert.IsType<NotFoundObjectResult>(await controller.GetProjectAnalysis("other-users-project"));
+        repository.Verify(
+            r => r.GetByIdAsync("other-users-project", UserId, It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
     [Fact]
     public async Task GetAudio_ForwardsRangeAndPreservesPartialResponse()
     {
@@ -101,7 +168,10 @@ public class AnalysisControllerTests
 
     private static readonly PythonEngineConfig Config = new() { BaseUrl = "http://python.test/" };
 
-    private static AnalysisController CreateController(Func<HttpRequestMessage, HttpResponseMessage> responder)
+    private static AnalysisController CreateController(
+        Func<HttpRequestMessage, HttpResponseMessage> responder,
+        ILibraryRepository? repository = null,
+        Guid? userId = null)
     {
         var handler = new StubHttpMessageHandler(responder);
         var manager = new PythonEngineManager(
@@ -110,12 +180,19 @@ public class AnalysisControllerTests
             NullLogger<PythonEngineManager>.Instance);
         var controller = new AnalysisController(
             new PythonEngineClient(new HttpClient(handler) { BaseAddress = new Uri(Config.BaseUrl) }, manager),
-            Mock.Of<ILibraryRepository>())
+            repository ?? Mock.Of<ILibraryRepository>(),
+            NullLogger<AnalysisController>.Instance)
         {
             ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() }
         };
         controller.HttpContext.Response.Body = new MemoryStream();
         controller.HttpContext.Items["AudioProxyClient"] = new HttpClient(handler) { BaseAddress = new Uri(Config.BaseUrl) };
+        if (userId.HasValue)
+        {
+            controller.HttpContext.User = new ClaimsPrincipal(new ClaimsIdentity(
+                [new Claim(ClaimTypes.NameIdentifier, userId.Value.ToString())],
+                "test"));
+        }
         return controller;
     }
 

@@ -105,6 +105,8 @@ public class ImportControllerTests
         Assert.NotNull(storedProject);
         Assert.Equal("dl_track.mp3", storedProject.OriginalPath);
         Assert.Equal(JobId, storedProject.ImportJobId);
+        Assert.Equal(TimeSpan.FromSeconds(180), storedProject.Duration);
+        Assert.Equal(4, storedProject.TimeSignature);
         repository.Verify(r => r.AddAsync(It.IsAny<SongProject>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 

@@ -8,12 +8,19 @@ import { RegisterForm } from "./components/RegisterForm";
 import { Landing } from "./Landing";
 import { useAuthStore } from "./store/authStore";
 import { applyLiveStemGain, calculateStemGain } from "./mixerGain";
+import {
+  buildSavedProjectState,
+  buildStructureRequest,
+  isValidDuration,
+  loadAudioMetadata,
+  selectProjectAudioSource,
+  type AnalysisSource,
+  type SongProject,
+} from "./projectLoading";
 
 type LyricSegment = { start: number; end: number; text: string };
 type ChordEntry = { time: number; chord: string };
 type Section = { label: string; start: number; end: number };
-
-type AnalysisSource = "spotify" | "analysis";
 
 type AnalysisResult = {
   bpm?: number;
@@ -21,9 +28,11 @@ type AnalysisResult = {
   key?: string;
   keySource?: AnalysisSource;
   chords?: ChordEntry[];
+  chordsSource?: AnalysisSource;
   time_signature?: number;
   timeSigSource?: AnalysisSource;
   lyrics?: LyricSegment[];
+  lyricsSource?: AnalysisSource;
   stems_path?: string; // Legacy field, new extracted_stems will be used
   extracted_stems?: Record<string, string>;
   duration_seconds?: number;
@@ -52,37 +61,6 @@ type SongGroup = {
   id: string;
   name: string;
   createdAt: string;
-};
-
-type SongProject = {
-  id: string;
-  title: string;
-  artist: string;
-  genre: string;
-  bpm: number;
-  key: string;
-  stemsPath: string; // This will likely become legacy
-  extracted_stems?: Record<string, string>;
-  original_path?: string; // Stored path on Python server for later processing
-  duration?: string; // TimeSpan from backend
-  groupId?: string;
-  group?: SongGroup;
-};
-
-const timeSpanToSeconds = (ts: string | undefined | number) => {
-  if (!ts) return 180;
-  if (typeof ts === "number") return ts;
-  const parts = ts.split(":");
-  if (parts.length === 3) {
-    return (
-      parseInt(parts[0]) * 3600 + parseInt(parts[1]) * 60 + parseFloat(parts[2])
-    );
-  }
-  if (parts.length === 2) {
-    return parseInt(parts[0]) * 60 + parseFloat(parts[1]);
-  }
-  const parsed = parseFloat(ts);
-  return isNaN(parsed) ? 180 : parsed;
 };
 
 const formatTime = (sec: number) => {
@@ -878,6 +856,8 @@ export default function App() {
   const [newGroupName, setNewGroupName] = useState("");
   const [urlInput, setUrlInput] = useState("");
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const projectLoadTokenRef = useRef(0);
+  const projectLoadAbortRef = useRef<AbortController | null>(null);
 
   const fetchLibrary = React.useCallback(async () => {
     try {
@@ -1022,7 +1002,7 @@ export default function App() {
           console.error("Structure poll error", e);
         }
       }, 2000);
-    } catch (e) {
+    } catch {
       setIsStructureLoading(false);
     }
   };
@@ -1102,7 +1082,7 @@ export default function App() {
           console.error("Lyrics poll error", e);
         }
       }, 2000);
-    } catch (e) {
+    } catch {
       setIsLyricsLoading(false);
       setLyricsError("Failed to initiate lyrics job");
     }
@@ -1167,97 +1147,156 @@ export default function App() {
     });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const loadStemsFromPath = (stemsMap: Record<string, string>): Promise<void> => {
-    return new Promise(async (resolve) => {
-      // Clear all existing stem sources first
-      Object.values(stems.current).forEach((audio) => {
-        audio.src = "";
-      });
-      Object.values(stemObjectUrls.current).forEach((url) => {
-        URL.revokeObjectURL(url);
-      });
-      stemObjectUrls.current = {};
+  const loadStemsFromPath = async (
+    stemsMap: Record<string, string>,
+    fallbackDuration?: number | null,
+    projectLoadToken?: number,
+    signal?: AbortSignal,
+  ): Promise<void> => {
+    const isCurrentLoad = () =>
+      projectLoadToken === undefined ||
+      projectLoadTokenRef.current === projectLoadToken;
 
-      const firstStemKey = Object.keys(stemsMap)[0];
-      if (!firstStemKey) {
-        resolve();
-        return;
+    Object.values(stems.current).forEach((audio) => {
+      audio.src = "";
+    });
+    Object.values(stemObjectUrls.current).forEach((url) => {
+      URL.revokeObjectURL(url);
+    });
+    stemObjectUrls.current = {};
+
+    const firstStemKey = Object.keys(stemsMap)[0];
+    if (!firstStemKey) return;
+
+    if (isCurrentLoad()) {
+      if (isValidDuration(fallbackDuration)) {
+        durationGuardRef.current = fallbackDuration;
+        setDuration(fallbackDuration);
+        setDurationReady(true);
+      } else {
+        setDurationReady(false);
       }
+    }
 
-      setDurationReady(false);
-      // Register the handler BEFORE assigning src so the event is never missed,
-      // even if the browser resolves metadata from cache synchronously.
-      const firstStemEl = stems.current[firstStemKey];
-      const onMetadata = () => {
+    const firstStemEl = stems.current[firstStemKey];
+    let cancelMetadataWait = () => {};
+    const metadataReady = new Promise<void>((resolve) => {
+      let resolved = false;
+      const resolveOnce = () => {
+        if (!resolved) {
+          resolved = true;
+          resolve();
+        }
+      };
+      const cleanup = () => {
+        firstStemEl.removeEventListener("loadedmetadata", onMetadata);
+        firstStemEl.removeEventListener("durationchange", onDurationChange);
+        firstStemEl.removeEventListener("error", onError);
+        signal?.removeEventListener("abort", onAbort);
+      };
+      const applyDuration = () => {
         const rawDuration = firstStemEl.duration;
-        if (Number.isFinite(rawDuration) && rawDuration > 0) {
+        if (isValidDuration(rawDuration) && isCurrentLoad()) {
           durationGuardRef.current = rawDuration;
           setDuration(rawDuration);
           setDurationReady(true);
-        } else {
-          // Duration not yet known (e.g. VBR/streaming) — wait for durationchange
-          const onDurationChange = () => {
-            const d = firstStemEl.duration;
-            if (Number.isFinite(d) && d > 0) {
-              durationGuardRef.current = d;
-              setDuration(d);
-              setDurationReady(true);
-              firstStemEl.removeEventListener("durationchange", onDurationChange);
-            }
-          };
-          firstStemEl.addEventListener("durationchange", onDurationChange);
         }
-        firstStemEl.removeEventListener("loadedmetadata", onMetadata);
-        resolve();
+      };
+      const onMetadata = () => {
+        if (isValidDuration(firstStemEl.duration)) {
+          applyDuration();
+          cleanup();
+          resolveOnce();
+        }
+      };
+      const onDurationChange = () => {
+        if (isValidDuration(firstStemEl.duration)) {
+          applyDuration();
+          cleanup();
+          resolveOnce();
+        }
+      };
+      const onError = () => {
+        cleanup();
+        resolveOnce();
+      };
+      const onAbort = () => {
+        cleanup();
+        resolveOnce();
+      };
+
+      cancelMetadataWait = () => {
+        cleanup();
+        resolveOnce();
       };
       firstStemEl.addEventListener("loadedmetadata", onMetadata);
+      firstStemEl.addEventListener("durationchange", onDurationChange);
+      firstStemEl.addEventListener("error", onError);
+      signal?.addEventListener("abort", onAbort, { once: true });
+    });
 
-      await Promise.all(
-        Object.entries(stemsMap).map(async ([stemName, url]) => {
-          if (!stems.current[stemName]) {
-            stems.current[stemName] = Object.assign(new Audio(), {
-              crossOrigin: "anonymous",
-            });
+    const loadResults = await Promise.all(
+      Object.entries(stemsMap).map(async ([stemName, url]) => {
+        if (!stems.current[stemName]) {
+          stems.current[stemName] = Object.assign(new Audio(), {
+            crossOrigin: "anonymous",
+          });
+        }
+        try {
+          const resp = await authFetch(url, { signal });
+          if (!resp.ok) {
+            console.error(`Failed to load stem ${stemName}`, await resp.text());
+            return false;
           }
-          try {
-            const resp = await authFetch(url);
-            if (!resp.ok) {
-              console.error(`Failed to load stem ${stemName}`, await resp.text());
-              return;
-            }
-            const blobUrl = URL.createObjectURL(await resp.blob());
-            stemObjectUrls.current[stemName] = blobUrl;
-            stems.current[stemName].src = blobUrl;
-          } catch (e) {
+          const blobUrl = URL.createObjectURL(await resp.blob());
+          if (!isCurrentLoad()) {
+            URL.revokeObjectURL(blobUrl);
+            return false;
+          }
+          stemObjectUrls.current[stemName] = blobUrl;
+          stems.current[stemName].src = blobUrl;
+          return true;
+        } catch (e) {
+          if (!signal?.aborted) {
             console.error(`Failed to load stem ${stemName}`, e);
           }
-        }),
-      );
-    });
+          return false;
+        }
+      }),
+    );
+
+    if (!loadResults[0]) cancelMetadataWait();
+    await metadataReady;
   };
 
   const loadProject = async (p: SongProject) => {
-    if (p.extracted_stems && Object.keys(p.extracted_stems).length > 0) {
-      await loadStemsFromPath(p.extracted_stems);
-      // Reset mixer to default for loaded stems
-      const initialVolumes: Record<string, number> = {};
-      const initialMutes: Record<string, boolean> = {};
-      const initialSolos: Record<string, boolean> = {};
-      Object.keys(p.extracted_stems).forEach((stem) => {
-        initialVolumes[stem] = 80;
-        initialMutes[stem] = false;
-        initialSolos[stem] = false;
-      });
-      setVolumes(initialVolumes);
-      setMutes(initialMutes);
-      setSolos(initialSolos);
-    } else if (p.stemsPath) {
-      // Fallback for legacy projects
-      // This path is for older projects that only have stemsPath string.
-      // We need to fetch individual stem URLs if available, or perhaps
-      // trigger a separate-stems if the backend supports it.
-      // For now, if stemsPath exists, assume traditional drum/bass/etc. and construct URLs.
-      const pathParts = p.stemsPath.split(/[/\\]/);
+    projectLoadAbortRef.current?.abort();
+    const abortController = new AbortController();
+    projectLoadAbortRef.current = abortController;
+    const loadToken = ++projectLoadTokenRef.current;
+    const savedState = buildSavedProjectState(p);
+    const audioSource = selectProjectAudioSource(p, API_URL);
+
+    setResult(savedState.result);
+    setStructure(savedState.structure);
+    setNowPlaying({ title: p.title, artist: p.artist });
+    setCurrentProjectId(p.id);
+    setCurrentTime(0);
+    setSliderTime(0);
+    setIsPlaying(false);
+    setIsStructureLoading(false);
+
+    durationGuardRef.current = savedState.fallbackDuration ?? 0;
+    if (savedState.fallbackDuration !== null) {
+      setDuration(savedState.fallbackDuration);
+      setDurationReady(true);
+    } else {
+      setDuration(0);
+      setDurationReady(false);
+    }
+
+    if (audioSource.kind === "stems") {
+      const pathParts = audioSource.stemsPath.split(/[/\\]/);
       const relPath = pathParts.slice(-2).join("/");
       const defaultStemsMap: Record<string, string> = {
         drums: `${API_URL}/api/analysis/audio/${relPath}/drums.mp3`,
@@ -1265,74 +1304,56 @@ export default function App() {
         other: `${API_URL}/api/analysis/audio/${relPath}/other.mp3`,
         vocals: `${API_URL}/api/analysis/audio/${relPath}/vocals.mp3`,
       };
-      await loadStemsFromPath(defaultStemsMap);
+      await loadStemsFromPath(
+        defaultStemsMap,
+        savedState.fallbackDuration,
+        loadToken,
+        abortController.signal,
+      );
+      if (projectLoadTokenRef.current !== loadToken) return;
       setVolumes({ drums: 80, bass: 80, other: 80, vocals: 80 });
       setMutes({ drums: false, bass: false, other: false, vocals: false });
       setSolos({ drums: false, bass: false, other: false, vocals: false });
-    } else if (p.original_path) {
-      // If no stems but we have original track, load it into original for playback
+    } else if (audioSource.kind === "original") {
       Object.values(stems.current).forEach((audio) => (audio.src = ""));
-      setDurationReady(false);
       const originalEl = stems.current.original;
-      const onLocalMetadata = () => {
-        const rawDuration = originalEl.duration;
-        if (Number.isFinite(rawDuration) && rawDuration > 0) {
-          durationGuardRef.current = rawDuration;
-          setDuration(rawDuration);
-          setDurationReady(true);
-        }
-        originalEl.removeEventListener("loadedmetadata", onLocalMetadata);
-      };
-      originalEl.addEventListener("loadedmetadata", onLocalMetadata);
-      
-      stems.current.original.src = `${API_URL}/api/analysis/audio/${p.original_path}`;
       setVolumes({ original: 80 });
       setMutes({ original: false });
       setSolos({ original: false });
+      const metadataReady = loadAudioMetadata(
+        originalEl,
+        audioSource.url,
+        (mediaDuration) => {
+          if (projectLoadTokenRef.current !== loadToken) return;
+          durationGuardRef.current = mediaDuration;
+          setDuration(mediaDuration);
+          setDurationReady(true);
+        },
+        abortController.signal,
+      );
+      if (p.sections.length === 0 && savedState.fallbackDuration === null) {
+        await metadataReady;
+        if (projectLoadTokenRef.current !== loadToken) return;
+      }
     } else {
-      // If no stems, clear all audio elements
       Object.values(stems.current).forEach((audio) => (audio.src = ""));
-      setDuration(0);
-      setDurationReady(false);
       setVolumes({});
       setMutes({});
       setSolos({});
     }
 
-    setResult({
-      title: p.title,
-      artist: p.artist,
-      bpm: p.bpm,
-      key: p.key,
-      original_path: p.original_path,
-      extracted_stems: p.extracted_stems,
-    });
-    setNowPlaying({ title: p.title, artist: p.artist });
-    setCurrentProjectId(p.id);
-    setCurrentTime(0);
-    setSliderTime(0);
-    setIsPlaying(false);
-    setStructure(null);
+    const structureRequest = buildStructureRequest(p, durationGuardRef.current);
+    if (!structureRequest) return;
+
     setIsStructureLoading(true);
-
     try {
-      const analysisRes = await authFetch(
-        `${API_URL}/api/analysis/project/${p.id}`,
-      );
-      const analysisData = analysisRes.ok ? await analysisRes.json() : null;
-
       const structureRes = await authFetch(
         `${API_URL}/api/analysis/structure`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            artist: p.artist,
-            title: p.title,
-            duration: timeSpanToSeconds(p.duration),
-            projectId: p.id,
-            filePath: p.original_path,
-          }),
+          body: JSON.stringify(structureRequest),
+          signal: abortController.signal,
         },
       );
 
@@ -1340,17 +1361,24 @@ export default function App() {
         ? ((await structureRes.json()) as StructureResult)
         : null;
 
-      if (analysisData && analysisData.status === "success") {
-        setResult((prev) => ({ ...prev, ...analysisData }));
-      }
+      if (projectLoadTokenRef.current !== loadToken) return;
 
-      if (structureData && !structureData.error) {
+      if (
+        structureData &&
+        !structureData.error &&
+        structureData.sections &&
+        structureData.sections.length > 0
+      ) {
         setStructure(structureData);
       }
     } catch (e) {
-      console.error("Failed to load project data", e);
+      if (!abortController.signal.aborted) {
+        console.error("Failed to load project data", e);
+      }
     } finally {
-      setIsStructureLoading(false);
+      if (projectLoadTokenRef.current === loadToken) {
+        setIsStructureLoading(false);
+      }
     }
   };
 
