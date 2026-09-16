@@ -14,6 +14,16 @@ namespace AiMusicWorkstation.Api.Controllers;
 [Route("api/[controller]")]
 public class AnalysisController : ControllerBase
 {
+    private static readonly HashSet<string> AudioProxyResponseHeaders = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Accept-Ranges",
+        "Content-Range",
+        "Content-Length",
+        "Content-Type",
+        "ETag",
+        "Last-Modified"
+    };
+
     private readonly PythonEngineClient _client;
     private readonly ILibraryRepository _repository;
 
@@ -176,13 +186,44 @@ public class AnalysisController : ControllerBase
     public async Task<IActionResult> GetAudio(string path, [FromServices] PythonEngineConfig config, [FromServices] IHttpClientFactory clientFactory)
     {
         var client = clientFactory.CreateClient();
-        var response = await client.GetAsync($"{config.BaseUrl.TrimEnd('/')}/audio/{path}", HttpCompletionOption.ResponseHeadersRead);
+        using var upstreamRequest = new HttpRequestMessage(
+            HttpMethod.Get,
+            $"{config.BaseUrl.TrimEnd('/')}/audio/{path}");
 
-        if (!response.IsSuccessStatusCode)
-            return StatusCode((int)response.StatusCode, "Audio not found on Python engine.");
+        CopyRequestHeader("Range", upstreamRequest);
+        CopyRequestHeader("If-Range", upstreamRequest);
 
-        var stream = await response.Content.ReadAsStreamAsync();
-        return File(stream, "audio/mpeg", enableRangeProcessing: true);
+        using var upstreamResponse = await client.SendAsync(
+            upstreamRequest,
+            HttpCompletionOption.ResponseHeadersRead,
+            HttpContext.RequestAborted);
+
+        Response.StatusCode = (int)upstreamResponse.StatusCode;
+        CopyResponseHeaders(upstreamResponse.Headers);
+        CopyResponseHeaders(upstreamResponse.Content.Headers);
+
+        await using var upstreamStream = await upstreamResponse.Content.ReadAsStreamAsync(HttpContext.RequestAborted);
+        await upstreamStream.CopyToAsync(Response.Body, HttpContext.RequestAborted);
+        return new EmptyResult();
+    }
+
+    private void CopyRequestHeader(string headerName, HttpRequestMessage upstreamRequest)
+    {
+        if (Request.Headers.TryGetValue(headerName, out var values))
+        {
+            upstreamRequest.Headers.TryAddWithoutValidation(headerName, values.ToArray());
+        }
+    }
+
+    private void CopyResponseHeaders(IEnumerable<KeyValuePair<string, IEnumerable<string>>> headers)
+    {
+        foreach (var header in headers)
+        {
+            if (AudioProxyResponseHeaders.Contains(header.Key))
+            {
+                Response.Headers[header.Key] = header.Value.ToArray();
+            }
+        }
     }
 
     [HttpGet("project/{id}")]
