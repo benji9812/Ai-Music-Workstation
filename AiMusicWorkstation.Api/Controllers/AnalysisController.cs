@@ -6,6 +6,7 @@ using System.Text.Json;
 using System.IO;
 using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
+using AiMusicWorkstation.Api.Models;
 
 namespace AiMusicWorkstation.Api.Controllers;
 
@@ -26,11 +27,16 @@ public class AnalysisController : ControllerBase
 
     private readonly PythonEngineClient _client;
     private readonly ILibraryRepository _repository;
+    private readonly ILogger<AnalysisController> _logger;
 
-    public AnalysisController(PythonEngineClient client, ILibraryRepository repository)
+    public AnalysisController(
+        PythonEngineClient client,
+        ILibraryRepository repository,
+        ILogger<AnalysisController> logger)
     {
         _client = client ?? throw new ArgumentNullException(nameof(client));
         _repository = repository ?? throw new ArgumentNullException(nameof(repository));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
     private Guid? GetUserId()
@@ -231,13 +237,12 @@ public class AnalysisController : ControllerBase
     {
         var userId = GetUserId();
         var project = await _repository.GetByIdAsync(id, userId);
-        if (project == null || string.IsNullOrEmpty(project.StemsPath))
+        if (project == null)
         {
-            return NotFound(new { status = "error", message = "Project or stems path not found." });
+            return NotFound(new { status = "error", message = "Project not found." });
         }
 
-        var analysisJson = await _client.GetAnalysisAsync(project.StemsPath);
-        return Content(analysisJson, "application/json");
+        return Ok(SavedSongProjectMapper.Map(project, _logger));
     }
 
     [HttpPatch("/api/songs/{id}/structure")]
