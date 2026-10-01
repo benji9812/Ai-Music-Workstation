@@ -1,0 +1,24 @@
+{
+  "name": "aimusicworkstation",
+  "version": "1.0.0",
+  "description": "AI Music Workstation is a cloud/web-based music analysis app. Upload an MP3 and get back BPM, key, time signature, chords, lyrics, and song structure — powered by Demucs, Groq Whisper, and Google Gemini.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/benji9812/Ai-Music-Workstation.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/benji9812/Ai-Music-Workstation/issues"
+  },
+  "homepage": "https://github.com/benji9812/Ai-Music-Workstation#readme",
+  "devDependencies": {
+    "supabase": "2.117.0"
+  }
+}
